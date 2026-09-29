@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.core.mirai/common/defs/1",
+  "title": "共通定義",
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "prefixedSha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "tier": {"enum": ["R0", "R1", "R2", "R3", "R4"]},
+    "classification": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "HIGHLY_CONFIDENTIAL"]},
+    "systemId": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,40}$"},
+    "toolName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+      "description": "<サーバーID>.<領域>.<動作>"
+    },
+    "effect": {"enum": ["read", "draft", "write", "propose", "external_send"]},
+    "semver": {"type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"},
+    "modelVersionId": {
+      "type": "string",
+      "pattern": "^(?!.*(latest|preview$)).*-(19|20)\\d{2}-?\\d{2}-?\\d{2}$",
+      "description": "日付付きの版IDのみ（エイリアス禁止）"
+    },
+    "uuid": {"type": "string", "format": "uuid"},
+    "dateTime": {"type": "string", "format": "date-time"}
+  }
+}

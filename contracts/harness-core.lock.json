@@ -18,6 +18,7 @@
     "contracts/mcp-tools/mcip.json": "de92d09fb6a5707124a58428104568a47e599f6ff3e34245b17548e9386a4b59",
     "registries/mcp-allowlist.yaml": "42b513df45d9eaeda57dcd5de2f8a596fb5d85314400b13e248ce67b4cdee7ff",
     "registries/systems.yaml": "73adb51e21f6cca39428d64ad5736f9cf2e5270a9e33b2d030c7e72f6bb101b3",
+    "schemas/common/defs.schema.json": "91197dfd07809d0975a4ba1bf5f0e2cdf5ab2eb1c91301323f896f94b2735242",
     "schemas/registry/mcp-allowlist.schema.json": "616bf5eebd8829a5f8e360c4b16de8d0706165c166d8a3ab05b4ba5708318efb",
     "tools/tool_def_hash.py": "1f1ac49290454b01b34a9c4002411eaf8c275cfd7a427091c2e31349eded946c"
   },

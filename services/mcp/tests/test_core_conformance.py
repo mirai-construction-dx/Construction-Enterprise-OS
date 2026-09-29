@@ -4,6 +4,7 @@
 - CEOS のハッシュ実装が Core の tool_def_hash.py と同一結果を返す（mcip の登録値も再現）
 - CEOS の識別子（server_id / ツール名接頭辞）が Core のシステム台帳と一致する
 - effect / tier が Core の承認階層・Allowlist スキーマ制約を満たす
+- CEOS 契約から作る Allowlist 登録項目が Core の mcp-allowlist.schema.json（JSON Schema）に適合する
 """
 
 import hashlib
@@ -16,6 +17,8 @@ from typing import Any
 
 import pytest
 import yaml
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 from src.tools import load_registry
 from src.tools.contract import SERVER_ID, contract_document
@@ -59,6 +62,41 @@ def _core_hash_module() -> ModuleType:
 
 def _ceos_tools() -> list[dict[str, Any]]:
     return contract_document(load_registry())["tools"]
+
+
+ALLOWLIST_SCHEMA_ID = "https://schemas.core.mirai/registry/mcp-allowlist/1"
+# Allowlist の 1 ツール分の登録項目（servers[].tools[]）を指すサブスキーマ
+ALLOWLIST_TOOL_ITEM = f"{ALLOWLIST_SCHEMA_ID}#/properties/servers/items/properties/tools/items"
+
+
+def _core_validator(ref: str) -> Draft202012Validator:
+    """vendored の Core スキーマ群を $id で登録し、ref を検証するバリデータを返す。"""
+    resources = []
+    for path in sorted((_vendor_dir() / "schemas").rglob("*.schema.json")):
+        schema = json.loads(path.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+        resources.append((schema["$id"], Resource.from_contents(schema)))
+    return Draft202012Validator({"$ref": ref}, registry=Registry().with_resources(resources))
+
+
+def _allowlist_tool_entry(tool: dict[str, Any]) -> dict[str, Any]:
+    """CEOS 契約から Core Allowlist のツール登録項目（必須キーのみ）を作る。
+
+    trust・surfaces・scopes はサーバー単位の Core 判断事項（未決）のため作らない。
+    """
+    return {
+        "name": tool["name"],
+        "effect": tool["x-mirai"]["effect"],
+        "tier": tool["x-mirai"]["tier"],
+        "definition_sha256": tool_contract_sha256(tool),
+    }
+
+
+def _schema_errors(validator: Draft202012Validator, doc: Any) -> list[str]:
+    return [
+        f"{'/'.join(map(str, e.absolute_path))}: {e.message}"
+        for e in validator.iter_errors(doc)
+    ]
 
 
 def test_lock_pins_core_version_and_source():
@@ -132,6 +170,41 @@ def test_effect_and_tier_satisfy_core_constraints(tool):
     assert (x_mirai["effect"], x_mirai["tier"]) == ("read", "R0")
     # readOnlyHint は effect と矛盾しない（Core 基本設計の標準注釈規則）
     assert tool["annotations"]["readOnlyHint"] is True
+
+
+def test_vendored_core_allowlist_validates_against_its_schema():
+    """検証器の構成確認: Core 自身の Allowlist（mcip 登録済み）が同スキーマで 0 件になる。"""
+    validator = _core_validator(ALLOWLIST_SCHEMA_ID)
+    assert _schema_errors(validator, _load_yaml("registries/mcp-allowlist.yaml")) == []
+
+
+@pytest.mark.parametrize("tool", _ceos_tools(), ids=lambda t: t["name"])
+def test_ceos_tool_entry_satisfies_core_allowlist_schema(tool):
+    validator = _core_validator(ALLOWLIST_TOOL_ITEM)
+    assert _schema_errors(validator, _allowlist_tool_entry(tool)) == []
+
+
+def test_ceos_server_id_satisfies_core_system_id_rule():
+    validator = _core_validator("https://schemas.core.mirai/common/defs/1#/$defs/systemId")
+    assert _schema_errors(validator, SERVER_ID) == []
+
+
+@pytest.mark.parametrize(
+    ("mutation", "field"),
+    [
+        ({"tier": "R1"}, "tier"),  # effect=read は R0 のみ
+        ({"effect": "delete"}, "effect"),  # Core の effect 列挙に無い
+        ({"definition_sha256": "sha256:" + "0" * 64}, "definition_sha256"),  # 接頭辞付きは不可
+        ({"name": "CEOS.cost.list"}, "name"),  # <サーバーID>.<領域>.<動作> の小文字規則
+        ({"unexpected": True}, ""),  # additionalProperties=false
+    ],
+)
+def test_core_allowlist_schema_rejects_contract_violations(mutation, field):
+    """検証が形骸化していないこと（違反を注入すると該当箇所でエラーになる）。"""
+    entry = {**_allowlist_tool_entry(_ceos_tools()[0]), **mutation}
+    errors = _schema_errors(_core_validator(ALLOWLIST_TOOL_ITEM), entry)
+    assert errors
+    assert any(e.split(":", 1)[0] == field for e in errors), errors
 
 
 def test_operation_is_not_guessed_until_core_defines_a_category():

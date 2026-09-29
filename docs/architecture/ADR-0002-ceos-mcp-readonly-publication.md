@@ -108,6 +108,22 @@ ADR-0001 は「CEOS は工程・原価・契約の正本を持ち、統合入口
   Core がカテゴリを追加した後、`operation` を付与してハッシュを更新し、Core の
   `contracts/mcp-tools/ceos.json` と `registries/mcp-allowlist.yaml`（trust / surfaces / scopes を含む）
   への登録を Core リポジトリへ提案する。
+- **エラー応答形式の Core 整合（未決・判断待ち）**: CEOS の HTTP エラーは
+  `{"success": false, "error": {"code", "message"}}` 形式で、Core の `core.error.response/1`
+  （RFC 9457 整合。`schema` / `error_code` / `status` / `title` / `occurred_at` 必須）と異なる。
+  選択肢: (a) 現状維持（Core 形式は MCIP / Tool Gateway 側で変換）、(b) Core 形式へ置換
+  （既存クライアントに対する API 契約の破壊的変更。認証ガード `mcp_guard.py` の応答も変わる）、
+  (c) `Accept: application/problem+json` 時のみ Core 形式を返す（加算的だが実装・試験が増える）。
+  消費側（MCIP / Tool Gateway）の要件確定まで (a) とし、推測で形式を変えない。
+- **証跡**: ADR-0001 により承認記録・監査証跡の正本は MCIP。CEOS は `core.evidence.*` を出力しない。
+  将来 CEOS が証跡レコードを出力する場合は、Core `schemas/evidence/*` を vendoring して照合試験を追加する。
+- **Core の版上げ（v0.7.0 公開済み・未適用）**: v0.7.0（2026-09-28 Release）は CEOS が参照する
+  `tool_def_hash.py` / `registries/systems.yaml` / `registries/mcp-allowlist.yaml` /
+  Allowlist スキーマ / `defs.schema.json` に差分が無く、承認階層表の追加（`ledger.issue.preview`）も
+  CEOS 用カテゴリではない。版上げは任意（lock・`EXPECTED_CORE_*`・vendor ディレクトリの同時更新）。
+  v0.7.0 Release には `contracts.tar.gz` / `SHA256SUMS` 等が添付されているが、成果物署名・来歴
+  （attestation）の有無は未確認。確認後に VENDORED.md の置き換え条件（署名付きリリース成果物の公開 →
+  `mhc pull` / `mhc verify` 方式へ移行）を再判定する。
 - ADR-0001 は引き続き **Proposed** であり、本増分はその境界判断を前提とする。
 
 ## 参照
