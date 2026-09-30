@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -15,9 +16,12 @@ from ..schemas import (
 )
 from ..services.autonomous_service import (
     create_task,
+    get_agent_by_id,
     get_task_by_id,
     get_tasks_paginated,
+    get_twin_by_id,
 )
+from ._parents import ensure_parent_in_org
 
 router = APIRouter()
 
@@ -31,9 +35,18 @@ async def create_task_endpoint(
     request: Request,
     body: TaskCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    task = await create_task(db, body.model_dump())
+    org = create_org(current_user, body.organization_id)
+    await ensure_parent_in_org(
+        db, get_agent_by_id, body.agent_id, org, current_user, code="AGENT", label="エージェント"
+    )
+    await ensure_parent_in_org(
+        db, get_twin_by_id, body.digital_twin_id, org, current_user, code="TWIN", label="デジタルツイン"
+    )
+    data = body.model_dump()
+    data["organization_id"] = org
+    task = await create_task(db, data)
     return APIResponse(data=_task_to_response(task))
 
 
@@ -48,7 +61,7 @@ async def list_tasks(
     agent_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     tasks, total = await get_tasks_paginated(
         db,
@@ -58,7 +71,7 @@ async def list_tasks(
         status=status,
         priority=priority,
         agent_id=agent_id,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -81,9 +94,9 @@ async def get_task(
     request: Request,
     task_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    task = await get_task_by_id(db, task_id)
+    task = await get_task_by_id(db, task_id, organization_id=scope_org(current_user))
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

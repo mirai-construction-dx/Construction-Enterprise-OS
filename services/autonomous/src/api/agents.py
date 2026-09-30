@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -37,9 +38,11 @@ async def create_agent_endpoint(
     request: Request,
     body: AgentCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    agent = await create_agent(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    agent = await create_agent(db, data)
     return APIResponse(data=_agent_to_response(agent))
 
 
@@ -52,7 +55,7 @@ async def list_agents(
     status: str | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     agents, total = await get_agents_paginated(
         db,
@@ -60,7 +63,7 @@ async def list_agents(
         per_page=per_page,
         agent_type=agent_type,
         status=status,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -83,9 +86,9 @@ async def get_agent(
     request: Request,
     agent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    agent = await get_agent_by_id(db, agent_id)
+    agent = await get_agent_by_id(db, agent_id, organization_id=scope_org(current_user))
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -100,9 +103,9 @@ async def update_agent_endpoint(
     agent_id: UUID,
     body: AgentUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    agent = await update_agent(db, agent_id, body.model_dump(exclude_unset=True))
+    agent = await update_agent(db, agent_id, body.model_dump(exclude_unset=True), organization_id=scope_org(current_user))
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,9 +119,9 @@ async def delete_agent_endpoint(
     request: Request,
     agent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_agent(db, agent_id)
+    deleted = await delete_agent(db, agent_id, organization_id=scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -132,9 +135,9 @@ async def start_agent_endpoint(
     request: Request,
     agent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    agent = await start_agent(db, agent_id)
+    agent = await start_agent(db, agent_id, organization_id=scope_org(current_user))
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -148,9 +151,9 @@ async def stop_agent_endpoint(
     request: Request,
     agent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    agent = await stop_agent(db, agent_id)
+    agent = await stop_agent(db, agent_id, organization_id=scope_org(current_user))
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -164,9 +167,9 @@ async def pause_agent_endpoint(
     request: Request,
     agent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    agent = await pause_agent(db, agent_id)
+    agent = await pause_agent(db, agent_id, organization_id=scope_org(current_user))
     if not agent:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

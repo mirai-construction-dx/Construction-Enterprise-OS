@@ -830,11 +830,17 @@ def test_list_marine_robots(client, auth_headers):
 # ============================================
 # Test 31: Control - Send Command
 # ============================================
-def test_send_control_command(client, auth_headers):
+def test_send_control_command(client, auth_headers, monkeypatch):
+    from uuid import UUID
+
     mock_ctrl = _make_mock_control()
+    # The command target must exist in the command's organization (ADR-0004).
+    target_op = _make_mock_operation(op_id=UUID("00000000-0000-0000-0000-000000000010"))
+    target_op.organization_id = UUID("00000000-0000-0000-0000-000000000001")
 
     import src.api.controls as ctrl_module
     ctrl_module.send_control_command = AsyncMock(return_value=mock_ctrl)
+    monkeypatch.setattr(ctrl_module, "get_control_target", AsyncMock(return_value=target_op))
 
     response = client.post(
         "/api/v1/autonomous/controls",
