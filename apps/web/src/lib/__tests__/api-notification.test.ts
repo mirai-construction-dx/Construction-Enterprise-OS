@@ -217,6 +217,18 @@ describe("deleteTemplate", () => {
   });
 });
 
+describe("template id path encoding", () => {
+  it("URL-encodes ids in updateTemplate and deleteTemplate", async () => {
+    mockFetch.mockReturnValueOnce(mockResponse(envelope(template)));
+    await updateTemplate("a/b?c#d", { name: "x" });
+    expect(lastCall().url).toBe("/api/v1/notification-templates/a%2Fb%3Fc%23d");
+
+    mockFetch.mockReturnValueOnce(mockResponse(undefined, 204));
+    await deleteTemplate("a/b?c#d");
+    expect(lastCall().url).toBe("/api/v1/notification-templates/a%2Fb%3Fc%23d");
+  });
+});
+
 describe("notification policies", () => {
   it("are not exposed because the notification service has no policy API", () => {
     expect(notificationApi).not.toHaveProperty("listPolicies");

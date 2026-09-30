@@ -158,12 +158,12 @@ export function createTemplate(body: NotificationTemplateCreate) {
 /** PUT /api/v1/notification-templates/{template_id} */
 export function updateTemplate(id: string, body: NotificationTemplateUpdate) {
   return put<NotificationApiResponse<NotificationTemplate>>(
-    `/notification-templates/${id}`,
+    `/notification-templates/${encodeURIComponent(id)}`,
     body,
   );
 }
 
 /** DELETE /api/v1/notification-templates/{template_id} (204 No Content) */
 export function deleteTemplate(id: string) {
-  return del<void>(`/notification-templates/${id}`);
+  return del<void>(`/notification-templates/${encodeURIComponent(id)}`);
 }
