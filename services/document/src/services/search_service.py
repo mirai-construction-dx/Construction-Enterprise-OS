@@ -13,14 +13,17 @@ logger = logging.getLogger(__name__)
 
 async def search_documents(
     db: AsyncSession,
-    organization_id: UUID,
+    organization_id: UUID | None,
     query: str | None = None,
     document_type: str | None = None,
     status: str | None = None,
     project_id: UUID | None = None,
     tags: list[str] | None = None,
 ) -> list[Document]:
-    stmt = select(Document).where(Document.organization_id == organization_id)
+    # None means no org filter; only allowed for a cross-org admin (ADR-0004).
+    stmt = select(Document)
+    if organization_id is not None:
+        stmt = stmt.where(Document.organization_id == organization_id)
 
     if query:
         search_term = f"%{query}%"
@@ -51,16 +54,16 @@ async def search_documents(
 
 async def count_search_documents(
     db: AsyncSession,
-    organization_id: UUID,
+    organization_id: UUID | None,
     query: str | None = None,
     document_type: str | None = None,
     status: str | None = None,
     project_id: UUID | None = None,
     tags: list[str] | None = None,
 ) -> int:
-    stmt = select(func.count(Document.id)).where(
-        Document.organization_id == organization_id
-    )
+    stmt = select(func.count(Document.id))
+    if organization_id is not None:
+        stmt = stmt.where(Document.organization_id == organization_id)
 
     if query:
         search_term = f"%{query}%"
