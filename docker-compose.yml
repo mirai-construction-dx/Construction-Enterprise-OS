@@ -229,6 +229,8 @@ services:
          "^/api/v1/automation": "http://automation:8000",
          "^/api/v1/autonomous": "http://autonomous:8000",
          "^/api/v1/vision": "http://vision:8000",
+         "^/api/v1/ocr(?:/|$$)": "http://vision:8000",
+         "^/api/v1/vectors(?:/|$$)": "http://vision:8000",
          "^/api/v1/advanced": "http://advanced:8000",
          "^/api/v1/field": "http://field-dx:8000",
          "^/api/v1/maintenance": "http://maintenance:8000",
