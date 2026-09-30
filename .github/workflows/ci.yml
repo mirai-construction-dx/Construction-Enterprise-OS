@@ -54,10 +54,10 @@ jobs:
       run:
         working-directory: ${{ matrix.service }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
           cache: pip
@@ -90,10 +90,10 @@ jobs:
       run:
         working-directory: services/mcp
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
           cache: pip
@@ -111,20 +111,49 @@ jobs:
         run: pytest tests/ --cov=src --cov-report=xml -p no:flask
 
   # ============================================
+  # 共有 Python パッケージ (packages/logging, packages/event-core)
+  # ============================================
+  packages-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - packages/logging
+          - packages/event-core
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r ../requirements-test.txt
+
+      - name: Test (Pytest)
+        run: PYTHONPATH=. pytest tests/ -p no:flask
+
+  # ============================================
   # TypeScript フロントエンド / 共有パッケージ
   # ============================================
   frontend-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "24"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         with:
           version: 9
 
@@ -149,10 +178,10 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -177,14 +206,14 @@ jobs:
 
       - name: Upload pip-audit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: pip-audit-results
           path: pip-audit-*.json
           if-no-files-found: ignore
 
       - name: Trivy vulnerability scan
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -197,7 +226,7 @@ jobs:
 
       - name: Upload Trivy results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: trivy-results
           path: trivy-results.txt
@@ -206,20 +235,61 @@ jobs:
   # ============================================
   # ビルド検証
   # ============================================
-  docker-build-test:
+  docker-build-services:
     runs-on: ubuntu-latest
-    needs: [python-checks, frontend-checks]
+    needs: [python-checks, mcp-checks, packages-checks, frontend-checks]
+    strategy:
+      fail-fast: false
+      matrix:
+        # All services with a Dockerfile under services/ (keep in sync when adding a service)
+        service:
+          - advanced
+          - ai
+          - analytics
+          - auth
+          - automation
+          - autonomous
+          - bim
+          - construction
+          - document
+          - erp
+          - field-dx
+          - gateway
+          - gis
+          - iot
+          - maintenance
+          - mcp
+          - notification
+          - partner
+          - platform
+          - safety
+          - security
+          - vision
+          - workflow
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Build auth service
-        run: docker build -t construction-enterprise-os/auth:test services/auth/
+      - name: Build ${{ matrix.service }} service
+        run: docker build -t construction-enterprise-os/${{ matrix.service }}:test services/${{ matrix.service }}/
 
-      - name: Build workflow service
-        run: docker build -t construction-enterprise-os/workflow:test services/workflow/
-
-      - name: Build MCP service
-        run: docker build -t construction-enterprise-os/mcp:test services/mcp/
+  docker-build-web:
+    runs-on: ubuntu-latest
+    needs: [frontend-checks]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Build web app
         run: docker build -t construction-enterprise-os/web:test apps/web/
+
+  # Required status check name (ruleset: "docker-build-test"). Aggregates the matrix builds so
+  # the required context stays a single, stable name.
+  docker-build-test:
+    runs-on: ubuntu-latest
+    needs: [docker-build-services, docker-build-web]
+    if: always()
+    steps:
+      - name: All Docker builds succeeded
+        run: |
+          echo "services=${{ needs.docker-build-services.result }} web=${{ needs.docker-build-web.result }}"
+          test "${{ needs.docker-build-services.result }}" = "success"
+          test "${{ needs.docker-build-web.result }}" = "success"
