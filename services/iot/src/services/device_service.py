@@ -114,10 +114,24 @@ async def delete_device(
     return True
 
 
+async def get_visible_device_ids(
+    db: AsyncSession, device_ids: set[UUID], organization_id: UUID | None = None
+) -> set[UUID]:
+    """Existing device ids among ``device_ids`` (restricted to ``organization_id`` if given)."""
+    if not device_ids:
+        return set()
+    stmt = select(DeviceModel.id).where(DeviceModel.id.in_(device_ids))
+    if organization_id is not None:
+        stmt = stmt.where(DeviceModel.organization_id == organization_id)
+    result = await db.execute(stmt)
+    return set(result.scalars().all())
+
+
 async def device_heartbeat(
-    db: AsyncSession, device_id: UUID, data: dict
+    db: AsyncSession, device_id: UUID, data: dict, organization_id: UUID | None = None
 ) -> DeviceModel | None:
-    result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
+    """Heartbeat; ``organization_id`` None means no org filter (cross-org admin only)."""
+    result = await db.execute(_scoped_device_stmt(device_id, organization_id))
     device = result.scalar_one_or_none()
     if not device:
         return None

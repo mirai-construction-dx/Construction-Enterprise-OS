@@ -1,7 +1,7 @@
 """IoT Service 結合テスト"""
 
 from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -265,6 +265,8 @@ def test_telemetry_ingest_batch(client, m2m_headers):
     import src.api.telemetry as telemetry_module
     telemetry_module.ingest_telemetry = AsyncMock(return_value=2)
     telemetry_module.check_alert_rules = AsyncMock(return_value=[])
+    # #132: every batch device must exist in the caller's organization (lookup stubbed).
+    telemetry_module.get_visible_device_ids = AsyncMock(return_value={UUID(device_id)})
 
     response = client.post(
         "/api/v1/iot/telemetry/ingest",
