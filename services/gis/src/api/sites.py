@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models import ConstructionSite
 from ..models.base import get_db
 from ..schemas import (
@@ -76,17 +77,32 @@ def _to_wkb_bytes(value):
     return str(value)
 
 
+async def get_scoped_site(
+    db: AsyncSession, site_id: UUID, organization_id: UUID | None
+) -> ConstructionSite | None:
+    """Look up a site by id within the caller's organization (``None`` = admin, no filter).
+
+    A site of another organization is indistinguishable from a missing one (404).
+    """
+    stmt = select(ConstructionSite).where(ConstructionSite.id == site_id)
+    if organization_id is not None:
+        stmt = stmt.where(ConstructionSite.organization_id == organization_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 @router.post("")
 async def create_site(
     body: SiteCreate,
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = create_org(token_data, body.organization_id)
     location_wkt = geojson_to_wkt(body.location)
     work_area_wkt = geojson_to_wkt(body.work_area) if body.work_area else None
 
     site = ConstructionSite(
-        organization_id=body.organization_id,
+        organization_id=org_id,
         project_id=body.project_id,
         name=body.name,
         site_code=body.site_code,
@@ -114,11 +130,17 @@ async def list_sites(
     per_page: int = Query(20, ge=1, le=100),
     site_type: str | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org = scope_org(token_data, organization_id)
     query = select(ConstructionSite)
     count_query = select(func.count(ConstructionSite.id))
+
+    if org is not None:
+        query = query.where(ConstructionSite.organization_id == org)
+        count_query = count_query.where(ConstructionSite.organization_id == org)
 
     if site_type:
         query = query.where(ConstructionSite.site_type == site_type)
@@ -148,10 +170,12 @@ async def find_nearby_sites(
     lat: float = Query(ge=-90, le=90),
     lng: float = Query(ge=-180, le=180),
     radius_m: float = Query(gt=0, default=1000),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """指定座標から半径radius_m以内の現場を検索 (ST_DWithin)"""
+    org = scope_org(token_data, organization_id)
     point_wkt = f"SRID=4326;POINT({lng} {lat})"
     query = select(ConstructionSite).where(
         func.ST_DWithin(
@@ -160,6 +184,8 @@ async def find_nearby_sites(
             radius_m,
         )
     )
+    if org is not None:
+        query = query.where(ConstructionSite.organization_id == org)
     query = query.order_by(ConstructionSite.created_at.desc())
     result = await db.execute(query)
     sites = result.scalars().all()
@@ -175,10 +201,12 @@ async def find_sites_in_area(
     min_lng: float = Query(ge=-180, le=180),
     max_lat: float = Query(ge=-90, le=90),
     max_lng: float = Query(ge=-180, le=180),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """バウンディングボックス内の現場を検索 (ST_Intersects)"""
+    org = scope_org(token_data, organization_id)
     bbox_wkt = (
         f"SRID=4326;POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, "
         f"{max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))"
@@ -189,6 +217,8 @@ async def find_sites_in_area(
             func.ST_GeomFromText(bbox_wkt),
         )
     )
+    if org is not None:
+        query = query.where(ConstructionSite.organization_id == org)
     query = query.order_by(ConstructionSite.created_at.desc())
     result = await db.execute(query)
     sites = result.scalars().all()
@@ -204,10 +234,7 @@ async def get_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
-    )
-    site = result.scalar_one_or_none()
+    site = await get_scoped_site(db, site_id, scope_org(token_data))
     if not site:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -223,10 +250,7 @@ async def update_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
-    )
-    site = result.scalar_one_or_none()
+    site = await get_scoped_site(db, site_id, scope_org(token_data))
     if not site:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -257,10 +281,7 @@ async def delete_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
-    )
-    site = result.scalar_one_or_none()
+    site = await get_scoped_site(db, site_id, scope_org(token_data))
     if not site:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
