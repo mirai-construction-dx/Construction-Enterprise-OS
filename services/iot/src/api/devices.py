@@ -172,11 +172,13 @@ async def device_heartbeat(
     device_id: UUID,
     body: DeviceHeartbeatRequest,
     db: AsyncSession = Depends(get_db),
-    _current_client=Depends(get_current_client),
+    current_client: TokenData = Depends(get_current_client),
 ):
-    # Device-authenticated (client token) endpoint: organization scoping is intentionally not
-    # applied here (ADR-0004 rollout keeps device ingestion behavior; see PR notes).
-    device = await device_heartbeat_svc(db, device_id, body.model_dump(exclude_unset=True))
+    # ADR-0004 (#132): user and client tokens are pinned to their ``org`` claim; another
+    # organization's (or an unknown) device is 404 and nothing is written. Admin crosses orgs.
+    device = await device_heartbeat_svc(
+        db, device_id, body.model_dump(exclude_unset=True), scope_org(current_client)
+    )
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

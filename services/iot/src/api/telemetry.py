@@ -20,7 +20,7 @@ from ..services.telemetry_service import (
     get_latest_telemetry,
 )
 from ..services.alert_service import check_alert_rules
-from ..services.device_service import get_device_by_id
+from ..services.device_service import get_device_by_id, get_visible_device_ids
 
 router = APIRouter()
 
@@ -41,11 +41,20 @@ async def ingest(
     request: Request,
     body: TelemetryIngestRequest,
     db: AsyncSession = Depends(get_db),
-    _current_client=Depends(get_current_client),
+    current_client: TokenData = Depends(get_current_client),
 ):
-    # Device-authenticated (client token) ingestion: organization scoping of the caller is not
-    # applied here (kept as-is in the ADR-0004 rollout). Alert rules are evaluated only within
-    # the device's own organization (see check_alert_rules).
+    # ADR-0004 (#132): every device in the batch must exist and belong to the caller's
+    # organization (user and client tokens alike; admin crosses orgs). Otherwise the whole batch
+    # is rejected with 404 before any telemetry is written or alert rule evaluated. Alert rules
+    # are further limited to the device's own organization (see check_alert_rules).
+    requested = {point.device_id for point in body.data}
+    visible = await get_visible_device_ids(db, requested, scope_org(current_client))
+    if requested - visible:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
+        )
+
     count = await ingest_telemetry(db, body.data)
 
     for point in body.data:
