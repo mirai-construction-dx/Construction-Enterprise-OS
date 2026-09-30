@@ -11,6 +11,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError as JWTError
+from jwt import MissingRequiredClaimError
 
 from ..config import get_settings
 
@@ -24,11 +25,34 @@ class TokenData:
     org: str | None = None
     roles: list[str] | None = None
     scopes: list[str] | None = None
+    # aud=MCP_AUDIENCE のトークン（上流呼び出し時に交換が必要）
+    audience_bound: bool = False
 
 
-def decode_token(token: str) -> TokenData | None:
-    """JWT を検証してペイロードを返す。無効・期限切れの場合は None。"""
+def _decode_payload(token: str) -> tuple[dict, bool] | None:
+    """署名・有効期限・audience を検証する（ADR-0003）。
+
+    - aud=MCP_AUDIENCE: 受理（audience_bound=True）
+    - aud 無し: MCP_REQUIRE_AUDIENCE=false のときのみ受理（従来トークン）
+    - 別の aud: 拒否
+    """
     settings = get_settings()
+    try:
+        payload = jwt.decode(
+            token,
+            settings.jwt_public_key,
+            algorithms=[settings.JWT_ALGORITHM],
+            audience=settings.MCP_AUDIENCE,
+            options={"verify_exp": True, "require": ["aud"]},
+        )
+        return payload, True
+    except MissingRequiredClaimError as exc:
+        if exc.claim != "aud" or settings.MCP_REQUIRE_AUDIENCE:
+            return None
+    except JWTError:
+        return None
+
+    # aud を持たない従来トークン（Phase 0/1 の互換）
     try:
         payload = jwt.decode(
             token,
@@ -36,14 +60,27 @@ def decode_token(token: str) -> TokenData | None:
             algorithms=[settings.JWT_ALGORITHM],
             options={"verify_exp": True},
         )
+    except JWTError:
+        return None
+    return payload, False
+
+
+def decode_token(token: str) -> TokenData | None:
+    """JWT を検証してペイロードを返す。無効・期限切れ・audience 不一致の場合は None。"""
+    decoded = _decode_payload(token)
+    if decoded is None:
+        return None
+    payload, audience_bound = decoded
+    try:
         return TokenData(
             sub=payload["sub"],
             type=payload.get("type", "user"),
             org=payload.get("org"),
             roles=payload.get("roles", []),
             scopes=payload.get("scopes", []),
+            audience_bound=audience_bound,
         )
-    except (JWTError, KeyError):
+    except KeyError:
         return None
 
 

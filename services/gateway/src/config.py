@@ -74,6 +74,12 @@ class Settings(BaseSettings):
         "^/api/v1/notification": "http://localhost:8017",
     }
 
+    # 内部ネットワーク専用のため gateway 経由では常に 404 とするパス（認証の有無を問わない）。
+    # トークン交換（ADR-0003）は MCP 等の内部サービスが auth を直接呼ぶ。外部公開は別判断。
+    INTERNAL_ONLY_PATHS: list[str] = [
+        r"^/+api/v1/auth/token/*$",
+    ]
+
     PUBLIC_PATHS: list[str] = [
         "^/health$",
         # サービス稼働状況の集約。auth 側のエンドポイントは認証を要求しておらず、

@@ -69,7 +69,8 @@
       "ラウンド10(2026-08-30): 外部評価レポート対応。モバイルサイドバー幅バグ(.hide-mobile未適用で本文がサイドバー分圧迫)、E2E「永続化」テストの45秒タイムアウト、apps/web現場写真ページのalt-text ESLint警告の3件を修正・検証(Playwright実測126px→390px、desktop/mobile約40秒でPASS、lint警告解消)。PR #35 squash merge(c0b3116)・Issue #34 close・CI 26/26 GREEN。マージ後のmain E2Eで、サイドバー修正の副作用によりmvp.spec.tsの「MVP WebUI」ブロック(デスクトップ前提)がmobileプロジェクトで新規回帰したため、該当ブロックをtest.beforeEachでmobile時skipする追加修正を実施。この過程で、ブランチがsquash merge前の古いローカルブランチから誤って分岐しorigin/mainとCONFLICTINGになっていたためCIのpull_requestイベントが発火しない不具合を発見(空コミットpush・close/reopenでは解消せず、origin/mainから正しく分岐したブランチへの差し替えで解決)。PR #38 squash merge(3247337)・CI 26/26 GREEN。残るe2e/api.spec.ts失敗(MVP環境の/api/v1/*がJSONでなくHTMLを返す、誤パスワードで401でなく200相当)はPR #33マージ後から継続する既存の別問題と判定しIssue #36として起票(P1・セキュリティ懸念要確認)。本ラウンド対応後、mvp.spec.ts/crud.spec.ts関連のE2E失敗はゼロ。",
       "ラウンド11(2026-09-18): PR #39 Site Admin Workflow実装をCodeRabbit指摘19件(Major7/Minor12相当、セキュリティ・データ整合性・性能)対応の上でmerge(3d3ae82)。workflow/auth/notification/document 4サービス計131テスト green、CI 26/26 green。Issue #36完了条件対応PR #40(e2e/api.spec.ts MVP対象化)作成・MVP実機16/16 PASS確認。",
       "ラウンド11補遺(2026-09-18): state.json architecture.priority の②Data&Intelligence行が「AI基盤⚪|IoT⚪|時系列DB🟡」という古い誤記のまま残っていたことを調査エージェントで検出・修正。実態(README.md実測値と一致)はbim(35test)/ai(29test)/analytics(27test)/vision(17test)/iot(22test)含め①〜④Layerは全22サービス✅完了。⑤Autonomousのうち自律施工/海洋ロボティクス/自律制御の3項目のみ物理ハードウェア前提のため未着手(README記載通り、誤記ではない)。TODO/FIXME/NotImplementedError等の放置は全サービスsrc配下で0件。",
-      "ラウンド12(2026-09-23): Issue #93 — MCPツール定義ハッシュを独自正規化からMirai-Harness-Core規約(RFC 8785 JCS×name/title/description/inputSchema/outputSchema/annotations/x-mirai)へ移行し、上流バインディングはbinding_sha256で分離固定(fail-closed維持)。Core形式契約contracts/mcp-tools/ceos.jsonをレジストリから生成しCIでドリフト検査。Core v0.6.0(tag/commit 1fe396a)をcontracts/vendor/harness-core/v0.6.0へ無改変vendoring+harness-core.lock.jsonでsha256固定、適合テスト(Core tool_def_hash.pyとの一致・mcip登録ハッシュ再現・systems.yamlのceos識別子一致・read⇒R0)を追加。MCP pytest 66 passed/2 skipped(3連続)・coverage 89%・ruff/mypy clean・pip-audit 0件・docker build OK。BLOCKED: x-mirai.operation(Core承認階層表にCEOS読み取りカテゴリ無し)・Core Allowlist登録はCore側判断。"
+      "ラウンド12(2026-09-23): Issue #93 — MCPツール定義ハッシュを独自正規化からMirai-Harness-Core規約(RFC 8785 JCS×name/title/description/inputSchema/outputSchema/annotations/x-mirai)へ移行し、上流バインディングはbinding_sha256で分離固定(fail-closed維持)。Core形式契約contracts/mcp-tools/ceos.jsonをレジストリから生成しCIでドリフト検査。Core v0.6.0(tag/commit 1fe396a)をcontracts/vendor/harness-core/v0.6.0へ無改変vendoring+harness-core.lock.jsonでsha256固定、適合テスト(Core tool_def_hash.pyとの一致・mcip登録ハッシュ再現・systems.yamlのceos識別子一致・read⇒R0)を追加。MCP pytest 66 passed/2 skipped(3連続)・coverage 89%・ruff/mypy clean・pip-audit 0件・docker build OK。BLOCKED: x-mirai.operation(Core承認階層表にCEOS読み取りカテゴリ無し)・Core Allowlist登録はCore側判断。",
+      "ラウンド13(2026-09-23): ①Harness-Core提案(record.read操作カテゴリ・ceos契約・Allowlist登録 T0/dev_harness)をCoreクローンで作成し全検査green(check/lint/test116/policy100%/vectors/mutation/compat minor)。Core書込み権限なし(403)・署名鍵なしのためCoreローカルにブランチfeat/ceos-mcp-registration(2d7d1f0)とreports/core-proposal/を用意しBLOCKED。②ADR-0003(ユーザー選択: ADR+RFC 8693トークン交換)— auth に POST /api/v1/auth/token(既定無効)、MCPにaudience検証(api://ceos-mcp)と上流呼び出し時の交換(fail-closed)を実装。Phase 0は挙動不変。auth 103 passed/MCP 81 passed(各3連続)・変異テストで安全装置の検出を確認。認証方式変更のためApproval PR(Y/N待ち)。"
     ],
     "in_progress": [],
     "next": [
@@ -108,7 +109,7 @@
   "execution": {
     "current_session_start_at": "2026-09-18T02:41:06.604Z",
     "last_trigger": "manual",
-    "last_stop_at": "2026-09-20T10:35:12.665Z",
+    "last_stop_at": "2026-09-23T06:08:08.856Z",
     "last_cron_session_id": "20260612-172518-Construction-Enterprise-OS"
   },
   "dreaming": {
@@ -2860,6 +2861,62 @@
         "services/vision/src/middleware/auth.py"
       ],
       "truncated": false
+    },
+    {
+      "at": "2026-09-23T06:01:18.700Z",
+      "kind": "tdd_required",
+      "message": "テスト未整備の変更が 10 件あります。/tdd または tdd-guide agent で対応してください。",
+      "files": [
+        "services/mcp/src/api/mcp.py",
+        "services/mcp/src/tools/__init__.py",
+        "services/mcp/src/tools/contract.py",
+        "services/mcp/src/tools/definitions.py",
+        "services/mcp/src/tools/models.py",
+        "services/mcp/src/tools/registry.py",
+        "services/mcp/tests/test_contract_export.py",
+        "services/mcp/tests/test_core_conformance.py",
+        "services/mcp/tests/test_mcp_endpoint.py",
+        "services/mcp/tests/test_registry.py"
+      ],
+      "truncated": false
+    },
+    {
+      "at": "2026-09-23T06:08:08.882Z",
+      "kind": "tdd_required",
+      "message": "テスト未整備の変更が 34 件あります。/tdd または tdd-guide agent で対応してください。",
+      "files": [
+        "services/auth/alembic/versions/004_mfa_session_uses.py",
+        "services/auth/src/api/auth.py",
+        "services/auth/src/models/__init__.py",
+        "services/auth/tests/test_mfa_api.py",
+        "services/mcp/src/__init__.py",
+        "services/mcp/src/api/__init__.py",
+        "services/mcp/src/api/health.py",
+        "services/mcp/src/api/mcp.py",
+        "services/mcp/src/config.py",
+        "services/mcp/src/middleware/__init__.py",
+        "services/mcp/src/middleware/auth.py",
+        "services/mcp/src/middleware/mcp_guard.py",
+        "services/mcp/src/schemas/__init__.py",
+        "services/mcp/src/schemas/mcp.py",
+        "services/mcp/src/services/__init__.py",
+        "services/mcp/src/services/upstream.py",
+        "services/mcp/src/tools/__init__.py",
+        "services/mcp/src/tools/contract.py",
+        "services/mcp/src/tools/definitions.py",
+        "services/mcp/src/tools/executor.py",
+        "services/mcp/src/tools/models.py",
+        "services/mcp/src/tools/policy.py",
+        "services/mcp/src/tools/registry.py",
+        "services/mcp/tests/__init__.py",
+        "services/mcp/tests/conftest.py",
+        "services/mcp/tests/helpers.py",
+        "services/mcp/tests/test_auth.py",
+        "services/mcp/tests/test_contract_export.py",
+        "services/mcp/tests/test_core_conformance.py",
+        "services/mcp/tests/test_mcp_endpoint.py"
+      ],
+      "truncated": true
     }
   ],
   "learning": {
