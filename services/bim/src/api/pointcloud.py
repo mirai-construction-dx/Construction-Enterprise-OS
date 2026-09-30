@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models import PointCloud
 from ..models.base import get_db
 from ..schemas import (
@@ -29,14 +30,32 @@ def _pc_to_response(pc: PointCloud) -> dict:
     return PointCloudResponse.model_validate(pc).model_dump(mode="json")
 
 
+async def _get_pointcloud_or_404(
+    db: AsyncSession, pointcloud_id: UUID, organization_id: UUID | None
+) -> PointCloud:
+    """Org-scoped lookup; another organization's point cloud is reported as 404."""
+    stmt = select(PointCloud).where(PointCloud.id == pointcloud_id)
+    if organization_id is not None:
+        stmt = stmt.where(PointCloud.organization_id == organization_id)
+    result = await db.execute(stmt)
+    pc = result.scalar_one_or_none()
+    if not pc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "点群データが見つかりません。"},
+        )
+    return pc
+
+
 @router.post("")
 async def create_pointcloud(
     body: PointCloudCreate,
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org = create_org(token_data, body.organization_id)
     pc = PointCloud(
-        organization_id=body.organization_id,
+        organization_id=org,
         project_id=body.project_id,
         name=body.name,
         description=body.description,
@@ -67,11 +86,17 @@ async def list_pointclouds(
     per_page: int = Query(20, ge=1, le=100),
     project_id: UUID | None = Query(None),
     capture_method: str | None = Query(None),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(PointCloud)
     count_query = select(func.count(PointCloud.id))
+
+    org = scope_org(token_data, organization_id)
+    if org is not None:
+        query = query.where(PointCloud.organization_id == org)
+        count_query = count_query.where(PointCloud.organization_id == org)
 
     if project_id:
         query = query.where(PointCloud.project_id == project_id)
@@ -101,15 +126,7 @@ async def get_pointcloud(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(PointCloud).where(PointCloud.id == pointcloud_id)
-    )
-    pc = result.scalar_one_or_none()
-    if not pc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "点群データが見つかりません。"},
-        )
+    pc = await _get_pointcloud_or_404(db, pointcloud_id, scope_org(token_data))
     return _api_response(data=_pc_to_response(pc))
 
 
@@ -120,15 +137,7 @@ async def update_pointcloud(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(PointCloud).where(PointCloud.id == pointcloud_id)
-    )
-    pc = result.scalar_one_or_none()
-    if not pc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "点群データが見つかりません。"},
-        )
+    pc = await _get_pointcloud_or_404(db, pointcloud_id, scope_org(token_data))
 
     update_data = body.model_dump(exclude_unset=True)
     if "metadata" in update_data:
@@ -148,15 +157,7 @@ async def delete_pointcloud(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(PointCloud).where(PointCloud.id == pointcloud_id)
-    )
-    pc = result.scalar_one_or_none()
-    if not pc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "点群データが見つかりません。"},
-        )
+    pc = await _get_pointcloud_or_404(db, pointcloud_id, scope_org(token_data))
     await db.delete(pc)
     await db.flush()
     return _api_response(data={"deleted": True})

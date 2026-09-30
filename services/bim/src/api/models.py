@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -40,7 +41,8 @@ async def create_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    model = await create_bim_model(db, body, UUID(token_data.sub))
+    org = create_org(token_data, body.organization_id)
+    model = await create_bim_model(db, body, UUID(token_data.sub), org)
     return _api_response(data=_model_to_response(model))
 
 
@@ -51,9 +53,11 @@ async def list_models(
     model_type: str | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
     project_id: UUID | None = Query(None),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org = scope_org(token_data, organization_id)
     models, total = await list_bim_models(
         db,
         page=page,
@@ -61,6 +65,7 @@ async def list_models(
         model_type=model_type,
         status=status_filter,
         project_id=project_id,
+        organization_id=org,
     )
     total_pages = ceil(total / per_page) if total > 0 else 0
     meta = MetaInfo(page=page, per_page=per_page, total=total, total_pages=total_pages)
@@ -73,7 +78,7 @@ async def get_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    model = await get_bim_model(db, model_id)
+    model = await get_bim_model(db, model_id, scope_org(token_data))
     if not model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -89,7 +94,7 @@ async def update_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    model = await update_bim_model(db, model_id, body)
+    model = await update_bim_model(db, model_id, body, scope_org(token_data))
     if not model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -104,7 +109,7 @@ async def delete_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    deleted = await delete_bim_model(db, model_id)
+    deleted = await delete_bim_model(db, model_id, scope_org(token_data))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
