@@ -196,7 +196,7 @@ jobs:
             done < .github/security/pip-audit-ignore.txt
           fi
           failed=0
-          for req in $(find services -name requirements.txt | sort); do
+          for req in $(find services packages -name requirements.txt | sort); do
             svc="$(basename "$(dirname "$req")")"
             echo "::group::pip-audit ${req}"
             pip-audit -r "${req}" -f json -o "pip-audit-${svc}.json" "${ignore_args[@]}" || failed=1
