@@ -42,6 +42,9 @@ class Settings(BaseSettings):
         # Document / BIM / workflow
         "^/api/v1/documents": "http://localhost:8001",
         "^/api/v1/workflow": "http://localhost:8002",
+        # 申請案件 API（workflow サービスが /api/v1/cases として公開）。
+        # パス境界を明示し "/api/v1/casesX" のような近接パスを転送しない。
+        "^/api/v1/cases(?:/|$)": "http://localhost:8002",
         "^/api/v1/bim": "http://localhost:8008",
         # GIS / IoT / field
         "^/api/v1/gis": "http://localhost:8003",
@@ -50,6 +53,9 @@ class Settings(BaseSettings):
         # AI / Vision / Advanced
         "^/api/v1/ai": "http://localhost:8005",
         "^/api/v1/vision": "http://localhost:8011",
+        # OCR / ベクトル DB API（vision サービスが /api/v1/ocr・/api/v1/vectors として公開）
+        "^/api/v1/ocr(?:/|$)": "http://localhost:8011",
+        "^/api/v1/vectors(?:/|$)": "http://localhost:8011",
         "^/api/v1/advanced": "http://localhost:8013",
         # Analytics / Platform / Integrations
         "^/api/v1/analytics": "http://localhost:8014",
