@@ -24,8 +24,20 @@ async def create_invoice(db: AsyncSession, data: dict) -> Invoice:
     return invoice
 
 
-async def get_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> Invoice | None:
-    return await db.get(Invoice, invoice_id)
+async def get_invoice(
+    db: AsyncSession,
+    invoice_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> Invoice | None:
+    """Fetch an invoice; when ``organization_id`` is given, other organizations' rows are not found."""
+    if organization_id is None:
+        return await db.get(Invoice, invoice_id)
+    result = await db.execute(
+        select(Invoice).where(
+            Invoice.id == invoice_id, Invoice.organization_id == organization_id
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_invoices(
