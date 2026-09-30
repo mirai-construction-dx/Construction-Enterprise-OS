@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -39,9 +40,15 @@ async def create_rule_endpoint(
     request: Request,
     body: RuleCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    rule = await create_rule(db, body.model_dump())
+    rule = await create_rule(
+        db,
+        {
+            **body.model_dump(),
+            "organization_id": create_org(current_user, body.organization_id),
+        },
+    )
     return APIResponse(data=_rule_to_response(rule))
 
 
@@ -54,7 +61,7 @@ async def list_rules(
     is_active: bool | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     rules_items, total = await get_rules_paginated(
         db,
@@ -62,7 +69,7 @@ async def list_rules(
         per_page=per_page,
         trigger_type=trigger_type,
         is_active=is_active,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -85,9 +92,9 @@ async def get_rule(
     request: Request,
     rule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    rule = await get_rule_by_id(db, rule_id)
+    rule = await get_rule_by_id(db, rule_id, scope_org(current_user))
     if not rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -102,9 +109,14 @@ async def update_rule_endpoint(
     rule_id: UUID,
     body: RuleUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    rule = await update_rule(db, rule_id, body.model_dump(exclude_unset=True))
+    rule = await update_rule(
+        db,
+        rule_id,
+        body.model_dump(exclude_unset=True),
+        organization_id=scope_org(current_user),
+    )
     if not rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -118,9 +130,9 @@ async def delete_rule_endpoint(
     request: Request,
     rule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_rule(db, rule_id)
+    deleted = await delete_rule(db, rule_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -134,9 +146,9 @@ async def enable_rule_endpoint(
     request: Request,
     rule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    rule = await enable_rule(db, rule_id)
+    rule = await enable_rule(db, rule_id, scope_org(current_user))
     if not rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -150,9 +162,9 @@ async def disable_rule_endpoint(
     request: Request,
     rule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    rule = await disable_rule(db, rule_id)
+    rule = await disable_rule(db, rule_id, scope_org(current_user))
     if not rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -167,9 +179,11 @@ async def test_rule_endpoint(
     rule_id: UUID,
     body: RuleTestRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    result = await test_rule_execution(db, rule_id, body.model_dump())
+    result = await test_rule_execution(
+        db, rule_id, body.model_dump(), organization_id=scope_org(current_user)
+    )
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
