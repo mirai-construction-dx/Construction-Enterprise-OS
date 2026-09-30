@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
     CostApproveRequest,
@@ -14,7 +15,7 @@ from ..schemas.schemas import (
     CostListResponse,
     CostUpdateRequest,
 )
-from ..services import cost_service, ledger_service
+from ..services import budget_service, cost_service, ledger_service
 
 router = APIRouter()
 
@@ -28,12 +29,24 @@ async def create_cost(
     ledger_id: UUID,
     body: CostCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id)
+    org = create_org(current_user, body.organization_id)
+    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
-    return await cost_service.create_cost(db, ledger_id, body.model_dump())
+    if ledger.organization_id != org:
+        # Only reachable by a cross-org admin: a cost must belong to its ledger's organization
+        raise HTTPException(status_code=400, detail="原価明細の組織が工事台帳と一致しません")
+    if body.budget_id is not None:
+        # The referenced budget must be in the same organization and ledger; otherwise
+        # approving the cost would update another tenant's budget (ADR-0004).
+        budget = await budget_service.get_budget(db, body.budget_id, org)
+        if not budget or budget.ledger_id != ledger_id:
+            raise HTTPException(status_code=404, detail="予算項目が見つかりません")
+    data = body.model_dump()
+    data["organization_id"] = org
+    return await cost_service.create_cost(db, ledger_id, data)
 
 
 @router.get(
@@ -45,9 +58,9 @@ async def list_costs(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id)
+    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
     items, total = await cost_service.list_costs(
@@ -61,9 +74,9 @@ async def update_cost(
     cost_id: UUID,
     body: CostUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    cost = await cost_service.get_cost(db, cost_id)
+    cost = await cost_service.get_cost(db, cost_id, scope_org(current_user))
     if not cost:
         raise HTTPException(status_code=404, detail="原価明細が見つかりません")
     try:
@@ -79,9 +92,9 @@ async def approve_cost(
     cost_id: UUID,
     body: CostApproveRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    cost = await cost_service.get_cost(db, cost_id)
+    cost = await cost_service.get_cost(db, cost_id, scope_org(current_user))
     if not cost:
         raise HTTPException(status_code=404, detail="原価明細が見つかりません")
     try:
@@ -94,9 +107,9 @@ async def approve_cost(
 async def delete_cost(
     cost_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    cost = await cost_service.get_cost(db, cost_id)
+    cost = await cost_service.get_cost(db, cost_id, scope_org(current_user))
     if not cost:
         raise HTTPException(status_code=404, detail="原価明細が見つかりません")
     deleted = await cost_service.delete_cost(db, cost)

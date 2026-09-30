@@ -17,8 +17,21 @@ async def create_ledger(db: AsyncSession, data: dict) -> ProjectLedger:
     return ledger
 
 
-async def get_ledger(db: AsyncSession, ledger_id: uuid.UUID) -> ProjectLedger | None:
-    return await db.get(ProjectLedger, ledger_id)
+async def get_ledger(
+    db: AsyncSession,
+    ledger_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> ProjectLedger | None:
+    """Fetch a ledger; when ``organization_id`` is given, other organizations' rows are not found."""
+    if organization_id is None:
+        return await db.get(ProjectLedger, ledger_id)
+    result = await db.execute(
+        select(ProjectLedger).where(
+            ProjectLedger.id == ledger_id,
+            ProjectLedger.organization_id == organization_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_ledgers(
