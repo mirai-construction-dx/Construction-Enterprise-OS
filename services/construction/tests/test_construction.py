@@ -230,8 +230,14 @@ class TestWBSCRUD:
         )
         assert response.status_code == 404
 
-    def test_get_wbs_rejects_other_organization(self, client, mock_db):
+    def test_get_wbs_rejects_other_organization(self, app, client, mock_db):
         from src.models import WBSItem
+
+        # ADR-0004: admin crosses organizations, so use a regular (non-admin) user here.
+        async def regular_user():
+            return TokenData(sub="u", type="user", org=str(ORG_ID), roles=["user"])
+
+        app.dependency_overrides[get_current_user] = regular_user
 
         other = WBSItem(
             id=uuid.uuid4(),
