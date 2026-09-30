@@ -184,17 +184,17 @@ construction-enterprise-os/
 
 ```mermaid
 pie title テスト構成（レイヤ別・pytest 収集件数）
-    "Foundation 層" : 307
-    "Data & AI 層" : 251
-    "Platform 層" : 151
-    "Business 層" : 160
-    "Autonomous 層" : 73
+    "Foundation 層" : 329
+    "Data & AI 層" : 732
+    "Platform 層" : 432
+    "Business 層" : 595
+    "Autonomous 層" : 400
 ```
 
 | 🔢 レイヤ        | 🧩 コンポーネント   | 📁 サービス                  | 🧪 テスト | 📊 状態 |
 | ---------------- | ------------------- | ---------------------------- | --------- | ------- |
 | **① Foundation** | 🔐 認証基盤         | `services/auth/`             | 85        | ✅      |
-|                  | 🌐 API Gateway      | `services/gateway/`          | 56        | ✅      |
+|                  | 🌐 API Gateway      | `services/gateway/`          | 78        | ✅      |
 |                  | 📨 イベント基盤     | `packages/event-core/`       | 37        | ✅      |
 |                  | 📊 共通ログ         | `packages/logging/`          | 24        | ✅      |
 |                  | 🔔 共通通知         | `services/notification/`     | 25        | ✅      |
@@ -202,36 +202,36 @@ pie title テスト構成（レイヤ別・pytest 収集件数）
 |                  | 📝 監査証跡         | `services/auth/`             | (認証に含む) | ✅   |
 |                  | 🔌 MCP 公開(読取専用) | `services/mcp/`            | 80        | 🟡 PoC  |
 |                  | 🎨 統合UI           | `packages/ui/` + `apps/web/` | Web 227   | ✅      |
-| **② Data & AI**  | 🗺️ GIS              | `services/gis/`              | 30        | ✅      |
-|                  | 📄 文書管理         | `services/document/`         | 53        | ✅      |
-|                  | 📡 IoT              | `services/iot/`              | 48        | ✅      |
-|                  | 🤖 AI               | `services/ai/`               | 31        | ✅      |
-|                  | 🏗️ BIM/CIM          | `services/bim/`              | 39        | ✅      |
-|                  | 👁️ OCR/画像AI       | `services/vision/`           | 22        | ✅      |
+| **② Data & AI**  | 🗺️ GIS              | `services/gis/`              | 122       | ✅      |
+|                  | 📄 文書管理         | `services/document/`         | 93        | ✅      |
+|                  | 📡 IoT              | `services/iot/`              | 126       | ✅      |
+|                  | 🤖 AI               | `services/ai/`               | 102       | ✅      |
+|                  | 🏗️ BIM/CIM          | `services/bim/`              | 112       | ✅      |
+|                  | 👁️ OCR/画像AI       | `services/vision/`           | 82        | ✅      |
 |                  | 🧬 ベクトルDB       | `services/vision/`           | (同上)    | ✅      |
-|                  | 🗄️ データレイク     | `services/analytics/`        | 28        | ✅      |
+|                  | 🗄️ データレイク     | `services/analytics/`        | 95        | ✅      |
 | **③ Platform**   | 🔄 ワークフロー     | `services/workflow/`         | 42        | ✅      |
-|                  | 🔒 セキュリティ     | `services/security/`         | 28        | ✅      |
-|                  | 🤝 協力会社連携     | `services/partner/`          | 22        | ✅      |
+|                  | 🔒 セキュリティ     | `services/security/`         | 68        | ✅      |
+|                  | 🤝 協力会社連携     | `services/partner/`          | 94        | ✅      |
 |                  | 📱 モバイル/PWA     | `apps/mobile/`               | —         | ✅      |
-|                  | ⚡ 自動化/RPA       | `services/automation/`       | 34        | ✅      |
-|                  | 🏢 共通PF           | `services/platform/`         | 25        | ✅      |
-| **④ Business**   | 🏗️ 工程・施工管理   | `services/construction/`     | 26        | ✅      |
-|                  | 💰 ERP/経営         | `services/erp/`              | 30        | ✅      |
-|                  | ⛑️ 安全管理         | `services/safety/`           | 24        | ✅      |
+|                  | ⚡ 自動化/RPA       | `services/automation/`       | 127       | ✅      |
+|                  | 🏢 共通PF           | `services/platform/`         | 101       | ✅      |
+| **④ Business**   | 🏗️ 工程・施工管理   | `services/construction/`     | 196       | ✅      |
+|                  | 💰 ERP/経営         | `services/erp/`              | 83        | ✅      |
+|                  | ⛑️ 安全管理         | `services/safety/`           | 40        | ✅      |
 |                  | 🏗️ 現場DX           | `services/field-dx/`         | 27        | ✅      |
-|                  | 🔮 維持管理         | `services/maintenance/`      | 35        | ✅      |
-|                  | 🚢 港湾/点検        | `services/advanced/`         | 18        | ✅      |
-| **⑤ Autonomous** | 🧠 AI Agent         | `services/autonomous/`       | 73        | ✅      |
+|                  | 🔮 維持管理         | `services/maintenance/`      | 109       | ✅      |
+|                  | 🚢 港湾/点検        | `services/advanced/`         | 140       | ✅      |
+| **⑤ Autonomous** | 🧠 AI Agent         | `services/autonomous/`       | 400       | ✅      |
 |                  | 👥 デジタルツイン   | `services/autonomous/`       | (同上)    | ✅      |
 |                  | 🎯 自動最適化       | `services/autonomous/`       | (同上)    | ✅      |
 |                  | 🚜 自律施工         | 未着手                       | —         | ⚪      |
 |                  | 🌊 海洋ロボティクス | 未着手                       | —         | ⚪      |
 |                  | 🎮 自律制御         | 未着手                       | —         | ⚪      |
 
-> **総計: 23サービス + 5パッケージ + 2アプリ | サービスPython 881 + 共有パッケージ 61 + Web 227 テスト（CI 実行）**
+> **総計: 23サービス + 5パッケージ + 2アプリ | サービスPython 2427 + 共有パッケージ 61 + Web 227 テスト（CI 実行）**
 >
-> 📏 測定方法（2026-09-30, main `ef57553`）: Python は各サービス／パッケージで `pytest tests/ --collect-only -q` の収集件数（parametrize 展開後）、Web は `pnpm --filter ./apps/web test` の件数。1 サービスが複数コンポーネントを担う行は「(同上)」とし二重計上しない。
+> 📏 測定方法（2026-09-30, main `460901e`）: Python は各サービス／パッケージで `pytest tests/ --collect-only -q` の収集件数（parametrize 展開後）、Web は `pnpm --filter ./apps/web test` の件数。1 サービスが複数コンポーネントを担う行は「(同上)」とし二重計上しない。
 
 ---
 
@@ -459,6 +459,7 @@ make test
 | レート制限   | `/auth/login`        | 10回/分/IP             |
 | 監査ログ     | 全認証イベント記録   | 改ざん検知             |
 | API キー     | SHA-256 ハッシュ保存 | 作成時のみ平文返却     |
+| テナント分離 | トークンの `org` で強制 | 全業務サービスに適用済み（[ADR-0004](docs/architecture/ADR-0004-tenant-isolation-enforcement.md), #114）。一般ユーザーは自組織のみ・`admin` は横断可・`org` 欠落/不正は 403（fail-closed）。既知の残課題は ADR-0004「既知の残課題」参照 |
 
 ---
 
@@ -468,4 +469,4 @@ make test
 
 ---
 
-> 💚 **最終更新**: 2026-09-30 | 🟢 **ステータス**: STABLE | 🧪 **サービスPython 881 + パッケージ 61 + Web 227 テスト CI 成功** | ⚙️ **23サービス** | 🏛️ **ADR-0001 で責任範囲を定義** | 🔌 **MCP: Harness-Core v0.6.0 契約整合・Allowlist スキーマ検証（Issue #79）** | 🔒 **全 Actions SHA 固定・全サービス Docker build（Issue #101）**
+> 💚 **最終更新**: 2026-09-30 | 🟢 **ステータス**: STABLE | 🧪 **サービスPython 2427 + パッケージ 61 + Web 227 テスト CI 成功** | ⚙️ **23サービス** | 🏛️ **ADR-0001 で責任範囲を定義** | 🔌 **MCP: Harness-Core v0.6.0 契約整合・Allowlist スキーマ検証（Issue #79）** | 🔒 **全 Actions SHA 固定・全サービス Docker build（Issue #101）** | 🏢 **テナント分離を全サービスに適用（ADR-0004, Issue #114）**

@@ -2,7 +2,7 @@
 
 - 状態: Accepted（2026-09-30、ユーザー判断）
 - 関連: Issue #106（safety 点検統計の全組織集計）、Issue #114、Issue #46（ユーザー一覧のテナント境界）、ADR-0001
-- 適用: 各サービスを 1 PR ずつ `[Approval]` として順次適用する
+- 適用: 各サービスを 1 PR ずつ `[Approval]` として順次適用した（2026-09-30 全サービス適用済み。下記「適用状況」参照）
 
 ## 背景
 
@@ -53,8 +53,37 @@ ADR-0001 は「認可は組織（テナント）＋案件（project）＋ロー�
 
 ## 適用状況
 
-| サービス                                     | 状態                                                                                        |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| workflow / document / ai / construction(WBS) | 既に強制済み（document・ai の `UUID(int=0)` フォールバックは後続で fail-closed に置換予定） |
-| safety                                       | 本 ADR と同時に適用（Issue #106）                                                           |
-| erp / partner / security / advanced / 他     | 順次適用（Issue #114）                                                                      |
+2026-09-30 時点で、組織データを扱う全サービスに適用済み（Issue #114）。workflow 以外は `src/middleware/tenant.py`
+（`scope_org` / `create_org`）の共通形で実装し、各 PR に他組織の否定テストを含む。
+
+| サービス     | 状態   | PR   | 備考                                                                                      |
+| ------------ | ------ | ---- | ----------------------------------------------------------------------------------------- |
+| workflow     | 適用済 | —    | 本 ADR 以前からトークンの `org` で強制（`_organization_id(current_user)` による独自実装） |
+| safety       | 適用済 | #117 | 参照実装（Issue #106）                                                                    |
+| security     | 適用済 | #121 |                                                                                           |
+| erp          | 適用済 | #123 |                                                                                           |
+| partner      | 適用済 | #124 |                                                                                           |
+| document     | 適用済 | #127 | `org` 欠落時の `UUID(int=0)` フォールバック（fail-open）を廃止し fail-closed 化           |
+| bim          | 適用済 | #128 |                                                                                           |
+| gis          | 適用済 | #129 |                                                                                           |
+| ai           | 適用済 | #130 | `UUID(int=0)` フォールバックを廃止し fail-closed 化                                       |
+| iot          | 適用済 | #131 | heartbeat / ingest の組織照合は残課題（#132）                                             |
+| maintenance  | 適用済 | #140 |                                                                                           |
+| analytics    | 適用済 | #141 |                                                                                           |
+| automation   | 適用済 | #142 |                                                                                           |
+| advanced     | 適用済 | #143 |                                                                                           |
+| platform     | 適用済 | #144 |                                                                                           |
+| vision       | 適用済 | #145 |                                                                                           |
+| construction | 適用済 | #146 | WBS の既存ヘルパーを `tenant.py` に統一し、`UUID(int=0)` フォールバックを廃止             |
+| autonomous   | 適用済 | #148 | cascade delete の他組織巻き込みは残課題（#149）                                           |
+
+## 既知の残課題
+
+- #132（P1）: iot の heartbeat / telemetry ingest がトークン組織とデバイス組織を照合しない
+- #137（P1）: maintenance / safety / security / vision で DB の commit が呼ばれず、書き込みが永続化されない
+- #138: analytics のデータソース応答が `connection_config`（認証情報を含み得る）をそのまま返す
+- #139: 複数サービスで `created_by` / `reported_by` 等の作成者を本文から受け取り偽装可能
+- #147: `tenant.py` で `org` クレームが文字列以外のとき `ORG_INVALID`（403）でなく 500 になる（全サービス共通）
+- #149: autonomous の cascade delete-orphan が他組織の子レコード（task / simulation）を巻き込み得る
+- サービスをまたぐ外部 ID（`project_id` など、別サービスが所有するレコードの ID）は、参照先の組織と一致するかを
+  照合していない。組織内のデータ分離は成立しているが、他組織の ID を自組織レコードに紐付けること自体は防げない
