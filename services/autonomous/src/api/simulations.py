@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -14,12 +15,14 @@ from ..schemas import (
     SimulationResponse,
 )
 from ..services.autonomous_service import (
+    get_twin_by_id,
     create_simulation,
     delete_simulation,
     get_simulation_by_id,
     get_simulations_paginated,
     run_simulation,
 )
+from ._parents import ensure_parent_in_org
 
 router = APIRouter()
 
@@ -33,9 +36,15 @@ async def create_simulation_endpoint(
     request: Request,
     body: SimulationCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    sim = await create_simulation(db, body.model_dump())
+    org = create_org(current_user, body.organization_id)
+    await ensure_parent_in_org(
+        db, get_twin_by_id, body.digital_twin_id, org, current_user, code="TWIN", label="デジタルツイン"
+    )
+    data = body.model_dump()
+    data["organization_id"] = org
+    sim = await create_simulation(db, data)
     return APIResponse(data=_sim_to_response(sim))
 
 
@@ -49,7 +58,7 @@ async def list_simulations(
     project_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     sims, total = await get_simulations_paginated(
         db,
@@ -58,7 +67,7 @@ async def list_simulations(
         simulation_type=simulation_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -81,9 +90,9 @@ async def get_simulation(
     request: Request,
     sim_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    sim = await get_simulation_by_id(db, sim_id)
+    sim = await get_simulation_by_id(db, sim_id, organization_id=scope_org(current_user))
     if not sim:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -97,9 +106,9 @@ async def delete_simulation_endpoint(
     request: Request,
     sim_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_simulation(db, sim_id)
+    deleted = await delete_simulation(db, sim_id, organization_id=scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -113,9 +122,9 @@ async def run_simulation_endpoint(
     request: Request,
     sim_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    sim = await run_simulation(db, sim_id)
+    sim = await run_simulation(db, sim_id, organization_id=scope_org(current_user))
     if not sim:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

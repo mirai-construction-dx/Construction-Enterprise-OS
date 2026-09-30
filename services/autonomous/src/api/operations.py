@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -16,6 +17,7 @@ from ..schemas import (
     OperationUpdateRequest,
 )
 from ..services.autonomous_service import (
+    get_twin_by_id,
     abort_operation,
     create_operation,
     delete_operation,
@@ -28,6 +30,7 @@ from ..services.autonomous_service import (
     start_operation,
     update_operation,
 )
+from ._parents import ensure_parent_in_org
 
 router = APIRouter()
 
@@ -41,9 +44,15 @@ async def create_operation_endpoint(
     request: Request,
     body: OperationCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await create_operation(db, body.model_dump())
+    org = create_org(current_user, body.organization_id)
+    await ensure_parent_in_org(
+        db, get_twin_by_id, body.digital_twin_id, org, current_user, code="TWIN", label="デジタルツイン"
+    )
+    data = body.model_dump()
+    data["organization_id"] = org
+    op = await create_operation(db, data)
     return APIResponse(data=_op_to_response(op))
 
 
@@ -57,7 +66,7 @@ async def list_operations(
     project_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     ops, total = await get_operations_paginated(
         db,
@@ -66,7 +75,7 @@ async def list_operations(
         operation_type=operation_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -89,9 +98,9 @@ async def get_operation(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await get_operation_by_id(db, op_id)
+    op = await get_operation_by_id(db, op_id, organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -106,9 +115,9 @@ async def update_operation_endpoint(
     op_id: UUID,
     body: OperationUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await update_operation(db, op_id, body.model_dump(exclude_unset=True))
+    op = await update_operation(db, op_id, body.model_dump(exclude_unset=True), organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -122,9 +131,9 @@ async def delete_operation_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_operation(db, op_id)
+    deleted = await delete_operation(db, op_id, organization_id=scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -138,9 +147,9 @@ async def start_operation_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await start_operation(db, op_id)
+    op = await start_operation(db, op_id, organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -154,9 +163,9 @@ async def pause_operation_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await pause_operation(db, op_id)
+    op = await pause_operation(db, op_id, organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -170,9 +179,9 @@ async def resume_operation_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await resume_operation(db, op_id)
+    op = await resume_operation(db, op_id, organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -186,9 +195,9 @@ async def abort_operation_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await abort_operation(db, op_id)
+    op = await abort_operation(db, op_id, organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -202,9 +211,9 @@ async def emergency_stop_operation_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    op = await emergency_stop_operation(db, op_id)
+    op = await emergency_stop_operation(db, op_id, organization_id=scope_org(current_user))
     if not op:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -218,9 +227,9 @@ async def get_operation_progress_endpoint(
     request: Request,
     op_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    progress = await get_operation_progress(db, op_id)
+    progress = await get_operation_progress(db, op_id, organization_id=scope_org(current_user))
     if not progress:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

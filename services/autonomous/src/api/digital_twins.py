@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -38,9 +39,11 @@ async def create_twin_endpoint(
     request: Request,
     body: TwinCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    twin = await create_twin(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    twin = await create_twin(db, data)
     return APIResponse(data=_twin_to_response(twin))
 
 
@@ -54,7 +57,7 @@ async def list_twins(
     project_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     twins, total = await get_twins_paginated(
         db,
@@ -63,7 +66,7 @@ async def list_twins(
         twin_type=twin_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -86,9 +89,9 @@ async def get_twin(
     request: Request,
     twin_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    twin = await get_twin_by_id(db, twin_id)
+    twin = await get_twin_by_id(db, twin_id, organization_id=scope_org(current_user))
     if not twin:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -103,9 +106,9 @@ async def update_twin_endpoint(
     twin_id: UUID,
     body: TwinUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    twin = await update_twin(db, twin_id, body.model_dump(exclude_unset=True))
+    twin = await update_twin(db, twin_id, body.model_dump(exclude_unset=True), organization_id=scope_org(current_user))
     if not twin:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -119,9 +122,9 @@ async def delete_twin_endpoint(
     request: Request,
     twin_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_twin(db, twin_id)
+    deleted = await delete_twin(db, twin_id, organization_id=scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -136,9 +139,9 @@ async def sync_twin_endpoint(
     twin_id: UUID,
     body: TwinSyncRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    twin = await sync_twin(db, twin_id, body.current_state)
+    twin = await sync_twin(db, twin_id, body.current_state, organization_id=scope_org(current_user))
     if not twin:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -152,9 +155,9 @@ async def get_twin_state_endpoint(
     request: Request,
     twin_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    state = await get_twin_current_state(db, twin_id)
+    state = await get_twin_current_state(db, twin_id, organization_id=scope_org(current_user))
     if not state:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

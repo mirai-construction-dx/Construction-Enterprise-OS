@@ -1,12 +1,21 @@
 """自律型AIエージェント・デジタルツイン管理サービス"""
 
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import AutonomousAgent, AutonomousControl, AutonomousOperation, AutonomousTask, ConstructionSimulation, DigitalTwin, MarineRobot
+
+
+def _by_id(model: Any, record_id: UUID, organization_id: UUID | None) -> Select:
+    """Select a record by id, restricted to ``organization_id`` unless it is None (admin, ADR-0004)."""
+    stmt = select(model).where(model.id == record_id)
+    if organization_id is not None:
+        stmt = stmt.where(model.organization_id == organization_id)
+    return stmt
 
 
 # ============================================
@@ -27,9 +36,9 @@ async def create_agent(db: AsyncSession, data: dict) -> AutonomousAgent:
     return agent
 
 
-async def get_agent_by_id(db: AsyncSession, agent_id: UUID) -> AutonomousAgent | None:
+async def get_agent_by_id(db: AsyncSession, agent_id: UUID, organization_id: UUID | None = None) -> AutonomousAgent | None:
     result = await db.execute(
-        select(AutonomousAgent).where(AutonomousAgent.id == agent_id)
+        _by_id(AutonomousAgent, agent_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -51,7 +60,7 @@ async def get_agents_paginated(
     if status:
         query = query.where(AutonomousAgent.status == status)
         count_query = count_query.where(AutonomousAgent.status == status)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(AutonomousAgent.organization_id == organization_id)
         count_query = count_query.where(AutonomousAgent.organization_id == organization_id)
 
@@ -66,8 +75,8 @@ async def get_agents_paginated(
     return agents, total
 
 
-async def update_agent(db: AsyncSession, agent_id: UUID, data: dict) -> AutonomousAgent | None:
-    result = await db.execute(select(AutonomousAgent).where(AutonomousAgent.id == agent_id))
+async def update_agent(db: AsyncSession, agent_id: UUID, data: dict, organization_id: UUID | None = None) -> AutonomousAgent | None:
+    result = await db.execute(_by_id(AutonomousAgent, agent_id, organization_id))
     agent = result.scalar_one_or_none()
     if not agent:
         return None
@@ -80,8 +89,8 @@ async def update_agent(db: AsyncSession, agent_id: UUID, data: dict) -> Autonomo
     return agent
 
 
-async def delete_agent(db: AsyncSession, agent_id: UUID) -> bool:
-    result = await db.execute(select(AutonomousAgent).where(AutonomousAgent.id == agent_id))
+async def delete_agent(db: AsyncSession, agent_id: UUID, organization_id: UUID | None = None) -> bool:
+    result = await db.execute(_by_id(AutonomousAgent, agent_id, organization_id))
     agent = result.scalar_one_or_none()
     if not agent:
         return False
@@ -90,8 +99,8 @@ async def delete_agent(db: AsyncSession, agent_id: UUID) -> bool:
     return True
 
 
-async def start_agent(db: AsyncSession, agent_id: UUID) -> AutonomousAgent | None:
-    result = await db.execute(select(AutonomousAgent).where(AutonomousAgent.id == agent_id))
+async def start_agent(db: AsyncSession, agent_id: UUID, organization_id: UUID | None = None) -> AutonomousAgent | None:
+    result = await db.execute(_by_id(AutonomousAgent, agent_id, organization_id))
     agent = result.scalar_one_or_none()
     if not agent:
         return None
@@ -102,8 +111,8 @@ async def start_agent(db: AsyncSession, agent_id: UUID) -> AutonomousAgent | Non
     return agent
 
 
-async def stop_agent(db: AsyncSession, agent_id: UUID) -> AutonomousAgent | None:
-    result = await db.execute(select(AutonomousAgent).where(AutonomousAgent.id == agent_id))
+async def stop_agent(db: AsyncSession, agent_id: UUID, organization_id: UUID | None = None) -> AutonomousAgent | None:
+    result = await db.execute(_by_id(AutonomousAgent, agent_id, organization_id))
     agent = result.scalar_one_or_none()
     if not agent:
         return None
@@ -112,8 +121,8 @@ async def stop_agent(db: AsyncSession, agent_id: UUID) -> AutonomousAgent | None
     return agent
 
 
-async def pause_agent(db: AsyncSession, agent_id: UUID) -> AutonomousAgent | None:
-    result = await db.execute(select(AutonomousAgent).where(AutonomousAgent.id == agent_id))
+async def pause_agent(db: AsyncSession, agent_id: UUID, organization_id: UUID | None = None) -> AutonomousAgent | None:
+    result = await db.execute(_by_id(AutonomousAgent, agent_id, organization_id))
     agent = result.scalar_one_or_none()
     if not agent:
         return None
@@ -143,9 +152,9 @@ async def create_twin(db: AsyncSession, data: dict) -> DigitalTwin:
     return twin
 
 
-async def get_twin_by_id(db: AsyncSession, twin_id: UUID) -> DigitalTwin | None:
+async def get_twin_by_id(db: AsyncSession, twin_id: UUID, organization_id: UUID | None = None) -> DigitalTwin | None:
     result = await db.execute(
-        select(DigitalTwin).where(DigitalTwin.id == twin_id)
+        _by_id(DigitalTwin, twin_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -171,7 +180,7 @@ async def get_twins_paginated(
     if project_id:
         query = query.where(DigitalTwin.project_id == project_id)
         count_query = count_query.where(DigitalTwin.project_id == project_id)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(DigitalTwin.organization_id == organization_id)
         count_query = count_query.where(DigitalTwin.organization_id == organization_id)
 
@@ -186,8 +195,8 @@ async def get_twins_paginated(
     return twins, total
 
 
-async def update_twin(db: AsyncSession, twin_id: UUID, data: dict) -> DigitalTwin | None:
-    result = await db.execute(select(DigitalTwin).where(DigitalTwin.id == twin_id))
+async def update_twin(db: AsyncSession, twin_id: UUID, data: dict, organization_id: UUID | None = None) -> DigitalTwin | None:
+    result = await db.execute(_by_id(DigitalTwin, twin_id, organization_id))
     twin = result.scalar_one_or_none()
     if not twin:
         return None
@@ -203,8 +212,8 @@ async def update_twin(db: AsyncSession, twin_id: UUID, data: dict) -> DigitalTwi
     return twin
 
 
-async def delete_twin(db: AsyncSession, twin_id: UUID) -> bool:
-    result = await db.execute(select(DigitalTwin).where(DigitalTwin.id == twin_id))
+async def delete_twin(db: AsyncSession, twin_id: UUID, organization_id: UUID | None = None) -> bool:
+    result = await db.execute(_by_id(DigitalTwin, twin_id, organization_id))
     twin = result.scalar_one_or_none()
     if not twin:
         return False
@@ -214,9 +223,10 @@ async def delete_twin(db: AsyncSession, twin_id: UUID) -> bool:
 
 
 async def sync_twin(
-    db: AsyncSession, twin_id: UUID, current_state: dict
+    db: AsyncSession, twin_id: UUID, current_state: dict,
+    organization_id: UUID | None = None,
 ) -> DigitalTwin | None:
-    result = await db.execute(select(DigitalTwin).where(DigitalTwin.id == twin_id))
+    result = await db.execute(_by_id(DigitalTwin, twin_id, organization_id))
     twin = result.scalar_one_or_none()
     if not twin:
         return None
@@ -229,8 +239,8 @@ async def sync_twin(
     return twin
 
 
-async def get_twin_current_state(db: AsyncSession, twin_id: UUID) -> dict | None:
-    result = await db.execute(select(DigitalTwin).where(DigitalTwin.id == twin_id))
+async def get_twin_current_state(db: AsyncSession, twin_id: UUID, organization_id: UUID | None = None) -> dict | None:
+    result = await db.execute(_by_id(DigitalTwin, twin_id, organization_id))
     twin = result.scalar_one_or_none()
     if not twin:
         return None
@@ -262,9 +272,9 @@ async def create_task(db: AsyncSession, data: dict) -> AutonomousTask:
     return task
 
 
-async def get_task_by_id(db: AsyncSession, task_id: UUID) -> AutonomousTask | None:
+async def get_task_by_id(db: AsyncSession, task_id: UUID, organization_id: UUID | None = None) -> AutonomousTask | None:
     result = await db.execute(
-        select(AutonomousTask).where(AutonomousTask.id == task_id)
+        _by_id(AutonomousTask, task_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -294,7 +304,7 @@ async def get_tasks_paginated(
     if agent_id:
         query = query.where(AutonomousTask.agent_id == agent_id)
         count_query = count_query.where(AutonomousTask.agent_id == agent_id)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(AutonomousTask.organization_id == organization_id)
         count_query = count_query.where(AutonomousTask.organization_id == organization_id)
 
@@ -328,9 +338,9 @@ async def create_simulation(db: AsyncSession, data: dict) -> ConstructionSimulat
     return sim
 
 
-async def get_simulation_by_id(db: AsyncSession, sim_id: UUID) -> ConstructionSimulation | None:
+async def get_simulation_by_id(db: AsyncSession, sim_id: UUID, organization_id: UUID | None = None) -> ConstructionSimulation | None:
     result = await db.execute(
-        select(ConstructionSimulation).where(ConstructionSimulation.id == sim_id)
+        _by_id(ConstructionSimulation, sim_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -356,7 +366,7 @@ async def get_simulations_paginated(
     if project_id:
         query = query.where(ConstructionSimulation.project_id == project_id)
         count_query = count_query.where(ConstructionSimulation.project_id == project_id)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(ConstructionSimulation.organization_id == organization_id)
         count_query = count_query.where(ConstructionSimulation.organization_id == organization_id)
 
@@ -372,10 +382,11 @@ async def get_simulations_paginated(
 
 
 async def update_simulation(
-    db: AsyncSession, sim_id: UUID, data: dict
+    db: AsyncSession, sim_id: UUID, data: dict,
+    organization_id: UUID | None = None,
 ) -> ConstructionSimulation | None:
     result = await db.execute(
-        select(ConstructionSimulation).where(ConstructionSimulation.id == sim_id)
+        _by_id(ConstructionSimulation, sim_id, organization_id)
     )
     sim = result.scalar_one_or_none()
     if not sim:
@@ -389,9 +400,9 @@ async def update_simulation(
     return sim
 
 
-async def delete_simulation(db: AsyncSession, sim_id: UUID) -> bool:
+async def delete_simulation(db: AsyncSession, sim_id: UUID, organization_id: UUID | None = None) -> bool:
     result = await db.execute(
-        select(ConstructionSimulation).where(ConstructionSimulation.id == sim_id)
+        _by_id(ConstructionSimulation, sim_id, organization_id)
     )
     sim = result.scalar_one_or_none()
     if not sim:
@@ -401,9 +412,9 @@ async def delete_simulation(db: AsyncSession, sim_id: UUID) -> bool:
     return True
 
 
-async def run_simulation(db: AsyncSession, sim_id: UUID) -> ConstructionSimulation | None:
+async def run_simulation(db: AsyncSession, sim_id: UUID, organization_id: UUID | None = None) -> ConstructionSimulation | None:
     result = await db.execute(
-        select(ConstructionSimulation).where(ConstructionSimulation.id == sim_id)
+        _by_id(ConstructionSimulation, sim_id, organization_id)
     )
     sim = result.scalar_one_or_none()
     if not sim:
@@ -451,9 +462,9 @@ async def create_operation(db: AsyncSession, data: dict) -> AutonomousOperation:
     return op
 
 
-async def get_operation_by_id(db: AsyncSession, op_id: UUID) -> AutonomousOperation | None:
+async def get_operation_by_id(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -479,7 +490,7 @@ async def get_operations_paginated(
     if project_id:
         query = query.where(AutonomousOperation.project_id == project_id)
         count_query = count_query.where(AutonomousOperation.project_id == project_id)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(AutonomousOperation.organization_id == organization_id)
         count_query = count_query.where(AutonomousOperation.organization_id == organization_id)
 
@@ -495,10 +506,11 @@ async def get_operations_paginated(
 
 
 async def update_operation(
-    db: AsyncSession, op_id: UUID, data: dict
+    db: AsyncSession, op_id: UUID, data: dict,
+    organization_id: UUID | None = None,
 ) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -512,9 +524,9 @@ async def update_operation(
     return op
 
 
-async def delete_operation(db: AsyncSession, op_id: UUID) -> bool:
+async def delete_operation(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> bool:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -524,9 +536,9 @@ async def delete_operation(db: AsyncSession, op_id: UUID) -> bool:
     return True
 
 
-async def start_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation | None:
+async def start_operation(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -539,9 +551,9 @@ async def start_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation 
     return op
 
 
-async def pause_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation | None:
+async def pause_operation(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -551,9 +563,9 @@ async def pause_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation 
     return op
 
 
-async def resume_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation | None:
+async def resume_operation(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -563,9 +575,9 @@ async def resume_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation
     return op
 
 
-async def abort_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation | None:
+async def abort_operation(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -576,9 +588,9 @@ async def abort_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation 
     return op
 
 
-async def emergency_stop_operation(db: AsyncSession, op_id: UUID) -> AutonomousOperation | None:
+async def emergency_stop_operation(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> AutonomousOperation | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -590,9 +602,9 @@ async def emergency_stop_operation(db: AsyncSession, op_id: UUID) -> AutonomousO
     return op
 
 
-async def get_operation_progress(db: AsyncSession, op_id: UUID) -> dict | None:
+async def get_operation_progress(db: AsyncSession, op_id: UUID, organization_id: UUID | None = None) -> dict | None:
     result = await db.execute(
-        select(AutonomousOperation).where(AutonomousOperation.id == op_id)
+        _by_id(AutonomousOperation, op_id, organization_id)
     )
     op = result.scalar_one_or_none()
     if not op:
@@ -629,9 +641,9 @@ async def create_marine_robot(db: AsyncSession, data: dict) -> MarineRobot:
     return robot
 
 
-async def get_marine_robot_by_id(db: AsyncSession, robot_id: UUID) -> MarineRobot | None:
+async def get_marine_robot_by_id(db: AsyncSession, robot_id: UUID, organization_id: UUID | None = None) -> MarineRobot | None:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -657,7 +669,7 @@ async def get_marine_robots_paginated(
     if mission_type:
         query = query.where(MarineRobot.mission_type == mission_type)
         count_query = count_query.where(MarineRobot.mission_type == mission_type)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(MarineRobot.organization_id == organization_id)
         count_query = count_query.where(MarineRobot.organization_id == organization_id)
 
@@ -673,10 +685,11 @@ async def get_marine_robots_paginated(
 
 
 async def update_marine_robot(
-    db: AsyncSession, robot_id: UUID, data: dict
+    db: AsyncSession, robot_id: UUID, data: dict,
+    organization_id: UUID | None = None,
 ) -> MarineRobot | None:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     robot = result.scalar_one_or_none()
     if not robot:
@@ -690,9 +703,9 @@ async def update_marine_robot(
     return robot
 
 
-async def delete_marine_robot(db: AsyncSession, robot_id: UUID) -> bool:
+async def delete_marine_robot(db: AsyncSession, robot_id: UUID, organization_id: UUID | None = None) -> bool:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     robot = result.scalar_one_or_none()
     if not robot:
@@ -702,9 +715,9 @@ async def delete_marine_robot(db: AsyncSession, robot_id: UUID) -> bool:
     return True
 
 
-async def deploy_marine_robot(db: AsyncSession, robot_id: UUID) -> MarineRobot | None:
+async def deploy_marine_robot(db: AsyncSession, robot_id: UUID, organization_id: UUID | None = None) -> MarineRobot | None:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     robot = result.scalar_one_or_none()
     if not robot:
@@ -717,9 +730,9 @@ async def deploy_marine_robot(db: AsyncSession, robot_id: UUID) -> MarineRobot |
     return robot
 
 
-async def recover_marine_robot(db: AsyncSession, robot_id: UUID) -> MarineRobot | None:
+async def recover_marine_robot(db: AsyncSession, robot_id: UUID, organization_id: UUID | None = None) -> MarineRobot | None:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     robot = result.scalar_one_or_none()
     if not robot:
@@ -732,9 +745,9 @@ async def recover_marine_robot(db: AsyncSession, robot_id: UUID) -> MarineRobot 
     return robot
 
 
-async def get_marine_robot_telemetry(db: AsyncSession, robot_id: UUID) -> dict | None:
+async def get_marine_robot_telemetry(db: AsyncSession, robot_id: UUID, organization_id: UUID | None = None) -> dict | None:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     robot = result.scalar_one_or_none()
     if not robot:
@@ -751,10 +764,11 @@ async def get_marine_robot_telemetry(db: AsyncSession, robot_id: UUID) -> dict |
 
 
 async def set_marine_robot_mission(
-    db: AsyncSession, robot_id: UUID, mission_plan: dict
+    db: AsyncSession, robot_id: UUID, mission_plan: dict,
+    organization_id: UUID | None = None,
 ) -> MarineRobot | None:
     result = await db.execute(
-        select(MarineRobot).where(MarineRobot.id == robot_id)
+        _by_id(MarineRobot, robot_id, organization_id)
     )
     robot = result.scalar_one_or_none()
     if not robot:
@@ -767,6 +781,32 @@ async def set_marine_robot_mission(
 # ============================================
 # Autonomous Controls CRUD
 # ============================================
+# Control targets that are stored (and organization-owned) in this service.
+# Commands for any other target_type cannot be checked for ownership and are rejected (fail-closed).
+CONTROL_TARGET_MODELS: dict[str, Any] = {
+    "operation": AutonomousOperation,
+    "marine_robot": MarineRobot,
+    "agent": AutonomousAgent,
+    "digital_twin": DigitalTwin,
+    "simulation": ConstructionSimulation,
+}
+
+
+async def get_control_target(
+    db: AsyncSession,
+    target_type: str,
+    target_id: UUID,
+    organization_id: UUID | None = None,
+) -> Any | None:
+    """Return the command target (organization-scoped), or None if absent / not visible.
+
+    Raises ``KeyError`` for an unsupported ``target_type``.
+    """
+    model = CONTROL_TARGET_MODELS[target_type]
+    result = await db.execute(_by_id(model, target_id, organization_id))
+    return result.scalar_one_or_none()
+
+
 async def send_control_command(db: AsyncSession, data: dict) -> AutonomousControl:
     ctrl = AutonomousControl(
         organization_id=data["organization_id"],
@@ -782,9 +822,9 @@ async def send_control_command(db: AsyncSession, data: dict) -> AutonomousContro
     return ctrl
 
 
-async def get_control_by_id(db: AsyncSession, control_id: UUID) -> AutonomousControl | None:
+async def get_control_by_id(db: AsyncSession, control_id: UUID, organization_id: UUID | None = None) -> AutonomousControl | None:
     result = await db.execute(
-        select(AutonomousControl).where(AutonomousControl.id == control_id)
+        _by_id(AutonomousControl, control_id, organization_id)
     )
     return result.scalar_one_or_none()
 
@@ -795,6 +835,7 @@ async def get_controls_for_target(
     target_type: str,
     page: int = 1,
     per_page: int = 20,
+    organization_id: UUID | None = None,
 ) -> tuple[list[AutonomousControl], int]:
     query = select(AutonomousControl).where(
         AutonomousControl.target_id == target_id,
@@ -804,6 +845,9 @@ async def get_controls_for_target(
         AutonomousControl.target_id == target_id,
         AutonomousControl.target_type == target_type,
     )
+    if organization_id is not None:
+        query = query.where(AutonomousControl.organization_id == organization_id)
+        count_query = count_query.where(AutonomousControl.organization_id == organization_id)
 
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
@@ -829,7 +873,7 @@ async def get_pending_controls(
         AutonomousControl.status == "pending"
     )
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(AutonomousControl.organization_id == organization_id)
         count_query = count_query.where(AutonomousControl.organization_id == organization_id)
 

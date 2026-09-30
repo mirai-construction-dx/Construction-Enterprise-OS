@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -40,9 +41,11 @@ async def create_marine_robot_endpoint(
     request: Request,
     body: MarineRobotCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    robot = await create_marine_robot(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    robot = await create_marine_robot(db, data)
     return APIResponse(data=_robot_to_response(robot))
 
 
@@ -56,7 +59,7 @@ async def list_marine_robots(
     mission_type: str | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     robots, total = await get_marine_robots_paginated(
         db,
@@ -65,7 +68,7 @@ async def list_marine_robots(
         robot_type=robot_type,
         status=status,
         mission_type=mission_type,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -88,9 +91,9 @@ async def get_marine_robot(
     request: Request,
     robot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    robot = await get_marine_robot_by_id(db, robot_id)
+    robot = await get_marine_robot_by_id(db, robot_id, organization_id=scope_org(current_user))
     if not robot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -105,9 +108,9 @@ async def update_marine_robot_endpoint(
     robot_id: UUID,
     body: MarineRobotUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    robot = await update_marine_robot(db, robot_id, body.model_dump(exclude_unset=True))
+    robot = await update_marine_robot(db, robot_id, body.model_dump(exclude_unset=True), organization_id=scope_org(current_user))
     if not robot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -121,9 +124,9 @@ async def delete_marine_robot_endpoint(
     request: Request,
     robot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_marine_robot(db, robot_id)
+    deleted = await delete_marine_robot(db, robot_id, organization_id=scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -137,9 +140,9 @@ async def deploy_marine_robot_endpoint(
     request: Request,
     robot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    robot = await deploy_marine_robot(db, robot_id)
+    robot = await deploy_marine_robot(db, robot_id, organization_id=scope_org(current_user))
     if not robot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -153,9 +156,9 @@ async def recover_marine_robot_endpoint(
     request: Request,
     robot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    robot = await recover_marine_robot(db, robot_id)
+    robot = await recover_marine_robot(db, robot_id, organization_id=scope_org(current_user))
     if not robot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -169,9 +172,9 @@ async def get_marine_robot_telemetry_endpoint(
     request: Request,
     robot_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    telemetry = await get_marine_robot_telemetry(db, robot_id)
+    telemetry = await get_marine_robot_telemetry(db, robot_id, organization_id=scope_org(current_user))
     if not telemetry:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -186,9 +189,9 @@ async def set_mission_plan_endpoint(
     robot_id: UUID,
     body: MissionPlanRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    robot = await set_marine_robot_mission(db, robot_id, body.mission_plan)
+    robot = await set_marine_robot_mission(db, robot_id, body.mission_plan, organization_id=scope_org(current_user))
     if not robot:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
