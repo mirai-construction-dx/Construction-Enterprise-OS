@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -47,9 +48,11 @@ async def create_review(
     request: Request,
     body: DesignReviewCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await create_design_review(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    record = await create_design_review(db, data)
     return APIResponse(data=_to_response(record))
 
 
@@ -63,7 +66,7 @@ async def list_reviews(
     project_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     records, total = await list_design_reviews(
         db,
@@ -72,7 +75,7 @@ async def list_reviews(
         review_type=review_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -92,9 +95,9 @@ async def get_review(
     request: Request,
     review_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await get_design_review_by_id(db, review_id)
+    record = await get_design_review_by_id(db, review_id, scope_org(current_user))
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -109,9 +112,11 @@ async def update_review(
     review_id: UUID,
     body: DesignReviewUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await update_design_review(db, review_id, body.model_dump(exclude_unset=True))
+    record = await update_design_review(
+        db, review_id, body.model_dump(exclude_unset=True), scope_org(current_user)
+    )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -125,9 +130,9 @@ async def delete_review(
     request: Request,
     review_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_design_review(db, review_id)
+    deleted = await delete_design_review(db, review_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -141,9 +146,9 @@ async def compliance_report_endpoint(
     request: Request,
     review_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    report = await get_compliance_report(db, review_id)
+    report = await get_compliance_report(db, review_id, scope_org(current_user))
     if not report:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
