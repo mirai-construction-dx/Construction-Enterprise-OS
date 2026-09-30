@@ -24,6 +24,9 @@ HOP_BY_HOP_HEADERS = frozenset(
 # httpx returns an already-decoded body from ``response.content``, so the
 # upstream encoding and length no longer describe what we send. Starlette
 # recomputes content-length from the body when it is not supplied.
+# HEAD responses carry no body, so there is nothing to re-encode or measure;
+# the upstream values are the only correct representation metadata and are
+# kept (Starlette does not overwrite a supplied content-length).
 _STALE_ENTITY_HEADERS = frozenset({"content-encoding", "content-length"})
 
 
@@ -67,12 +70,12 @@ class ProxyService:
 
                 # Drop hop-by-hop headers (RFC 9110 §7.6.1), anything the upstream
                 # listed in Connection, and entity headers that no longer match
-                # the decoded body.
-                excluded = (
-                    HOP_BY_HOP_HEADERS
-                    | _STALE_ENTITY_HEADERS
-                    | _connection_tokens(upstream_response.headers.get_list("connection"))
+                # the decoded body (except for HEAD, whose body is always empty).
+                excluded = HOP_BY_HOP_HEADERS | _connection_tokens(
+                    upstream_response.headers.get_list("connection")
                 )
+                if request.method != "HEAD":
+                    excluded = excluded | _STALE_ENTITY_HEADERS
                 response_headers = {
                     key: value
                     for key, value in upstream_response.headers.items()

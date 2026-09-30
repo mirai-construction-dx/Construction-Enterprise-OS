@@ -196,10 +196,14 @@ def test_request_hop_by_hop_headers_are_not_forwarded(gw_client, fake_upstream):
     assert sent["x-request-id"] == "req-123"
 
 
-def _make_request(headers: list[tuple[bytes, bytes]], request_id: str | None = None) -> Request:
+def _make_request(
+    headers: list[tuple[bytes, bytes]],
+    request_id: str | None = None,
+    method: str = "GET",
+) -> Request:
     scope: dict[str, Any] = {
         "type": "http",
-        "method": "GET",
+        "method": method,
         "path": "/",
         "query_string": b"",
         "headers": headers,
@@ -567,3 +571,60 @@ def test_gzip_upstream_body_reaches_client_intact(gw_client, fake_upstream):
     assert "content-encoding" not in response.headers
     assert response.headers["content-length"] == str(len(GZIP_PLAIN))
     assert response.content == GZIP_PLAIN
+
+
+# ============================================
+# HEAD: 本文が空なので上流の表現メタデータ（content-length / content-encoding）を保持する
+# ============================================
+HEAD_UPSTREAM_LENGTH = "4096"
+
+
+def _head_upstream_response() -> httpx.Response:
+    # 実際の HEAD 応答と同様に本文は空で、content-length は GET 時の本文長を示す
+    return httpx.Response(
+        200,
+        headers={
+            "content-length": HEAD_UPSTREAM_LENGTH,
+            "content-encoding": "gzip",
+            "content-type": "application/json",
+        },
+    )
+
+
+async def test_forward_head_keeps_upstream_content_length_and_encoding(fake_upstream):
+    upstream = _head_upstream_response()
+    assert upstream.content == b""
+    fake_upstream.behavior = upstream
+
+    response = await ProxyService().forward(
+        _make_request([], method="HEAD"), AUTH_UPSTREAM_URL, "api-v1-auth"
+    )
+
+    assert response.body == b""
+    # Starlette must not replace the supplied content-length with len(b"") == 0
+    assert response.headers.getlist("content-length") == [HEAD_UPSTREAM_LENGTH]
+    assert response.headers["content-encoding"] == "gzip"
+
+
+def test_head_upstream_content_length_reaches_client(gw_client, fake_upstream):
+    fake_upstream.behavior = _head_upstream_response()
+
+    response = gw_client.head(PUBLIC_UPSTREAM_PATH)
+
+    assert response.status_code == 200
+    assert fake_upstream.calls[-1]["method"] == "HEAD"
+    assert response.headers.get_list("content-length") == [HEAD_UPSTREAM_LENGTH]
+    assert response.headers["content-encoding"] == "gzip"
+    assert response.content == b""
+
+
+async def test_forward_get_still_drops_stale_entity_headers(fake_upstream):
+    fake_upstream.behavior = _gzip_upstream_response()
+
+    response = await ProxyService().forward(
+        _make_request([], method="GET"), AUTH_UPSTREAM_URL, "api-v1-auth"
+    )
+
+    assert response.body == GZIP_PLAIN
+    assert "content-encoding" not in response.headers
+    assert response.headers.getlist("content-length") == [str(len(GZIP_PLAIN))]
