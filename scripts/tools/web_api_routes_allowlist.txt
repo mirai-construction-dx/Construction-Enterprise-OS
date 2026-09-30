@@ -2,7 +2,8 @@
 # scripts/tools/check_web_api_routes.py (Issue #114 step 9).
 #
 # Format: METHOD /api/v1/path  # reason
-#   - path is the normalised form: path params as {}, no query, no trailing slash
+#   - path is the normalised form: path params as {}, no query; a trailing
+#     slash is significant (/x and /x/ are different FastAPI routes)
 #   - every entry must have a reason; fix the client/service and delete the line
 #   - stale entries (no longer mismatching) are reported as warnings
 #

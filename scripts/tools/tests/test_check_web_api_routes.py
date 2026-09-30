@@ -88,8 +88,12 @@ def repo(tmp_path: Path) -> Path:
         from fastapi import APIRouter
         router = APIRouter()
 
-        @router.get("/")
+        @router.get("")
         async def list_():
+            ...
+
+        @router.post("/")
+        async def create():
             ...
 
         @router.put("/{template_id}")
@@ -186,7 +190,8 @@ def test_gateway_catch_all_is_excluded(repo: Path) -> None:
 
 def test_path_parameter_normalisation() -> None:
     assert cwar.normalize_path("/a/{id}/b/{x:path}") == "/a/{}/b/{}"
-    assert cwar.normalize_path("/a/b/") == "/a/b"
+    assert cwar.normalize_path("/a/b/") == "/a/b/"
+    assert cwar.normalize_path("/a//b") == "/a/b"
     assert cwar.normalize_path("/") == "/"
     parts = [("lit", "/items/"), ("expr", "item.id"), ("lit", "/sub?x=1")]
     assert cwar._template_to_path(parts) == ("/items/{}/sub", True)
@@ -194,6 +199,81 @@ def test_path_parameter_normalisation() -> None:
         "/items-{}",
         False,
     )
+
+
+def test_trailing_slash_is_significant(repo: Path) -> None:
+    # FastAPI joins prefix + "" -> /x and prefix + "/" -> /x/, and answers the
+    # other form with a 307 that the gateway relays (internal Location), so a
+    # call differing only by the trailing slash is a mismatch.
+    _client(
+        repo,
+        """
+        import { get, post } from "../api-client";
+        export const a = () => get<X>("/notification-templates");
+        export const b = () => post<X>("/notification-templates/", {});
+        export const c = () => get<X>("/notification-templates/");
+        export const d = () => post<X>("/notification-templates", {});
+        export const e = () => get<X>("/notifications/unread-count/");
+        """,
+    )
+    res = _run(repo)
+    assert {(c.method, c.path) for c in res.mismatches} == {
+        ("GET", "/api/v1/notification-templates/"),
+        ("POST", "/api/v1/notification-templates"),
+        ("GET", "/api/v1/notifications/unread-count/"),
+    }
+
+
+def test_trailing_slash_follows_fastapi_concatenation(tmp_path: Path) -> None:
+    svc = tmp_path / "services/svc/src"
+    _write(
+        svc / "main.py",
+        """
+        from fastapi import FastAPI
+        from .api import items
+        app = FastAPI()
+        app.include_router(items.router, prefix="/api/v1")
+        """,
+    )
+    _write(
+        svc / "api/items.py",
+        """
+        from fastapi import APIRouter
+        router = APIRouter(prefix="/items")
+
+        @router.get("")
+        async def list_(): ...
+
+        @router.post("/")
+        async def create(): ...
+
+        @router.get("/{item_id}/")
+        async def get_(item_id: int): ...
+        """,
+    )
+    routes = {(r.method, r.path) for r in cwar.collect_service_routes(tmp_path, [])}
+    assert routes == {
+        ("GET", "/api/v1/items"),
+        ("POST", "/api/v1/items/"),
+        ("GET", "/api/v1/items/{}/"),
+    }
+
+
+def test_allowlist_trailing_slash_is_exact(repo: Path) -> None:
+    _client(
+        repo,
+        """
+        import { get } from "../api-client";
+        export const a = () => get<X>("/notifications/policies/");
+        """,
+    )
+    allow = repo / "allow.txt"
+    allow.write_text("GET /api/v1/notifications/policies  # tracked\n", encoding="utf-8")
+    res = _run(repo, allow)
+    assert [(c.method, c.path) for c in res.mismatches] == [
+        ("GET", "/api/v1/notifications/policies/")
+    ]
+    assert res.stale_allowlist == ["GET /api/v1/notifications/policies"]
 
 
 def test_prefix_composition(tmp_path: Path) -> None:

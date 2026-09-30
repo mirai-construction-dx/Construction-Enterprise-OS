@@ -25,7 +25,10 @@ Web side
 Matching
     Strict equality of the normalised (METHOD, path). Path parameters
     (``{x}``, ``{x:path}``) are normalised to ``{}``. Trailing slashes are
-    ignored on both sides (FastAPI ``redirect_slashes``).
+    significant: FastAPI joins prefixes and route paths by plain string
+    concatenation (``prefix + ""`` -> ``/x``, ``prefix + "/"`` -> ``/x/``) and
+    answers the other form with a 307 redirect, which the gateway does not
+    follow (it relays a Location pointing at the internal service host).
 
 Known mismatches can be accepted in ``web_api_routes_allowlist.txt``
 (``METHOD /api/v1/path  # reason``). Exit code is 1 when a mismatch that is
@@ -93,12 +96,12 @@ class Result:
 
 
 def normalize_path(path: str) -> str:
-    """Collapse path params to ``{}``, squash ``//`` and drop trailing ``/``."""
+    """Collapse path params to ``{}`` and squash ``//``.
+
+    A trailing ``/`` is kept: ``/x`` and ``/x/`` are different FastAPI routes.
+    """
     path = _PARAM_RE.sub("{}", path)
-    path = re.sub(r"/{2,}", "/", path)
-    if len(path) > 1:
-        path = path.rstrip("/") or "/"
-    return path
+    return re.sub(r"/{2,}", "/", path)
 
 
 def join_paths(*parts: str) -> str:
