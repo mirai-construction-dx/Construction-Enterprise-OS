@@ -101,3 +101,9 @@
 `https://construction-os.mirai-dx-platform.com/api/v1/*`(Pages Function プロキシ
 → Cloudflare Tunnel → auth:18002 → Neon)でログイン・JWT・users/roles の動作を実証済み
 (docs/operations/api-auth-db-verification.md 参照)。
+
+## 5. Web クライアント ↔ サービスルート整合チェック(CI `web-api-contract`)
+
+- `python3 scripts/tools/check_web_api_routes.py [--json]` で `apps/web/src/lib/api/*.ts` の呼び出し(METHOD+パス)を各 `services/*/src` の FastAPI ルート(ast 静的解析、依存インストール不要、gateway の catch-all は除外)と照合し、不一致があれば終了コード 1。
+- パスパラメータは `{}`・クエリ除去・末尾 `/` 無視で比較。既知の不一致は `scripts/tools/web_api_routes_allowlist.txt` に `METHOD /api/v1/path  # 理由` で記載(修正したら行を削除。不要になった行は警告)。
+- 解析できない形(動的 prefix・非リテラルのパス・`app.mount` 等)は推測せず WARNING として表示。テスト: `pytest scripts/tools/tests -q`。

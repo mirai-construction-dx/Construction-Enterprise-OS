@@ -7,6 +7,33 @@ from fastapi.responses import JSONResponse
 
 logger = structlog.get_logger(__name__)
 
+# RFC 9110 §7.6.1: connection-specific header fields that a proxy must not forward.
+HOP_BY_HOP_HEADERS = frozenset(
+    {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailer",
+        "transfer-encoding",
+        "upgrade",
+    }
+)
+
+# httpx returns an already-decoded body from ``response.content``, so the
+# upstream encoding and length no longer describe what we send. Starlette
+# recomputes content-length from the body when it is not supplied.
+# HEAD responses carry no body, so there is nothing to re-encode or measure;
+# the upstream values are the only correct representation metadata and are
+# kept (Starlette does not overwrite a supplied content-length).
+_STALE_ENTITY_HEADERS = frozenset({"content-encoding", "content-length"})
+
+
+def _connection_tokens(values: list[str]) -> set[str]:
+    """Return lower-cased header names listed in ``Connection`` header values."""
+    return {token.strip().lower() for value in values for token in value.split(",") if token.strip()}
+
 
 class ProxyService:
     """上流マイクロサービスへのリクエスト転送を担当"""
@@ -41,11 +68,19 @@ class ProxyService:
                     follow_redirects=False,
                 )
 
-                response_headers = dict(upstream_response.headers)
-
-                # Remove hop-by-hop headers
-                for hop_header in ("transfer-encoding", "connection", "keep-alive"):
-                    response_headers.pop(hop_header, None)
+                # Drop hop-by-hop headers (RFC 9110 §7.6.1), anything the upstream
+                # listed in Connection, and entity headers that no longer match
+                # the decoded body (except for HEAD, whose body is always empty).
+                excluded = HOP_BY_HOP_HEADERS | _connection_tokens(
+                    upstream_response.headers.get_list("connection")
+                )
+                if request.method != "HEAD":
+                    excluded = excluded | _STALE_ENTITY_HEADERS
+                response_headers = {
+                    key: value
+                    for key, value in upstream_response.headers.items()
+                    if key.lower() not in excluded
+                }
 
                 if upstream_name:
                     response_headers["X-Upstream-Service"] = upstream_name
@@ -95,16 +130,21 @@ class ProxyService:
 
     @staticmethod
     def _prepare_headers(request: Request) -> dict[str, str]:
-        """転送用ヘッダーを準備（hop-by-hop ヘッダーを除外）"""
-        excluded = {"host", "transfer-encoding", "connection", "keep-alive"}
+        """転送用ヘッダーを準備（host・hop-by-hop・Connection 列挙ヘッダーを除外）"""
+        excluded = {"host"} | HOP_BY_HOP_HEADERS | _connection_tokens(request.headers.getlist("connection"))
+
+        # The request ID resolved by LoggingMiddleware wins; drop any incoming
+        # variant (any casing) so exactly one X-Request-ID reaches the upstream.
+        request_id = getattr(request.state, "request_id", None)
+        if request_id:
+            excluded = excluded | {"x-request-id"}
+
         headers = {
             key: value
             for key, value in request.headers.items()
             if key.lower() not in excluded
         }
 
-        # Forward the original request ID if present
-        request_id = getattr(request.state, "request_id", None)
         if request_id:
             headers["X-Request-ID"] = request_id
 

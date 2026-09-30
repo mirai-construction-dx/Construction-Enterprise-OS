@@ -3,10 +3,11 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_client, get_current_user
+from ..middleware.auth import TokenData, get_current_client, get_current_user
+from ..middleware.tenant import scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -19,8 +20,18 @@ from ..services.telemetry_service import (
     get_latest_telemetry,
 )
 from ..services.alert_service import check_alert_rules
+from ..services.device_service import get_device_by_id
 
 router = APIRouter()
+
+
+async def _ensure_device_visible(db: AsyncSession, device_id: UUID, user: TokenData) -> None:
+    """Telemetry belongs to a device; another organization's device is 404 (no existence leak)."""
+    if not await get_device_by_id(db, device_id, scope_org(user)):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
+        )
 
 
 @router.post(
@@ -32,6 +43,9 @@ async def ingest(
     db: AsyncSession = Depends(get_db),
     _current_client=Depends(get_current_client),
 ):
+    # Device-authenticated (client token) ingestion: organization scoping of the caller is not
+    # applied here (kept as-is in the ADR-0004 rollout). Alert rules are evaluated only within
+    # the device's own organization (see check_alert_rules).
     count = await ingest_telemetry(db, body.data)
 
     for point in body.data:
@@ -60,8 +74,9 @@ async def query_device_telemetry(
     metric_name: str | None = Query(None),
     limit: int = Query(100, ge=1, le=10000),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    await _ensure_device_visible(db, device_id, current_user)
     rows = await query_telemetry(
         db,
         device_id=device_id,
@@ -93,7 +108,8 @@ async def latest_telemetry(
     request: Request,
     device_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    await _ensure_device_visible(db, device_id, current_user)
     rows = await get_latest_telemetry(db, device_id)
     return APIResponse(data=[LatestTelemetryValue(**r) for r in rows])
