@@ -24,6 +24,17 @@ def _match_upstream(path: str) -> tuple[str, str] | None:
     return None
 
 
+# パス境界の正規表現（例: "(?:/|$)"）を上流名（X-Upstream-Service）に含めない
+_BOUNDARY_SUFFIX = "(?:/|$)"
+
+
+def _upstream_name(pattern: str) -> str:
+    """ルーティングパターンから上流名を生成する（例: ^/api/v1/ocr(?:/|$) -> api-v1-ocr）"""
+    if pattern.endswith(_BOUNDARY_SUFFIX):
+        pattern = pattern[: -len(_BOUNDARY_SUFFIX)]
+    return pattern.lstrip("^/").replace("/", "-")
+
+
 @router.api_route(
     "/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
@@ -46,5 +57,5 @@ async def proxy_request(request: Request, path: str) -> Response:
         )
 
     pattern, upstream_url = match
-    upstream_name = pattern.lstrip("^/").replace("/", "-")
+    upstream_name = _upstream_name(pattern)
     return await proxy_service.forward(request, upstream_url, upstream_name)
