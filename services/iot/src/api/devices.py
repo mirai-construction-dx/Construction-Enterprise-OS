@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_client, get_current_user
+from ..middleware.auth import TokenData, get_current_client, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -68,9 +69,11 @@ async def create_device(
     request: Request,
     body: DeviceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    device = await register_device(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    device = await register_device(db, data)
     return APIResponse(data=_device_to_response(device))
 
 
@@ -84,8 +87,9 @@ async def list_devices(
     project_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_filter = scope_org(current_user, organization_id)
     devices, total = await get_devices_paginated(
         db,
         page=page,
@@ -93,7 +97,7 @@ async def list_devices(
         device_type=device_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=org_filter,
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -116,9 +120,9 @@ async def get_device(
     request: Request,
     device_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    device = await get_device_by_id(db, device_id)
+    device = await get_device_by_id(db, device_id, scope_org(current_user))
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -133,9 +137,11 @@ async def update_device(
     device_id: UUID,
     body: DeviceUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    device = await update_device_svc(db, device_id, body.model_dump(exclude_unset=True))
+    device = await update_device_svc(
+        db, device_id, body.model_dump(exclude_unset=True), scope_org(current_user)
+    )
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -149,9 +155,9 @@ async def delete_device(
     request: Request,
     device_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_device_svc(db, device_id)
+    deleted = await delete_device_svc(db, device_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -168,6 +174,8 @@ async def device_heartbeat(
     db: AsyncSession = Depends(get_db),
     _current_client=Depends(get_current_client),
 ):
+    # Device-authenticated (client token) endpoint: organization scoping is intentionally not
+    # applied here (ADR-0004 rollout keeps device ingestion behavior; see PR notes).
     device = await device_heartbeat_svc(db, device_id, body.model_dump(exclude_unset=True))
     if not device:
         raise HTTPException(

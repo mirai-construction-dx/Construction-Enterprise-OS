@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -42,7 +43,7 @@ async def create_index(
 ):
     vi = await vision_service.create_vector_index(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         collection_name=body.collection_name,
         dimension=body.dimension,
         index_type=body.index_type,
@@ -62,7 +63,7 @@ async def list_indices(
 ):
     indices = await vision_service.get_vector_indices(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         is_active=is_active,
         skip=skip,
         limit=limit,
@@ -76,7 +77,9 @@ async def get_index(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    vi = await vision_service.get_vector_index_by_id(db, index_id)
+    vi = await vision_service.get_vector_index_by_id(
+        db, index_id, scope_org(current_user)
+    )
     if not vi:
         raise HTTPException(
             status_code=404,
@@ -93,7 +96,10 @@ async def update_index(
     current_user: TokenData = Depends(get_current_user),
 ):
     vi = await vision_service.update_vector_index(
-        db, index_id, is_active=body.is_active
+        db,
+        index_id,
+        is_active=body.is_active,
+        organization_id=scope_org(current_user),
     )
     if not vi:
         raise HTTPException(
@@ -109,7 +115,15 @@ async def delete_index(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await vision_service.delete_vector_index(db, index_id)
+    org_id = scope_org(current_user)
+    # Scoped lookup first: another organization's index is reported as not found (404)
+    # and no DELETE statement is issued at all.
+    if not await vision_service.get_vector_index_by_id(db, index_id, org_id):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "Vector index not found."},
+        )
+    deleted = await vision_service.delete_vector_index(db, index_id, org_id)
     if not deleted:
         raise HTTPException(
             status_code=404,
@@ -124,7 +138,10 @@ async def semantic_search(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    vi = await vision_service.get_vector_index_by_id(db, body.index_id)
+    # Search is restricted to an index visible to the caller (regular users: token org only).
+    vi = await vision_service.get_vector_index_by_id(
+        db, body.index_id, scope_org(current_user)
+    )
     if not vi:
         raise HTTPException(
             status_code=404,
@@ -141,7 +158,8 @@ async def index_documents(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    vi = await vision_service.get_vector_index_by_id(db, body.index_id)
+    org_id = scope_org(current_user)
+    vi = await vision_service.get_vector_index_by_id(db, body.index_id, org_id)
     if not vi:
         raise HTTPException(
             status_code=404,
@@ -157,7 +175,11 @@ async def index_documents(
     doc_count = len(body.documents)
     vector_count = doc_count
     await vision_service.increment_vector_counts(
-        db, body.index_id, added_docs=doc_count, added_vectors=vector_count
+        db,
+        body.index_id,
+        added_docs=doc_count,
+        added_vectors=vector_count,
+        organization_id=org_id,
     )
 
     indexed = [

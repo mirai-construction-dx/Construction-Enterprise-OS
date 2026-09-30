@@ -8,13 +8,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
-from ..models import BIMElement
+from ..middleware.tenant import scope_org
+from ..models import BIMElement, BIMModel
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
     BIMElementResponse,
     MetaInfo,
 )
+from ..services.bim_service import get_bim_model
 
 router = APIRouter()
 
@@ -27,6 +29,30 @@ def _element_to_response(e: BIMElement) -> dict:
     return BIMElementResponse.model_validate(e).model_dump(mode="json")
 
 
+async def _require_model(
+    db: AsyncSession, model_id: UUID, organization_id: UUID | None
+) -> None:
+    """Ensure the parent model exists within the caller's organization (else 404).
+
+    Elements have no organization_id of their own; they inherit the parent model's organization.
+    ``organization_id=None`` is only passed for cross-org admins.
+    """
+    if await get_bim_model(db, model_id, organization_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "NOT_FOUND", "message": "BIMモデルが見つかりません。"},
+        )
+
+
+def _scope_elements(stmt, organization_id: UUID | None):
+    """Restrict an element query to elements whose parent model belongs to the organization."""
+    if organization_id is None:
+        return stmt
+    return stmt.join(BIMModel, BIMElement.model_id == BIMModel.id).where(
+        BIMModel.organization_id == organization_id
+    )
+
+
 @router.get("/{model_id}/elements")
 async def list_elements(
     model_id: UUID,
@@ -37,6 +63,8 @@ async def list_elements(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_model(db, model_id, scope_org(token_data))
+
     query = select(BIMElement).where(BIMElement.model_id == model_id)
     count_query = select(func.count(BIMElement.id)).where(
         BIMElement.model_id == model_id
@@ -70,9 +98,10 @@ async def get_element(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(BIMElement).where(BIMElement.id == element_id)
+    stmt = _scope_elements(
+        select(BIMElement).where(BIMElement.id == element_id), scope_org(token_data)
     )
+    result = await db.execute(stmt)
     element = result.scalar_one_or_none()
     if not element:
         raise HTTPException(
@@ -88,6 +117,8 @@ async def elements_by_category(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_model(db, model_id, scope_org(token_data))
+
     result = await db.execute(
         select(BIMElement).where(BIMElement.model_id == model_id)
         .order_by(BIMElement.category, BIMElement.name)
@@ -112,6 +143,8 @@ async def elements_by_level(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await _require_model(db, model_id, scope_org(token_data))
+
     result = await db.execute(
         select(BIMElement).where(BIMElement.model_id == model_id)
         .order_by(BIMElement.level_name, BIMElement.name)
@@ -134,13 +167,15 @@ async def elements_by_level(
 async def search_elements(
     q: str = Query(..., min_length=1),
     model_id: UUID | None = Query(None),
+    organization_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(BIMElement)
-    count_query = select(func.count(BIMElement.id))
+    org = scope_org(token_data, organization_id)
+    query = _scope_elements(select(BIMElement), org)
+    count_query = _scope_elements(select(func.count(BIMElement.id)), org)
 
     search_term = f"%{q}%"
     name_filter = BIMElement.name.ilike(search_term)

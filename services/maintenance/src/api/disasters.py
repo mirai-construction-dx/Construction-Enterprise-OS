@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -72,7 +73,7 @@ async def create_disaster(
 ):
     report = await svc.create_disaster_report(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         title=body.title,
         disaster_type=body.disaster_type,
         severity=body.severity,
@@ -101,7 +102,7 @@ async def list_disasters(
 ):
     reports = await svc.get_disaster_reports(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         disaster_type=disaster_type,
         severity=severity,
         status=status,
@@ -117,13 +118,14 @@ async def get_disaster(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    report = await svc.get_disaster_report_by_id(db, disaster_id)
+    org = scope_org(current_user)
+    report = await svc.get_disaster_report_by_id(db, disaster_id, org)
     if not report:
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "Disaster report not found."},
         )
-    plans = await svc.get_recovery_plans_for_disaster(db, disaster_id)
+    plans = await svc.get_recovery_plans_for_disaster(db, disaster_id, org)
     return APIResponse(
         data={
             "report": _disaster_to_response(report),
@@ -142,6 +144,7 @@ async def update_disaster(
     report = await svc.update_disaster_report(
         db,
         disaster_id,
+        organization_id=scope_org(current_user),
         title=body.title,
         status=body.status,
         severity=body.severity,
@@ -165,15 +168,25 @@ async def create_recovery_plan(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    report = await svc.get_disaster_report_by_id(db, disaster_id)
+    plan_org = create_org(current_user, body.organization_id)
+    report = await svc.get_disaster_report_by_id(db, disaster_id, scope_org(current_user))
     if not report:
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "Disaster report not found."},
         )
+    if report.organization_id != plan_org:
+        # Only reachable by cross-org admins: a plan must belong to its disaster's organization.
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "RECOVERY_PLAN_ORG_MISMATCH",
+                "message": "復旧計画の組織が災害報告の組織と一致しません。",
+            },
+        )
     plan = await svc.create_recovery_plan(
         db,
-        organization_id=body.organization_id,
+        organization_id=plan_org,
         disaster_report_id=disaster_id,
         title=body.title,
         created_by=body.created_by,
@@ -194,7 +207,7 @@ async def get_recovery_plan(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    plan = await svc.get_recovery_plan_by_id(db, plan_id)
+    plan = await svc.get_recovery_plan_by_id(db, plan_id, scope_org(current_user))
     if not plan:
         raise HTTPException(
             status_code=404,
@@ -213,6 +226,7 @@ async def update_recovery_plan(
     plan = await svc.update_recovery_plan(
         db,
         plan_id,
+        organization_id=scope_org(current_user),
         title=body.title,
         description=body.description,
         priority=body.priority,
