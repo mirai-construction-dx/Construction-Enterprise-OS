@@ -1,11 +1,13 @@
 """Security dashboard API endpoint."""
 
+from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import scope_org
 from ..models import SecurityAudit
 from ..models.base import get_db
 from ..schemas import APIResponse
@@ -36,20 +38,26 @@ def _incident_to_response(inc) -> dict:
 
 @router.get("/dashboard")
 async def get_dashboard(
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inc_severity = await incident_service.get_incident_count_by_severity(db)
-    vuln_severity = await vulnerability_service.get_open_vulnerability_count_by_severity(db)
-    policies_due = await policy_service.count_policies_due_review(db)
-
-    recent_incidents = await incident_service.get_incidents(db, skip=0, limit=5)
-
-    stmt = (
-        select(SecurityAudit)
-        .order_by(SecurityAudit.created_at.desc())
-        .limit(1)
+    # ADR-0004: regular users see only their own organization; admin may pick one or see all.
+    org = scope_org(current_user, organization_id)
+    inc_severity = await incident_service.get_incident_count_by_severity(db, org)
+    vuln_severity = await vulnerability_service.get_open_vulnerability_count_by_severity(
+        db, org
     )
+    policies_due = await policy_service.count_policies_due_review(db, org)
+
+    recent_incidents = await incident_service.get_incidents(
+        db, organization_id=org, skip=0, limit=5
+    )
+
+    stmt = select(SecurityAudit)
+    if org is not None:
+        stmt = stmt.where(SecurityAudit.organization_id == org)
+    stmt = stmt.order_by(SecurityAudit.created_at.desc()).limit(1)
     result = await db.execute(stmt)
     latest_audit = result.scalar_one_or_none()
 

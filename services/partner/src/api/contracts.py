@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import get_current_user
+from ..middleware.tenant import create_org, is_cross_org_admin, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -15,9 +16,33 @@ from ..schemas import (
     ContractUpdate,
     TokenData,
 )
-from ..services import contract_service
+from ..services import contract_service, partner_service
 
 router = APIRouter()
+
+
+def _contract_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"code": "CONTRACT_NOT_FOUND", "message": "契約が見つかりません。"},
+    )
+
+
+def _partner_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
+    )
+
+
+def _partner_org_mismatch() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail={
+            "code": "PARTNER_ORG_MISMATCH",
+            "message": "契約と異なる組織の協力会社は指定できません。",
+        },
+    )
 
 
 def _contract_to_response(contract) -> ContractResponse:
@@ -50,7 +75,12 @@ async def create_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = UUID(current_user.org) if current_user.org else UUID("00000000-0000-0000-0000-000000000001")
+    # ContractCreate has no organization_id: the contract belongs to the referenced partner's
+    # organization, which must be visible to the caller (regular users: their token org).
+    partner = await partner_service.get_partner_by_id(db, body.partner_id, scope_org(current_user))
+    if not partner:
+        raise _partner_not_found()
+    org_id = create_org(current_user, partner.organization_id)
     contract = await contract_service.create_contract(db, org_id, body.model_dump())
     await db.flush()
     await db.refresh(contract)
@@ -66,11 +96,13 @@ async def list_contracts(
     project_id: UUID | None = Query(None),
     status: str | None = Query(None),
     contract_type: str | None = Query(None),
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
     contracts, total = await contract_service.list_contracts(
         db,
+        organization_id=scope_org(current_user, organization_id),
         page=page,
         per_page=per_page,
         partner_id=partner_id,
@@ -97,12 +129,9 @@ async def get_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    contract = await contract_service.get_contract_by_id(db, contract_id)
+    contract = await contract_service.get_contract_by_id(db, contract_id, scope_org(current_user))
     if not contract:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "CONTRACT_NOT_FOUND", "message": "契約が見つかりません。"},
-        )
+        raise _contract_not_found()
     return APIResponse(data=_contract_to_response(contract))
 
 
@@ -114,12 +143,29 @@ async def update_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    contract = await contract_service.update_contract(db, contract_id, body.model_dump(exclude_unset=True))
+    # Load the contract first (regular users: token org only; admin: any org) so that a
+    # partner re-point can be validated against the contract's own organization.
+    contract = await contract_service.get_contract_by_id(db, contract_id, scope_org(current_user))
     if not contract:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "CONTRACT_NOT_FOUND", "message": "契約が見つかりません。"},
-        )
+        raise _contract_not_found()
+    update_data = body.model_dump(exclude_unset=True)
+    if update_data.get("partner_id") is not None:
+        # A contract belongs to its partner's organization, so the new partner must belong to
+        # the contract's organization (admin included). For regular users the contract's org is
+        # their token org, so another org's partner is simply not found (404).
+        if is_cross_org_admin(current_user):
+            partner = await partner_service.get_partner_by_id(db, update_data["partner_id"])
+            if not partner:
+                raise _partner_not_found()
+            if partner.organization_id != contract.organization_id:
+                # Admin can see both records, so hiding the partner (404) would be misleading;
+                # the request itself is invalid because it would move the contract across orgs.
+                raise _partner_org_mismatch()
+        elif not await partner_service.get_partner_by_id(
+            db, update_data["partner_id"], contract.organization_id
+        ):
+            raise _partner_not_found()
+    contract_service.apply_contract_update(contract, update_data)
     return APIResponse(data=_contract_to_response(contract))
 
 
@@ -132,11 +178,8 @@ async def sign_contract(
     current_user: TokenData = Depends(get_current_user),
 ):
     contract = await contract_service.sign_contract(
-        db, contract_id, body.signed_by_our, body.signed_by_partner
+        db, contract_id, body.signed_by_our, body.signed_by_partner, scope_org(current_user)
     )
     if not contract:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "CONTRACT_NOT_FOUND", "message": "契約が見つかりません。"},
-        )
+        raise _contract_not_found()
     return APIResponse(data=_contract_to_response(contract))

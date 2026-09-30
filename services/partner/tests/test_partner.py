@@ -19,6 +19,15 @@ from .conftest import (
 pytestmark = pytest.mark.anyio
 
 
+def _patch_partner_lookup(module: str):
+    """Patch the org-scoped parent partner lookup added by ADR-0004 (Issue #114)."""
+    return patch(
+        f"src.api.{module}.partner_service.get_partner_by_id",
+        new_callable=AsyncMock,
+        return_value=make_mock_partner(),
+    )
+
+
 # ============================================
 # 1. Health Check
 # ============================================
@@ -185,7 +194,9 @@ async def test_list_contacts(client: AsyncClient, auth_headers):
 async def test_create_contract(client: AsyncClient, auth_headers):
     mock_contract = make_mock_contract()
 
-    with patch("src.api.contracts.contract_service.create_contract", new_callable=AsyncMock) as mock_create:
+    with _patch_partner_lookup("contracts"), patch(
+        "src.api.contracts.contract_service.create_contract", new_callable=AsyncMock
+    ) as mock_create:
         mock_create.return_value = mock_contract
 
         response = await client.post("/api/v1/partners/contracts", json={
@@ -255,7 +266,9 @@ async def test_sign_contract(client: AsyncClient, auth_headers):
 async def test_create_evaluation(client: AsyncClient, auth_headers):
     mock_evaluation = make_mock_evaluation()
 
-    with patch("src.api.evaluations.evaluation_service.create_evaluation", new_callable=AsyncMock) as mock_create:
+    with _patch_partner_lookup("evaluations"), patch(
+        "src.api.evaluations.evaluation_service.create_evaluation", new_callable=AsyncMock
+    ) as mock_create:
         mock_create.return_value = mock_evaluation
         with patch("src.api.evaluations.evaluation_service.update_partner_rating", new_callable=AsyncMock) as mock_update:
             mock_update.return_value = None
@@ -275,7 +288,9 @@ async def test_create_evaluation(client: AsyncClient, auth_headers):
 
 
 async def test_get_partner_rating(client: AsyncClient, auth_headers):
-    with patch("src.api.partners.evaluation_service.get_partner_rating", new_callable=AsyncMock) as mock_rating:
+    with _patch_partner_lookup("partners"), patch(
+        "src.api.partners.evaluation_service.get_partner_rating", new_callable=AsyncMock
+    ) as mock_rating:
         mock_rating.return_value = (4.5, 10)
 
         response = await client.get(f"/api/v1/partners/{SAMPLE_UUID}/rating", headers=auth_headers)
@@ -293,7 +308,9 @@ async def test_get_partner_rating(client: AsyncClient, auth_headers):
 async def test_create_assignment(client: AsyncClient, auth_headers):
     mock_assignment = make_mock_assignment()
 
-    with patch("src.api.assignments.assignment_service.create_assignment", new_callable=AsyncMock) as mock_create:
+    with _patch_partner_lookup("assignments"), patch(
+        "src.api.assignments.assignment_service.create_assignment", new_callable=AsyncMock
+    ) as mock_create:
         mock_create.return_value = mock_assignment
 
         response = await client.post("/api/v1/partners/assignments", json={
@@ -343,7 +360,9 @@ async def test_get_project_assignments(client: AsyncClient, auth_headers):
 async def test_get_partner_contracts(client: AsyncClient, auth_headers):
     mock_contract = make_mock_contract()
 
-    with patch("src.api.partners.contract_service.list_contracts_for_partner", new_callable=AsyncMock) as mock_list:
+    with _patch_partner_lookup("partners"), patch(
+        "src.api.partners.contract_service.list_contracts_for_partner", new_callable=AsyncMock
+    ) as mock_list:
         mock_list.return_value = ([mock_contract], 1)
 
         response = await client.get(f"/api/v1/partners/{SAMPLE_UUID}/contracts", headers=auth_headers)
