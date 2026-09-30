@@ -49,7 +49,7 @@ async def get_policies(
     limit: int = 50,
 ) -> list[SecurityPolicy]:
     stmt = select(SecurityPolicy)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(SecurityPolicy.organization_id == organization_id)
     if category:
         stmt = stmt.where(SecurityPolicy.category == category)
@@ -61,9 +61,12 @@ async def get_policies(
 
 
 async def get_policy_by_id(
-    db: AsyncSession, policy_id: UUID
+    db: AsyncSession, policy_id: UUID, organization_id: UUID | None = None
 ) -> SecurityPolicy | None:
+    """Look up a policy; ``organization_id`` restricts it to one org (``None``: admin, any org)."""
     stmt = select(SecurityPolicy).where(SecurityPolicy.id == policy_id)
+    if organization_id is not None:
+        stmt = stmt.where(SecurityPolicy.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -71,6 +74,7 @@ async def get_policy_by_id(
 async def update_policy(
     db: AsyncSession,
     policy_id: UUID,
+    organization_id: UUID | None = None,
     name: str | None = None,
     description: str | None = None,
     category: str | None = None,
@@ -79,7 +83,7 @@ async def update_policy(
     effective_date: str | None = None,
     review_date: str | None = None,
 ) -> SecurityPolicy | None:
-    policy = await get_policy_by_id(db, policy_id)
+    policy = await get_policy_by_id(db, policy_id, organization_id)
     if not policy:
         return None
     if name is not None:
@@ -106,8 +110,9 @@ async def mark_policy_reviewed(
     policy_id: UUID,
     approved_by: UUID,
     new_review_date: date | None = None,
+    organization_id: UUID | None = None,
 ) -> SecurityPolicy | None:
-    policy = await get_policy_by_id(db, policy_id)
+    policy = await get_policy_by_id(db, policy_id, organization_id)
     if not policy:
         return None
     policy.version += 1
@@ -119,7 +124,9 @@ async def mark_policy_reviewed(
     return policy
 
 
-async def count_policies_due_review(db: AsyncSession) -> int:
+async def count_policies_due_review(
+    db: AsyncSession, organization_id: UUID | None = None
+) -> int:
     today = date.today()
     stmt = (
         select(func.count())
@@ -130,5 +137,7 @@ async def count_policies_due_review(db: AsyncSession) -> int:
             SecurityPolicy.review_date.isnot(None),
         )
     )
+    if organization_id is not None:
+        stmt = stmt.where(SecurityPolicy.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar() or 0

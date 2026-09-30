@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import APIResponse, PolicyCreate, PolicyUpdate
 from ..services import policy_service
@@ -39,7 +40,7 @@ async def create_policy(
 ):
     policy = await policy_service.create_policy(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         name=body.name,
         category=body.category,
         content=body.content,
@@ -63,7 +64,7 @@ async def list_policies(
 ):
     policies = await policy_service.get_policies(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         category=category,
         status=status,
         skip=skip,
@@ -78,7 +79,9 @@ async def get_policy(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    policy = await policy_service.get_policy_by_id(db, policy_id)
+    policy = await policy_service.get_policy_by_id(
+        db, policy_id, scope_org(current_user)
+    )
     if not policy:
         raise HTTPException(
             status_code=404,
@@ -97,6 +100,7 @@ async def update_policy(
     policy = await policy_service.update_policy(
         db,
         policy_id,
+        organization_id=scope_org(current_user),
         name=body.name,
         description=body.description,
         category=body.category,
@@ -123,6 +127,7 @@ async def review_policy(
         db,
         policy_id,
         approved_by=UUID(current_user.sub),
+        organization_id=scope_org(current_user),
     )
     if not policy:
         raise HTTPException(

@@ -50,7 +50,7 @@ async def get_incidents(
     limit: int = 50,
 ) -> list[SecurityIncident]:
     stmt = select(SecurityIncident)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(SecurityIncident.organization_id == organization_id)
     if severity:
         stmt = stmt.where(SecurityIncident.severity == severity)
@@ -64,9 +64,12 @@ async def get_incidents(
 
 
 async def get_incident_by_id(
-    db: AsyncSession, incident_id: UUID
+    db: AsyncSession, incident_id: UUID, organization_id: UUID | None = None
 ) -> SecurityIncident | None:
+    """Look up an incident; ``organization_id`` restricts it to one org (``None``: admin, any org)."""
     stmt = select(SecurityIncident).where(SecurityIncident.id == incident_id)
+    if organization_id is not None:
+        stmt = stmt.where(SecurityIncident.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -74,12 +77,13 @@ async def get_incident_by_id(
 async def update_incident(
     db: AsyncSession,
     incident_id: UUID,
+    organization_id: UUID | None = None,
     status: str | None = None,
     severity: str | None = None,
     assigned_to: UUID | None = None,
     resolution: str | None = None,
 ) -> SecurityIncident | None:
-    incident = await get_incident_by_id(db, incident_id)
+    incident = await get_incident_by_id(db, incident_id, organization_id)
     if not incident:
         return None
     if status is not None:
@@ -102,8 +106,9 @@ async def add_incident_update(
     user_id: UUID,
     update_type: str,
     content: str,
+    organization_id: UUID | None = None,
 ) -> IncidentUpdate | None:
-    incident = await get_incident_by_id(db, incident_id)
+    incident = await get_incident_by_id(db, incident_id, organization_id)
     if not incident:
         return None
     update = IncidentUpdate(
@@ -117,23 +122,29 @@ async def add_incident_update(
     return update
 
 
-async def get_active_incident_count(db: AsyncSession) -> int:
+async def get_active_incident_count(
+    db: AsyncSession, organization_id: UUID | None = None
+) -> int:
     stmt = select(func.count()).select_from(SecurityIncident).where(
         SecurityIncident.status.notin_(["closed", "resolved"])
     )
+    if organization_id is not None:
+        stmt = stmt.where(SecurityIncident.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar() or 0
 
 
 async def get_incident_count_by_severity(
-    db: AsyncSession,
+    db: AsyncSession, organization_id: UUID | None = None
 ) -> dict[str, int]:
     stmt = (
         select(SecurityIncident.severity, func.count())
         .select_from(SecurityIncident)
         .where(SecurityIncident.status.notin_(["closed", "resolved"]))
-        .group_by(SecurityIncident.severity)
     )
+    if organization_id is not None:
+        stmt = stmt.where(SecurityIncident.organization_id == organization_id)
+    stmt = stmt.group_by(SecurityIncident.severity)
     result = await db.execute(stmt)
     rows = result.all()
     severity_map = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}

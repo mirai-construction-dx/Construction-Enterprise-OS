@@ -19,8 +19,20 @@ async def create_cost(
     return cost
 
 
-async def get_cost(db: AsyncSession, cost_id: uuid.UUID) -> CostItem | None:
-    return await db.get(CostItem, cost_id)
+async def get_cost(
+    db: AsyncSession,
+    cost_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> CostItem | None:
+    """Fetch a cost item; when ``organization_id`` is given, other organizations' rows are not found."""
+    if organization_id is None:
+        return await db.get(CostItem, cost_id)
+    result = await db.execute(
+        select(CostItem).where(
+            CostItem.id == cost_id, CostItem.organization_id == organization_id
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_costs(
@@ -29,11 +41,21 @@ async def list_costs(
     status: str | None = None,
     page: int = 1,
     per_page: int = 20,
+    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[CostItem], int]:
+    """List a ledger's cost items.
+
+    When ``organization_id`` is given, the child rows themselves are also filtered by
+    organization (defense in depth on top of the parent-ledger check, ADR-0004).
+    """
     query = select(CostItem).where(CostItem.ledger_id == ledger_id)
     count_query = select(func.count(CostItem.id)).where(
         CostItem.ledger_id == ledger_id
     )
+
+    if organization_id is not None:
+        query = query.where(CostItem.organization_id == organization_id)
+        count_query = count_query.where(CostItem.organization_id == organization_id)
 
     if status:
         query = query.where(CostItem.status == status)
@@ -73,17 +95,19 @@ async def approve_cost(
     cost.approved_by = approved_by
     cost.approved_at = datetime.now(timezone.utc)
 
+    # Side effects never cross the tenant boundary (ADR-0004): a budget / ledger of
+    # another organization is left untouched even if the cost references it.
     # Update budget actual_amount
     if cost.budget_id:
         budget = await db.get(Budget, cost.budget_id)
-        if budget:
+        if budget and budget.organization_id == cost.organization_id:
             budget.actual_amount = float(budget.actual_amount) + float(cost.amount)
             budget.updated_at = datetime.now(timezone.utc)
 
     # Update ledger actual_cost
     if cost.ledger_id:
         ledger = await db.get(ProjectLedger, cost.ledger_id)
-        if ledger:
+        if ledger and ledger.organization_id == cost.organization_id:
             ledger.actual_cost = float(ledger.actual_cost) + float(cost.amount)
             ledger.estimated_profit = (
                 float(ledger.contract_amount) - float(ledger.actual_cost)

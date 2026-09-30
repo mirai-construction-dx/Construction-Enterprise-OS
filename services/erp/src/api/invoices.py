@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
     InvoiceCreateRequest,
@@ -14,7 +15,7 @@ from ..schemas.schemas import (
     InvoiceResponse,
     InvoiceUpdateRequest,
 )
-from ..services import invoice_service
+from ..services import invoice_service, ledger_service
 
 router = APIRouter()
 
@@ -27,9 +28,17 @@ router = APIRouter()
 async def create_invoice(
     body: InvoiceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    return await invoice_service.create_invoice(db, body.model_dump())
+    org = create_org(current_user, body.organization_id)
+    if body.ledger_id is not None:
+        # The linked ledger must belong to the invoice's organization (ADR-0004)
+        ledger = await ledger_service.get_ledger(db, body.ledger_id, org)
+        if not ledger:
+            raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
+    data = body.model_dump()
+    data["organization_id"] = org
+    return await invoice_service.create_invoice(db, data)
 
 
 @router.get("/invoices", response_model=InvoiceListResponse)
@@ -41,11 +50,11 @@ async def list_invoices(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     items, total = await invoice_service.list_invoices(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         ledger_id=ledger_id,
         invoice_type=invoice_type,
         status=status,
@@ -59,9 +68,9 @@ async def list_invoices(
 async def get_invoice(
     invoice_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    invoice = await invoice_service.get_invoice(db, invoice_id)
+    invoice = await invoice_service.get_invoice(db, invoice_id, scope_org(current_user))
     if not invoice:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
     return invoice
@@ -72,9 +81,9 @@ async def update_invoice(
     invoice_id: UUID,
     body: InvoiceUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    invoice = await invoice_service.get_invoice(db, invoice_id)
+    invoice = await invoice_service.get_invoice(db, invoice_id, scope_org(current_user))
     if not invoice:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
     return await invoice_service.update_invoice(
@@ -87,9 +96,9 @@ async def pay_invoice(
     invoice_id: UUID,
     body: InvoicePayRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    invoice = await invoice_service.get_invoice(db, invoice_id)
+    invoice = await invoice_service.get_invoice(db, invoice_id, scope_org(current_user))
     if not invoice:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
     try:
