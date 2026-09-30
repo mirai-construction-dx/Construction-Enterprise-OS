@@ -21,14 +21,20 @@ async def create_partner(
     return partner
 
 
-async def get_partner_by_id(db: AsyncSession, partner_id: uuid.UUID) -> Partner | None:
-    result = await db.execute(
+async def get_partner_by_id(
+    db: AsyncSession, partner_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> Partner | None:
+    """Fetch a partner; ``organization_id`` restricts the lookup (None only for cross-org admin)."""
+    stmt = (
         select(Partner)
         .options(
             selectinload(Partner.contacts),
         )
         .where(Partner.id == partner_id)
     )
+    if organization_id is not None:
+        stmt = stmt.where(Partner.organization_id == organization_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
@@ -41,8 +47,11 @@ async def list_partners(
     status: str | None = None,
     specialization: str | None = None,
     search: str | None = None,
+    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[Partner], int]:
     conditions = []
+    if organization_id is not None:
+        conditions.append(Partner.organization_id == organization_id)
     if company_type:
         conditions.append(Partner.company_type == company_type)
     if status:
@@ -78,9 +87,12 @@ async def list_partners(
 
 
 async def update_partner(
-    db: AsyncSession, partner_id: uuid.UUID, update_data: dict
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    update_data: dict,
+    organization_id: uuid.UUID | None = None,
 ) -> Partner | None:
-    partner = await get_partner_by_id(db, partner_id)
+    partner = await get_partner_by_id(db, partner_id, organization_id)
     if not partner:
         return None
 
