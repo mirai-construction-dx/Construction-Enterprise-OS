@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import get_current_user
-from ..middleware.tenant import create_org, scope_org
+from ..middleware.tenant import create_org, is_cross_org_admin, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -32,6 +32,16 @@ def _partner_not_found() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
+    )
+
+
+def _partner_org_mismatch() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail={
+            "code": "PARTNER_ORG_MISMATCH",
+            "message": "契約と異なる組織の協力会社は指定できません。",
+        },
     )
 
 
@@ -133,15 +143,29 @@ async def update_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org = scope_org(current_user)
-    update_data = body.model_dump(exclude_unset=True)
-    if update_data.get("partner_id") is not None:
-        # Re-pointing a contract to another partner requires that partner to be visible too.
-        if not await partner_service.get_partner_by_id(db, update_data["partner_id"], org):
-            raise _partner_not_found()
-    contract = await contract_service.update_contract(db, contract_id, update_data, org)
+    # Load the contract first (regular users: token org only; admin: any org) so that a
+    # partner re-point can be validated against the contract's own organization.
+    contract = await contract_service.get_contract_by_id(db, contract_id, scope_org(current_user))
     if not contract:
         raise _contract_not_found()
+    update_data = body.model_dump(exclude_unset=True)
+    if update_data.get("partner_id") is not None:
+        # A contract belongs to its partner's organization, so the new partner must belong to
+        # the contract's organization (admin included). For regular users the contract's org is
+        # their token org, so another org's partner is simply not found (404).
+        if is_cross_org_admin(current_user):
+            partner = await partner_service.get_partner_by_id(db, update_data["partner_id"])
+            if not partner:
+                raise _partner_not_found()
+            if partner.organization_id != contract.organization_id:
+                # Admin can see both records, so hiding the partner (404) would be misleading;
+                # the request itself is invalid because it would move the contract across orgs.
+                raise _partner_org_mismatch()
+        elif not await partner_service.get_partner_by_id(
+            db, update_data["partner_id"], contract.organization_id
+        ):
+            raise _partner_not_found()
+    contract_service.apply_contract_update(contract, update_data)
     return APIResponse(data=_contract_to_response(contract))
 
 

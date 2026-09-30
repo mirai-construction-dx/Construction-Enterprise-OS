@@ -282,18 +282,68 @@ def test_admin_by_id_lookup_is_cross_org(mock_jwt):
 
 @patch("src.middleware.auth.jwt")
 def test_contract_update_to_other_org_partner_is_404(mock_jwt):
+    """A regular user cannot re-point an own-org contract to another org's partner."""
     mock_jwt.decode.return_value = _payload()
-    client, db = _client(None)
+    contract = make_mock_contract(organization_id=ORG_A, partner_id=PARTNER_ID)
+    client, db = _client(contract, None)
+    new_partner_id = uuid.uuid4()
 
     resp = client.put(
         f"/api/v1/partners/contracts/{CONTRACT_ID}",
-        json={"partner_id": str(uuid.uuid4())},
+        json={"partner_id": str(new_partner_id)},
         headers=_auth_header(),
     )
 
     assert resp.status_code == 404
     assert resp.json()["detail"]["code"] == "PARTNER_NOT_FOUND"
-    assert ORG_A in _params(db, 0).values()
+    assert ORG_A in _params(db, 0).values()  # contract lookup is org-scoped
+    partner_params = _params(db, 1).values()
+    assert new_partner_id in partner_params and ORG_A in partner_params
+    assert contract.partner_id == PARTNER_ID  # not re-pointed
+
+
+@patch("src.middleware.auth.jwt")
+def test_admin_contract_update_to_other_org_partner_is_400(mock_jwt):
+    """Admin (cross-org) still cannot move a contract to a partner of another organization."""
+    mock_jwt.decode.return_value = _payload(roles=["admin"])
+    contract = make_mock_contract(organization_id=ORG_A, partner_id=PARTNER_ID)
+    other = make_mock_partner(id=uuid.uuid4(), organization_id=ORG_B)
+    client, db = _client(contract, other)
+
+    resp = client.put(
+        f"/api/v1/partners/contracts/{CONTRACT_ID}",
+        json={"partner_id": str(other.id), "title": "changed"},
+        headers=_auth_header(),
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["detail"]["code"] == "PARTNER_ORG_MISMATCH"
+    assert contract.partner_id == PARTNER_ID  # not re-pointed
+    assert contract.organization_id == ORG_A
+    assert contract.title == "試験契約"  # nothing else updated either
+
+
+@patch("src.middleware.auth.jwt")
+@pytest.mark.parametrize("roles", [None, ["admin"]])
+def test_contract_update_to_same_org_partner_succeeds(mock_jwt, roles):
+    mock_jwt.decode.return_value = _payload(roles=roles)
+    contract = make_mock_contract(organization_id=ORG_A, partner_id=PARTNER_ID)
+    same = make_mock_partner(id=uuid.uuid4(), organization_id=ORG_A)
+    client, db = _client(contract, same)
+
+    resp = client.put(
+        f"/api/v1/partners/contracts/{CONTRACT_ID}",
+        json={"partner_id": str(same.id)},
+        headers=_auth_header(),
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert contract.partner_id == same.id
+    assert resp.json()["data"]["partner_id"] == str(same.id)
+    assert resp.json()["data"]["organization_id"] == str(ORG_A)
+    if roles is None:
+        # Regular users: the partner lookup is restricted to the contract's organization.
+        assert ORG_A in _params(db, 1).values()
 
 
 # ── creates ──────────────────────────────────────────────────

@@ -86,7 +86,11 @@ async def update_contract(
     contract = await get_contract_by_id(db, contract_id, organization_id)
     if not contract:
         return None
+    return apply_contract_update(contract, update_data)
 
+
+def apply_contract_update(contract: Contract, update_data: dict) -> Contract:
+    """Apply non-null fields to an already loaded (and authorized) contract."""
     for field, value in update_data.items():
         if value is not None:
             setattr(contract, field, value)
