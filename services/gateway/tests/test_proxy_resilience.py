@@ -1,10 +1,12 @@
-"""ProxyService の耐障害性・ヘッダー処理・CORS preflight のテスト (Issue #101)。
+"""ProxyService の耐障害性・ヘッダー処理・CORS のテスト (Issue #101 / #107)。
 
 httpx.AsyncClient をフェイクに差し替え、外部へは一切接続しない。
-公開パス（/api/v1/auth/login）経由で ProxyService.forward まで到達させ、
-現在の実装の挙動を固定する。
+公開パス（/api/v1/auth/login）経由で ProxyService.forward まで到達させる。
+#101 で固定した挙動に加え、#107 で修正した CORS のミドルウェア順序、
+X-Request-ID の正規化、hop-by-hop ヘッダー除去、content-encoding の扱いを検証する。
 """
 
+import gzip
 from typing import Any
 
 import httpx
@@ -194,10 +196,14 @@ def test_request_hop_by_hop_headers_are_not_forwarded(gw_client, fake_upstream):
     assert sent["x-request-id"] == "req-123"
 
 
-def _make_request(headers: list[tuple[bytes, bytes]], request_id: str | None = None) -> Request:
+def _make_request(
+    headers: list[tuple[bytes, bytes]],
+    request_id: str | None = None,
+    method: str = "GET",
+) -> Request:
     scope: dict[str, Any] = {
         "type": "http",
-        "method": "GET",
+        "method": method,
         "path": "/",
         "query_string": b"",
         "headers": headers,
@@ -277,3 +283,348 @@ def test_cors_simple_request_echoes_allowed_origin(gw_client):
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
     assert response.headers["access-control-allow-credentials"] == "true"
+
+
+# ============================================
+# Issue #107: CORS はミドルウェアの最外側で処理する
+# ============================================
+PROTECTED_PATH = "/api/v1/users"
+
+
+def test_middleware_order_cors_is_outermost():
+    app = create_app()
+    # user_middleware は外側 -> 内側の順。Auth/RateLimit/Logging の相対順序は変えない
+    names = [m.cls.__name__ for m in app.user_middleware]
+    assert names == [
+        "CORSMiddleware",
+        "AuthMiddleware",
+        "RateLimitMiddleware",
+        "LoggingMiddleware",
+    ]
+
+
+def test_cors_preflight_on_protected_path_skips_auth(gw_client, fake_upstream):
+    response = gw_client.options(
+        PROTECTED_PATH,
+        headers={
+            "Origin": ALLOWED_ORIGIN,
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert response.headers["access-control-allow-headers"] == "authorization"
+    assert fake_upstream.calls == []
+
+
+def test_cors_preflight_on_protected_path_disallowed_origin(gw_client, fake_upstream):
+    response = gw_client.options(
+        PROTECTED_PATH,
+        headers={
+            "Origin": "http://evil.example",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+    assert fake_upstream.calls == []
+
+
+def test_non_preflight_options_still_requires_auth(gw_client, fake_upstream):
+    # Access-Control-Request-Method が無い OPTIONS は preflight ではない
+    response = gw_client.options(PROTECTED_PATH, headers={"Origin": ALLOWED_ORIGIN})
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+    assert fake_upstream.calls == []
+
+
+def test_options_without_origin_still_requires_auth(gw_client, fake_upstream):
+    # Origin が無ければ Access-Control-Request-Method があっても preflight ではない
+    response = gw_client.options(
+        PROTECTED_PATH, headers={"Access-Control-Request-Method": "GET"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+    assert fake_upstream.calls == []
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "DELETE"])
+def test_request_with_origin_but_no_token_is_401_with_cors_headers(
+    gw_client, fake_upstream, method
+):
+    response = gw_client.request(
+        method, PROTECTED_PATH, headers={"Origin": ALLOWED_ORIGIN}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert fake_upstream.calls == []
+
+
+def test_invalid_token_401_has_cors_headers(gw_client, fake_upstream):
+    response = gw_client.get(
+        PROTECTED_PATH,
+        headers={
+            "Origin": ALLOWED_ORIGIN,
+            "Authorization": "Bearer invalid.token.here",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "INVALID_TOKEN"
+    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    assert fake_upstream.calls == []
+
+
+def test_401_for_disallowed_origin_has_no_cors_headers(gw_client, fake_upstream):
+    response = gw_client.get(PROTECTED_PATH, headers={"Origin": "http://evil.example"})
+
+    assert response.status_code == 401
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_rate_limited_429_has_cors_headers(gw_client, fake_upstream):
+    settings = get_settings()
+    original = settings.RATE_LIMIT_PER_MINUTE
+    settings.RATE_LIMIT_PER_MINUTE = 1
+    headers = {"Origin": ALLOWED_ORIGIN, "X-Forwarded-For": "10.0.107.1"}
+    try:
+        assert gw_client.get("/health", headers=headers).status_code == 200
+        response = gw_client.get("/health", headers=headers)
+    finally:
+        settings.RATE_LIMIT_PER_MINUTE = original
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+    assert "retry-after" in response.headers
+    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+# ============================================
+# Issue #107: X-Request-ID を 1 本に正規化する
+# ============================================
+def _request_id_headers(headers: dict[str, str]) -> list[tuple[str, str]]:
+    return [(k, v) for k, v in headers.items() if k.lower() == "x-request-id"]
+
+
+def test_prepare_headers_request_id_is_not_duplicated():
+    request = _make_request(
+        [(b"x-request-id", b"incoming"), (b"x-keep", b"1")], request_id="rid-42"
+    )
+
+    headers = ProxyService._prepare_headers(request)
+
+    assert _request_id_headers(headers) == [("X-Request-ID", "rid-42")]
+    assert headers["x-keep"] == "1"
+
+
+def test_prepare_headers_passes_incoming_request_id_without_state():
+    request = _make_request([(b"x-request-id", b"incoming")])
+
+    headers = ProxyService._prepare_headers(request)
+
+    assert _request_id_headers(headers) == [("x-request-id", "incoming")]
+
+
+def test_forwarded_request_id_is_single_end_to_end(gw_client, fake_upstream):
+    gw_client.post(PUBLIC_UPSTREAM_PATH, json={}, headers={"X-Request-ID": "req-777"})
+
+    sent = fake_upstream.calls[0]["headers"]
+    assert _request_id_headers(sent) == [("X-Request-ID", "req-777")]
+
+
+# ============================================
+# Issue #107: hop-by-hop ヘッダー（RFC 9110 §7.6.1）
+# ============================================
+HOP_BY_HOP = [
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+]
+
+
+def test_prepare_headers_strips_all_rfc9110_hop_by_hop_and_connection_tokens():
+    request = _make_request(
+        [
+            (b"host", b"gateway.local"),
+            (b"connection", b"keep-alive, X-Custom-Hop"),
+            (b"connection", b"x-second-hop"),
+            (b"keep-alive", b"timeout=5"),
+            (b"proxy-authenticate", b"Basic"),
+            (b"proxy-authorization", b"Basic Zm9vOmJhcg=="),
+            (b"te", b"trailers"),
+            (b"trailer", b"Expires"),
+            (b"transfer-encoding", b"chunked"),
+            (b"upgrade", b"websocket"),
+            (b"x-custom-hop", b"secret"),
+            (b"x-second-hop", b"secret"),
+            (b"x-kept", b"1"),
+        ]
+    )
+
+    headers = ProxyService._prepare_headers(request)
+
+    assert headers == {"x-kept": "1"}
+
+
+def test_request_rfc9110_hop_by_hop_headers_are_not_forwarded_end_to_end(
+    gw_client, fake_upstream
+):
+    gw_client.post(
+        PUBLIC_UPSTREAM_PATH,
+        json={},
+        headers={
+            "Connection": "close, X-Custom-Hop",
+            "X-Custom-Hop": "secret",
+            "TE": "trailers",
+            "Trailer": "Expires",
+            "Upgrade": "websocket",
+            "Proxy-Authorization": "Basic Zm9vOmJhcg==",
+            "X-Kept": "1",
+        },
+    )
+
+    sent = {k.lower() for k in fake_upstream.calls[0]["headers"]}
+    for name in [*HOP_BY_HOP, "x-custom-hop", "host"]:
+        assert name not in sent
+    assert "x-kept" in sent
+
+
+def test_response_rfc9110_hop_by_hop_and_connection_tokens_are_removed(
+    gw_client, fake_upstream
+):
+    fake_upstream.behavior = httpx.Response(
+        200,
+        content=b"{}",
+        headers=[
+            ("connection", "keep-alive, X-Upstream-Hop"),
+            ("keep-alive", "timeout=5"),
+            ("proxy-authenticate", "Basic"),
+            ("te", "trailers"),
+            ("trailer", "Expires"),
+            ("upgrade", "h2c"),
+            ("x-upstream-hop", "secret"),
+            ("x-kept", "1"),
+        ],
+    )
+
+    response = gw_client.post(PUBLIC_UPSTREAM_PATH, json={})
+
+    assert response.status_code == 200
+    for name in [*HOP_BY_HOP, "x-upstream-hop"]:
+        assert name not in response.headers
+    assert response.headers["x-kept"] == "1"
+
+
+# ============================================
+# Issue #107: 展開済み本文に content-encoding / content-length を付けない
+# ============================================
+GZIP_PLAIN = b'{"message":"' + b"a" * 200 + b'"}'
+
+
+def _gzip_upstream_response() -> httpx.Response:
+    # httpx は content-length を圧縮後サイズで自動付与し、.content は展開済みを返す
+    return httpx.Response(
+        200,
+        content=gzip.compress(GZIP_PLAIN),
+        headers={"content-encoding": "gzip", "content-type": "application/json"},
+    )
+
+
+async def test_forward_drops_content_encoding_and_stale_content_length(fake_upstream):
+    upstream = _gzip_upstream_response()
+    # 前提: 上流の content-length は圧縮後サイズで、展開済み本文の長さと一致しない
+    assert upstream.headers["content-length"] != str(len(GZIP_PLAIN))
+    assert upstream.content == GZIP_PLAIN
+    fake_upstream.behavior = upstream
+
+    response = await ProxyService().forward(
+        _make_request([]), AUTH_UPSTREAM_URL, "api-v1-auth"
+    )
+
+    assert response.body == GZIP_PLAIN
+    assert "content-encoding" not in response.headers
+    assert response.headers["content-length"] == str(len(GZIP_PLAIN))
+    assert response.headers["content-type"] == "application/json"
+
+
+def test_gzip_upstream_body_reaches_client_intact(gw_client, fake_upstream):
+    fake_upstream.behavior = _gzip_upstream_response()
+
+    response = gw_client.post(PUBLIC_UPSTREAM_PATH, json={})
+
+    assert response.status_code == 200
+    assert "content-encoding" not in response.headers
+    assert response.headers["content-length"] == str(len(GZIP_PLAIN))
+    assert response.content == GZIP_PLAIN
+
+
+# ============================================
+# HEAD: 本文が空なので上流の表現メタデータ（content-length / content-encoding）を保持する
+# ============================================
+HEAD_UPSTREAM_LENGTH = "4096"
+
+
+def _head_upstream_response() -> httpx.Response:
+    # 実際の HEAD 応答と同様に本文は空で、content-length は GET 時の本文長を示す
+    return httpx.Response(
+        200,
+        headers={
+            "content-length": HEAD_UPSTREAM_LENGTH,
+            "content-encoding": "gzip",
+            "content-type": "application/json",
+        },
+    )
+
+
+async def test_forward_head_keeps_upstream_content_length_and_encoding(fake_upstream):
+    upstream = _head_upstream_response()
+    assert upstream.content == b""
+    fake_upstream.behavior = upstream
+
+    response = await ProxyService().forward(
+        _make_request([], method="HEAD"), AUTH_UPSTREAM_URL, "api-v1-auth"
+    )
+
+    assert response.body == b""
+    # Starlette must not replace the supplied content-length with len(b"") == 0
+    assert response.headers.getlist("content-length") == [HEAD_UPSTREAM_LENGTH]
+    assert response.headers["content-encoding"] == "gzip"
+
+
+def test_head_upstream_content_length_reaches_client(gw_client, fake_upstream):
+    fake_upstream.behavior = _head_upstream_response()
+
+    response = gw_client.head(PUBLIC_UPSTREAM_PATH)
+
+    assert response.status_code == 200
+    assert fake_upstream.calls[-1]["method"] == "HEAD"
+    assert response.headers.get_list("content-length") == [HEAD_UPSTREAM_LENGTH]
+    assert response.headers["content-encoding"] == "gzip"
+    assert response.content == b""
+
+
+async def test_forward_get_still_drops_stale_entity_headers(fake_upstream):
+    fake_upstream.behavior = _gzip_upstream_response()
+
+    response = await ProxyService().forward(
+        _make_request([], method="GET"), AUTH_UPSTREAM_URL, "api-v1-auth"
+    )
+
+    assert response.body == GZIP_PLAIN
+    assert "content-encoding" not in response.headers
+    assert response.headers.getlist("content-length") == [str(len(GZIP_PLAIN))]
