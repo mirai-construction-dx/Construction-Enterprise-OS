@@ -60,11 +60,12 @@ async def list_costs(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
+    org = scope_org(current_user)
+    ledger = await ledger_service.get_ledger(db, ledger_id, org)
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
     items, total = await cost_service.list_costs(
-        db, ledger_id, status=status, page=page, per_page=per_page
+        db, ledger_id, status=status, page=page, per_page=per_page, organization_id=org
     )
     return CostListResponse(items=items, total=total, page=page, per_page=per_page)  # type: ignore[arg-type]
 

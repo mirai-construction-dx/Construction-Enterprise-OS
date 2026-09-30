@@ -293,6 +293,79 @@ def test_by_id_in_own_org_is_found():
     _assert_scoped_to(db, 0, ORG_A)
 
 
+# ── nested child rows are filtered by their own organization too ──
+# Defense in depth (ADR-0004): even when the parent ledger belongs to the caller's
+# organization, a child row (budget / cost item) of another organization must never
+# appear in a list, total, summary or detail. With a mocked DB we assert on the SQL:
+# every child query carries a WHERE predicate on the child table's organization_id.
+
+_BUDGETS_ORG = "budgets.organization_id = :"
+_COSTS_ORG = "cost_items.organization_id = :"
+
+
+def _nested_cases(ledger_id):
+    """(path, DB results after the ledger lookup, [(child execute offset, predicate)])."""
+    return [
+        (
+            f"{BASE}/ledger/{ledger_id}/budgets",
+            [_Result(items=[])],
+            [(0, _BUDGETS_ORG)],
+        ),
+        (
+            f"{BASE}/ledger/{ledger_id}/budget-summary",
+            [_Result(items=[])],
+            [(0, _BUDGETS_ORG)],
+        ),
+        (
+            f"{BASE}/ledger/{ledger_id}/costs",
+            [_Result(total=0), _Result(items=[])],
+            [(0, _COSTS_ORG), (1, _COSTS_ORG)],  # total, rows
+        ),
+        (
+            f"{BASE}/ledger/{ledger_id}",
+            [_Result(items=[]), _Result(items=[])],
+            [(0, _BUDGETS_ORG), (1, _COSTS_ORG)],  # budgets, cost summary
+        ),
+    ]
+
+
+_NESTED_IDS = ["budgets", "budget-summary", "costs", "detail"]
+
+
+@pytest.mark.parametrize("case", range(4), ids=_NESTED_IDS)
+def test_nested_child_rows_are_scoped_to_token_org(case):
+    """Own-org ledger, but other-org child rows are excluded by the child's org predicate."""
+    ledger = _ledger(org=ORG_A)
+    path, child_results, checks = _nested_cases(ledger.id)[case]
+    client, db = _client(_Result(ledger), *child_results)
+
+    resp = client.get(path)
+
+    assert resp.status_code == 200
+    assert db.execute.await_count == 1 + len(child_results)
+    _assert_scoped_to(db, 0, ORG_A)  # parent ledger
+    for offset, predicate in checks:
+        sql, params = _compiled(db, 1 + offset)
+        assert predicate in sql
+        assert ORG_A in params.values()
+        assert ORG_B not in params.values()
+
+
+@pytest.mark.parametrize("case", range(4), ids=_NESTED_IDS)
+def test_admin_nested_child_rows_are_unscoped(case):
+    ledger = _ledger(org=ORG_B)
+    path, child_results, checks = _nested_cases(ledger.id)[case]
+    client, db = _client(*child_results, user=_user(roles=["admin"]))
+    db.get = AsyncMock(return_value=ledger)  # admin ledger lookup is an unscoped get
+
+    resp = client.get(path)
+
+    assert resp.status_code == 200
+    assert db.execute.await_count == len(child_results)
+    for offset, _predicate in checks:
+        assert ".organization_id = :" not in _compiled(db, offset)[0]
+
+
 # ── create: body org must equal token org ───────────────────
 
 

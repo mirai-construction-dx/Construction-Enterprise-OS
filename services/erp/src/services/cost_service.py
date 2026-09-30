@@ -41,11 +41,21 @@ async def list_costs(
     status: str | None = None,
     page: int = 1,
     per_page: int = 20,
+    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[CostItem], int]:
+    """List a ledger's cost items.
+
+    When ``organization_id`` is given, the child rows themselves are also filtered by
+    organization (defense in depth on top of the parent-ledger check, ADR-0004).
+    """
     query = select(CostItem).where(CostItem.ledger_id == ledger_id)
     count_query = select(func.count(CostItem.id)).where(
         CostItem.ledger_id == ledger_id
     )
+
+    if organization_id is not None:
+        query = query.where(CostItem.organization_id == organization_id)
+        count_query = count_query.where(CostItem.organization_id == organization_id)
 
     if status:
         query = query.where(CostItem.status == status)

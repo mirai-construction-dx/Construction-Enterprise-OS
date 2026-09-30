@@ -79,10 +79,11 @@ async def get_ledger(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
+    org = scope_org(current_user)
+    ledger = await ledger_service.get_ledger(db, ledger_id, org)
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
-    detail = await ledger_service.get_ledger_detail(db, ledger)
+    detail = await ledger_service.get_ledger_detail(db, ledger, org)
     return LedgerDetailResponse(
         **{k: v for k, v in detail.items() if k != "ledger"},
         **LedgerResponse.model_validate(ledger).model_dump(),

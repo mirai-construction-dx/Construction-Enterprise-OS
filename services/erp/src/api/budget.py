@@ -50,10 +50,11 @@ async def list_budgets(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
+    org = scope_org(current_user)
+    ledger = await ledger_service.get_ledger(db, ledger_id, org)
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
-    return await budget_service.list_budgets(db, ledger_id)
+    return await budget_service.list_budgets(db, ledger_id, org)
 
 
 @router.put("/budgets/{budget_id}", response_model=BudgetItemResponse)
@@ -80,7 +81,8 @@ async def get_budget_summary(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
+    org = scope_org(current_user)
+    ledger = await ledger_service.get_ledger(db, ledger_id, org)
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
-    return await budget_service.get_budget_summary(db, ledger_id)
+    return await budget_service.get_budget_summary(db, ledger_id, org)
