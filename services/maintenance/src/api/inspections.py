@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import APIResponse, InspectionComplete, InspectionCreate
 from ..services import maintenance_service as svc
@@ -47,7 +48,7 @@ async def create_inspection(
 ):
     inspection = await svc.create_inspection_schedule(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         asset_name=body.asset_name,
         asset_type=body.asset_type,
         inspection_type=body.inspection_type,
@@ -70,7 +71,7 @@ async def list_inspections(
 ):
     inspections = await svc.get_inspection_schedules(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         status=status,
         skip=skip,
         limit=limit,
@@ -80,19 +81,25 @@ async def list_inspections(
 
 @router.get("/inspections/upcoming")
 async def get_upcoming_inspections(
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspections = await svc.get_upcoming_inspections(db)
+    inspections = await svc.get_upcoming_inspections(
+        db, organization_id=scope_org(current_user, organization_id)
+    )
     return APIResponse(data=[_inspection_to_response(i) for i in inspections])
 
 
 @router.get("/inspections/overdue")
 async def get_overdue_inspections(
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspections = await svc.get_overdue_inspections(db)
+    inspections = await svc.get_overdue_inspections(
+        db, organization_id=scope_org(current_user, organization_id)
+    )
     return APIResponse(data=[_inspection_to_response(i) for i in inspections])
 
 
@@ -102,7 +109,9 @@ async def get_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspection = await svc.get_inspection_schedule_by_id(db, inspection_id)
+    inspection = await svc.get_inspection_schedule_by_id(
+        db, inspection_id, scope_org(current_user)
+    )
     if not inspection:
         raise HTTPException(
             status_code=404,
@@ -121,6 +130,7 @@ async def complete_inspection(
     inspection = await svc.complete_inspection(
         db,
         inspection_id,
+        organization_id=scope_org(current_user),
         checklist=body.checklist,
         notes=body.notes,
     )

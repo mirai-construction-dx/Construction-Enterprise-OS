@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import APIResponse, OCRProcessRequest
 from ..services import vision_service
@@ -58,7 +59,7 @@ async def process_ocr(
 ):
     ocr = await vision_service.create_ocr_result(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         document_id=body.document_id,
         file_key=body.file_key,
         language=body.language,
@@ -80,7 +81,7 @@ async def list_ocr_results(
 ):
     results = await vision_service.get_ocr_results(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         status=status_filter,
         document_id=document_id,
         skip=skip,
@@ -95,7 +96,7 @@ async def get_ocr_result(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    ocr = await vision_service.get_ocr_result_by_id(db, result_id)
+    ocr = await vision_service.get_ocr_result_by_id(db, result_id, scope_org(current_user))
     if not ocr:
         raise HTTPException(
             status_code=404,
@@ -113,7 +114,9 @@ async def list_ocr_tasks(
 ):
     """OCR task list — delegates to DB-backed OCR results."""
     skip = (page - 1) * per_page
-    results = await vision_service.get_ocr_results(db, skip=skip, limit=per_page)
+    results = await vision_service.get_ocr_results(
+        db, organization_id=scope_org(current_user), skip=skip, limit=per_page
+    )
     tasks = [
         OcrTaskItem(
             id=str(r.id),

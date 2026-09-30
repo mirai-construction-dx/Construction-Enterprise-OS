@@ -43,7 +43,7 @@ async def get_image_analyses(
     limit: int = 50,
 ) -> list[ImageAnalysis]:
     stmt = select(ImageAnalysis)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(ImageAnalysis.organization_id == organization_id)
     if analysis_type:
         stmt = stmt.where(ImageAnalysis.analysis_type == analysis_type)
@@ -55,8 +55,10 @@ async def get_image_analyses(
 
 
 async def get_image_analysis_by_id(
-    db: AsyncSession, analysis_id: UUID
+    db: AsyncSession, analysis_id: UUID, organization_id: UUID | None = None
 ) -> ImageAnalysis | None:
     stmt = select(ImageAnalysis).where(ImageAnalysis.id == analysis_id)
+    if organization_id is not None:
+        stmt = stmt.where(ImageAnalysis.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()

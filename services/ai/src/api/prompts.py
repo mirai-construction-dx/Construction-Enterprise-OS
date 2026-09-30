@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import scope_org, token_org
 from ..models.base import get_db
 from ..schemas import (
     MetaInfo,
@@ -27,7 +28,7 @@ async def create_prompt(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = token_org(token_data)
     template = await PromptService.create_template(
         db=db,
         organization_id=org_id,
@@ -49,7 +50,7 @@ async def list_prompts(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     templates, pagination = await PromptService.list_templates(
         db=db,
         organization_id=org_id,
@@ -84,7 +85,7 @@ async def get_prompt(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     template = await PromptService.get_template(db, template_id, org_id)
     if not template:
         raise HTTPException(
@@ -107,7 +108,7 @@ async def update_prompt(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     template = await PromptService.update_template(
         db=db,
         template_id=template_id,
@@ -134,7 +135,7 @@ async def delete_prompt(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     deleted = await PromptService.delete_template(db, template_id, org_id)
     if not deleted:
         raise HTTPException(

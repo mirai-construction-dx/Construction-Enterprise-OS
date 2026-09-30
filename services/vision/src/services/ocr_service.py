@@ -51,7 +51,7 @@ async def get_ocr_results(
     limit: int = 50,
 ) -> list[OCRResult]:
     stmt = select(OCRResult)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(OCRResult.organization_id == organization_id)
     if status:
         stmt = stmt.where(OCRResult.status == status)
@@ -62,7 +62,11 @@ async def get_ocr_results(
     return list(result.scalars().all())
 
 
-async def get_ocr_result_by_id(db: AsyncSession, result_id: UUID) -> OCRResult | None:
+async def get_ocr_result_by_id(
+    db: AsyncSession, result_id: UUID, organization_id: UUID | None = None
+) -> OCRResult | None:
     stmt = select(OCRResult).where(OCRResult.id == result_id)
+    if organization_id is not None:
+        stmt = stmt.where(OCRResult.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()

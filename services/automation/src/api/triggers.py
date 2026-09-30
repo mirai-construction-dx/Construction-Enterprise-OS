@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -36,9 +37,15 @@ async def create_trigger_endpoint(
     request: Request,
     body: TriggerCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    trigger = await create_trigger(db, body.model_dump())
+    trigger = await create_trigger(
+        db,
+        {
+            **body.model_dump(),
+            "organization_id": create_org(current_user, body.organization_id),
+        },
+    )
     return APIResponse(data=_trigger_to_response(trigger))
 
 
@@ -51,7 +58,7 @@ async def list_triggers(
     is_active: bool | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     triggers_items, total = await get_triggers_paginated(
         db,
@@ -59,7 +66,7 @@ async def list_triggers(
         per_page=per_page,
         event_type=event_type,
         is_active=is_active,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -82,9 +89,9 @@ async def get_trigger(
     request: Request,
     trigger_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    trigger = await get_trigger_by_id(db, trigger_id)
+    trigger = await get_trigger_by_id(db, trigger_id, scope_org(current_user))
     if not trigger:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -99,9 +106,14 @@ async def update_trigger_endpoint(
     trigger_id: UUID,
     body: TriggerUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    trigger = await update_trigger(db, trigger_id, body.model_dump(exclude_unset=True))
+    trigger = await update_trigger(
+        db,
+        trigger_id,
+        body.model_dump(exclude_unset=True),
+        organization_id=scope_org(current_user),
+    )
     if not trigger:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -115,9 +127,9 @@ async def delete_trigger_endpoint(
     request: Request,
     trigger_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_trigger(db, trigger_id)
+    deleted = await delete_trigger(db, trigger_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,9 +143,9 @@ async def enable_trigger_endpoint(
     request: Request,
     trigger_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    trigger = await enable_trigger(db, trigger_id)
+    trigger = await enable_trigger(db, trigger_id, scope_org(current_user))
     if not trigger:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -147,9 +159,9 @@ async def disable_trigger_endpoint(
     request: Request,
     trigger_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    trigger = await disable_trigger(db, trigger_id)
+    trigger = await disable_trigger(db, trigger_id, scope_org(current_user))
     if not trigger:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -20,8 +20,17 @@ async def create_datasource(db: AsyncSession, data: dict) -> DataSource:
     return ds
 
 
-async def get_datasource(db: AsyncSession, datasource_id: UUID) -> DataSource | None:
-    return await db.get(DataSource, datasource_id)
+async def get_datasource(
+    db: AsyncSession, datasource_id: UUID, organization_id: UUID | None = None
+) -> DataSource | None:
+    """Fetch by id; when ``organization_id`` is given, only within that organization."""
+    if organization_id is None:
+        return await db.get(DataSource, datasource_id)
+    stmt = select(DataSource).where(
+        DataSource.id == datasource_id, DataSource.organization_id == organization_id
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def list_datasources(
@@ -35,7 +44,7 @@ async def list_datasources(
     query = select(DataSource)
     count_query = select(func.count(DataSource.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(DataSource.organization_id == organization_id)
         count_query = count_query.where(DataSource.organization_id == organization_id)
     if source_type:
@@ -88,8 +97,17 @@ async def create_pipeline(db: AsyncSession, data: dict) -> DataPipeline:
     return pipeline
 
 
-async def get_pipeline(db: AsyncSession, pipeline_id: UUID) -> DataPipeline | None:
-    return await db.get(DataPipeline, pipeline_id)
+async def get_pipeline(
+    db: AsyncSession, pipeline_id: UUID, organization_id: UUID | None = None
+) -> DataPipeline | None:
+    """Fetch by id; when ``organization_id`` is given, only within that organization."""
+    if organization_id is None:
+        return await db.get(DataPipeline, pipeline_id)
+    stmt = select(DataPipeline).where(
+        DataPipeline.id == pipeline_id, DataPipeline.organization_id == organization_id
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def list_pipelines(
@@ -103,7 +121,7 @@ async def list_pipelines(
     query = select(DataPipeline)
     count_query = select(func.count(DataPipeline.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(DataPipeline.organization_id == organization_id)
         count_query = count_query.where(
             DataPipeline.organization_id == organization_id
@@ -169,8 +187,17 @@ async def create_report(db: AsyncSession, data: dict) -> AnalyticsReport:
     return report
 
 
-async def get_report(db: AsyncSession, report_id: UUID) -> AnalyticsReport | None:
-    return await db.get(AnalyticsReport, report_id)
+async def get_report(
+    db: AsyncSession, report_id: UUID, organization_id: UUID | None = None
+) -> AnalyticsReport | None:
+    """Fetch by id; when ``organization_id`` is given, only within that organization."""
+    if organization_id is None:
+        return await db.get(AnalyticsReport, report_id)
+    stmt = select(AnalyticsReport).where(
+        AnalyticsReport.id == report_id, AnalyticsReport.organization_id == organization_id
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def list_reports(
@@ -184,7 +211,7 @@ async def list_reports(
     query = select(AnalyticsReport)
     count_query = select(func.count(AnalyticsReport.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(AnalyticsReport.organization_id == organization_id)
         count_query = count_query.where(
             AnalyticsReport.organization_id == organization_id

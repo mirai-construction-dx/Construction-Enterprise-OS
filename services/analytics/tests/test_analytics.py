@@ -303,9 +303,17 @@ class TestDataSourceCRUD:
 # ============================================
 class TestPipelineCRUD:
     def test_create_pipeline(self, client, mock_db):
+        from src.models import DataSource
+
         org_id = uuid.uuid4()
         source_id = uuid.uuid4()
         target_id = uuid.uuid4()
+        # Referenced datasources must exist in the pipeline's organization (ADR-0004).
+        mock_db.get = AsyncMock(
+            side_effect=lambda _model, ds_id: DataSource(
+                id=ds_id, organization_id=org_id, name="ds", source_type="postgresql"
+            )
+        )
 
         response = client.post(
             "/api/v1/analytics/pipelines",
@@ -387,7 +395,7 @@ class TestPipelineCRUD:
         assert data["status"] == "active"
 
     def test_trigger_pipeline_run(self, client, mock_db):
-        from src.models import DataPipeline
+        from src.models import DataPipeline, DataSource
 
         pipe_id = uuid.uuid4()
         pipeline = DataPipeline(
@@ -402,6 +410,17 @@ class TestPipelineCRUD:
             updated_at=datetime.now(timezone.utc),
         )
         mock_db.get = AsyncMock(return_value=pipeline)
+        # Source/target datasources are looked up within the pipeline's organization.
+        mock_db.execute = AsyncMock(
+            return_value=MockScalarResult(
+                value=DataSource(
+                    id=pipeline.source_id,
+                    organization_id=pipeline.organization_id,
+                    name="ds",
+                    source_type="postgresql",
+                )
+            )
+        )
 
         response = client.post(
             f"/api/v1/analytics/pipelines/{pipe_id}/run",
