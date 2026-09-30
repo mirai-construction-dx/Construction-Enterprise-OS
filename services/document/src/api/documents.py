@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org, token_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -39,10 +40,6 @@ def _api_response(data=None, meta=None, error=None, success=True):
     return APIResponse(success=success, data=data, error=error, meta=meta)
 
 
-def _org_id(token_data: TokenData) -> UUID:
-    return UUID(token_data.org) if token_data.org else UUID(int=0)
-
-
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
@@ -52,6 +49,7 @@ async def upload_document(
     description: str | None = Form(None),
     tags: str = Form("[]"),
     metadata: str = Form("{}"),
+    organization_id: UUID | None = Form(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -60,6 +58,13 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "NO_FILE", "message": "ファイルが指定されていません。"},
         )
+
+    # ADR-0004: regular users may only create in their own org; admin may target the body org.
+    doc_org = (
+        create_org(token_data, organization_id)
+        if organization_id is not None
+        else token_org(token_data)
+    )
 
     file_content = await file.read()
     if len(file_content) > MAX_UPLOAD_BYTES:
@@ -82,7 +87,7 @@ async def upload_document(
     try:
         document = await document_service.create_document(
             db=db,
-            organization_id=UUID(token_data.org) if token_data.org else UUID(int=0),
+            organization_id=doc_org,
             created_by=UUID(token_data.sub),
             name=name,
             file_name=file.filename,
@@ -112,15 +117,17 @@ async def list_documents(
     status: str | None = Query(None),
     project_id: str | None = Query(None),
     tags: str | None = Query(None),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_filter = scope_org(token_data, organization_id)
     parsed_project_id = UUID(project_id) if project_id else None
     parsed_tags = tags.split(",") if tags else None
 
     documents, pmeta = await document_service.list_documents(
         db=db,
-        organization_id=UUID(token_data.org) if token_data.org else UUID(int=0),
+        organization_id=org_filter,
         page=page,
         per_page=per_page,
         query=query,
@@ -148,7 +155,7 @@ async def get_document(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    document = await document_service.get_document(db, document_id, _org_id(token_data))
+    document = await document_service.get_document(db, document_id, scope_org(token_data))
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -163,7 +170,7 @@ async def download_document(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    document = await document_service.get_document(db, document_id, _org_id(token_data))
+    document = await document_service.get_document(db, document_id, scope_org(token_data))
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -207,7 +214,7 @@ async def update_document(
         description=body.description,
         tags=body.tags,
         status=body.status,
-        organization_id=_org_id(token_data),
+        organization_id=scope_org(token_data),
     )
     if not document:
         raise HTTPException(
@@ -224,7 +231,7 @@ async def delete_document(
     db: AsyncSession = Depends(get_db),
 ):
     document = await document_service.soft_delete_document(
-        db, document_id, _org_id(token_data)
+        db, document_id, scope_org(token_data)
     )
     if not document:
         raise HTTPException(
@@ -259,6 +266,8 @@ async def upload_new_version(
         )
 
     content_type = file.content_type or "application/octet-stream"
+    # Resolve the org before the try block so a 403 is not swallowed into a 500.
+    org_filter = scope_org(token_data)
 
     try:
         version = await document_service.create_new_version(
@@ -269,7 +278,7 @@ async def upload_new_version(
             file_name=file.filename,
             content_type=content_type,
             change_description=change_description,
-            organization_id=_org_id(token_data),
+            organization_id=org_filter,
         )
     except Exception as e:
         raise HTTPException(
@@ -296,7 +305,7 @@ async def list_document_versions(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    document = await document_service.get_document(db, document_id, _org_id(token_data))
+    document = await document_service.get_document(db, document_id, scope_org(token_data))
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -329,7 +338,7 @@ async def get_document_version(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    document = await document_service.get_document(db, document_id, _org_id(token_data))
+    document = await document_service.get_document(db, document_id, scope_org(token_data))
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
