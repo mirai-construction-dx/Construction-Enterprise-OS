@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import APIResponse, IncidentCreate, IncidentUpdate
 from ..services import safety_service
@@ -47,7 +48,7 @@ async def create_incident(
 ):
     incident = await safety_service.create_safety_incident(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         title=body.title,
         description=body.description,
         incident_type=body.incident_type,
@@ -77,7 +78,7 @@ async def list_incidents(
 ):
     incidents = await safety_service.get_safety_incidents(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         incident_type=incident_type,
         severity=severity,
         status=status,
@@ -93,7 +94,7 @@ async def get_incident(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    incident = await safety_service.get_safety_incident_by_id(db, incident_id)
+    incident = await safety_service.get_safety_incident_by_id(db, incident_id, scope_org(current_user))
     if not incident:
         raise HTTPException(
             status_code=404,
@@ -112,6 +113,7 @@ async def update_incident(
     incident = await safety_service.update_safety_incident(
         db,
         incident_id,
+        organization_id=scope_org(current_user),
         title=body.title,
         description=body.description,
         status=body.status,
