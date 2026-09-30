@@ -17,8 +17,21 @@ async def create_ledger(db: AsyncSession, data: dict) -> ProjectLedger:
     return ledger
 
 
-async def get_ledger(db: AsyncSession, ledger_id: uuid.UUID) -> ProjectLedger | None:
-    return await db.get(ProjectLedger, ledger_id)
+async def get_ledger(
+    db: AsyncSession,
+    ledger_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> ProjectLedger | None:
+    """Fetch a ledger; when ``organization_id`` is given, other organizations' rows are not found."""
+    if organization_id is None:
+        return await db.get(ProjectLedger, ledger_id)
+    result = await db.execute(
+        select(ProjectLedger).where(
+            ProjectLedger.id == ledger_id,
+            ProjectLedger.organization_id == organization_id,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_ledgers(
@@ -67,21 +80,28 @@ async def update_ledger(
 
 
 async def get_ledger_detail(
-    db: AsyncSession, ledger: ProjectLedger
+    db: AsyncSession,
+    ledger: ProjectLedger,
+    organization_id: uuid.UUID | None = None,
 ) -> dict:
-    result = await db.execute(
-        select(Budget).where(Budget.ledger_id == ledger.id)
-    )
+    """Ledger with its budgets and cost totals.
+
+    When ``organization_id`` is given, the child rows (budgets / cost items) are also
+    filtered by organization (defense in depth on top of the parent-ledger check, ADR-0004).
+    """
+    budget_query = select(Budget).where(Budget.ledger_id == ledger.id)
+    if organization_id is not None:
+        budget_query = budget_query.where(Budget.organization_id == organization_id)
+    result = await db.execute(budget_query)
     budgets = list(result.scalars().all())
 
-    result = await db.execute(
-        select(
-            CostItem.category,
-            func.sum(CostItem.amount).label("total"),
-        )
-        .where(CostItem.ledger_id == ledger.id)
-        .group_by(CostItem.category)
-    )
+    cost_query = select(
+        CostItem.category,
+        func.sum(CostItem.amount).label("total"),
+    ).where(CostItem.ledger_id == ledger.id)
+    if organization_id is not None:
+        cost_query = cost_query.where(CostItem.organization_id == organization_id)
+    result = await db.execute(cost_query.group_by(CostItem.category))
     cost_summary = {row.category: row.total for row in result.all()}
 
     return {
