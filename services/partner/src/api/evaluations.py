@@ -2,10 +2,11 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -13,9 +14,16 @@ from ..schemas import (
     EvaluationResponse,
     TokenData,
 )
-from ..services import evaluation_service
+from ..services import evaluation_service, partner_service
 
 eval_router = APIRouter()
+
+
+def _partner_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
+    )
 
 
 def _evaluation_to_response(eval_) -> EvaluationResponse:
@@ -45,13 +53,18 @@ async def create_evaluation(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = UUID(current_user.org) if current_user.org else UUID("00000000-0000-0000-0000-000000000001")
+    # EvaluationCreate has no organization_id: the evaluation belongs to the referenced partner's
+    # organization, which must be visible to the caller (regular users: their token org).
+    partner = await partner_service.get_partner_by_id(db, body.partner_id, scope_org(current_user))
+    if not partner:
+        raise _partner_not_found()
+    org_id = create_org(current_user, partner.organization_id)
     evaluator_id = UUID(current_user.sub)
     evaluation = await evaluation_service.create_evaluation(
         db, org_id, evaluator_id, body.model_dump()
     )
     await db.flush()
-    await evaluation_service.update_partner_rating(db, body.partner_id)
+    await evaluation_service.update_partner_rating(db, body.partner_id, org_id)
     await db.refresh(evaluation)
     return APIResponse(data=_evaluation_to_response(evaluation))
 
@@ -63,11 +76,13 @@ async def list_evaluations(
     per_page: int = Query(20, ge=1, le=100),
     partner_id: UUID | None = Query(None),
     project_id: UUID | None = Query(None),
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
     evaluations, total = await evaluation_service.list_evaluations(
         db,
+        organization_id=scope_org(current_user, organization_id),
         page=page,
         per_page=per_page,
         partner_id=partner_id,
