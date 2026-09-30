@@ -89,7 +89,7 @@ async def get_document(
 
 async def list_documents(
     db: AsyncSession,
-    organization_id: UUID,
+    organization_id: UUID | None,
     page: int = 1,
     per_page: int = 20,
     query: str | None = None,

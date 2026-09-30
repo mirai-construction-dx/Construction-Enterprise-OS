@@ -28,11 +28,21 @@ async def register_device(db: AsyncSession, data: dict) -> DeviceModel:
     return device
 
 
-async def get_device_by_id(db: AsyncSession, device_id: UUID) -> DeviceModel | None:
+def _scoped_device_stmt(device_id: UUID, organization_id: UUID | None):
+    """Device lookup; ``organization_id`` None means no org filter (cross-org admin only)."""
+    stmt = select(DeviceModel).where(DeviceModel.id == device_id)
+    if organization_id is not None:
+        stmt = stmt.where(DeviceModel.organization_id == organization_id)
+    return stmt
+
+
+async def get_device_by_id(
+    db: AsyncSession, device_id: UUID, organization_id: UUID | None = None
+) -> DeviceModel | None:
     result = await db.execute(
-        select(DeviceModel)
-        .options(selectinload(DeviceModel.sensors))
-        .where(DeviceModel.id == device_id)
+        _scoped_device_stmt(device_id, organization_id).options(
+            selectinload(DeviceModel.sensors)
+        )
     )
     return result.scalar_one_or_none()
 
@@ -58,7 +68,7 @@ async def get_devices_paginated(
     if project_id:
         query = query.where(DeviceModel.project_id == project_id)
         count_query = count_query.where(DeviceModel.project_id == project_id)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(DeviceModel.organization_id == organization_id)
         count_query = count_query.where(DeviceModel.organization_id == organization_id)
 
@@ -73,8 +83,10 @@ async def get_devices_paginated(
     return devices, total
 
 
-async def update_device(db: AsyncSession, device_id: UUID, data: dict) -> DeviceModel | None:
-    result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
+async def update_device(
+    db: AsyncSession, device_id: UUID, data: dict, organization_id: UUID | None = None
+) -> DeviceModel | None:
+    result = await db.execute(_scoped_device_stmt(device_id, organization_id))
     device = result.scalar_one_or_none()
     if not device:
         return None
@@ -90,8 +102,10 @@ async def update_device(db: AsyncSession, device_id: UUID, data: dict) -> Device
     return device
 
 
-async def delete_device(db: AsyncSession, device_id: UUID) -> bool:
-    result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
+async def delete_device(
+    db: AsyncSession, device_id: UUID, organization_id: UUID | None = None
+) -> bool:
+    result = await db.execute(_scoped_device_stmt(device_id, organization_id))
     device = result.scalar_one_or_none()
     if not device:
         return False
@@ -123,8 +137,10 @@ async def device_heartbeat(
     return device
 
 
-async def add_sensor(db: AsyncSession, device_id: UUID, data: dict) -> SensorModel | None:
-    result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
+async def add_sensor(
+    db: AsyncSession, device_id: UUID, data: dict, organization_id: UUID | None = None
+) -> SensorModel | None:
+    result = await db.execute(_scoped_device_stmt(device_id, organization_id))
     device = result.scalar_one_or_none()
     if not device:
         return None
@@ -143,8 +159,31 @@ async def add_sensor(db: AsyncSession, device_id: UUID, data: dict) -> SensorMod
     return sensor
 
 
-async def get_sensors_by_device(db: AsyncSession, device_id: UUID) -> list[SensorModel]:
-    result = await db.execute(
-        select(SensorModel).where(SensorModel.device_id == device_id)
-    )
+async def get_sensors_by_device(
+    db: AsyncSession, device_id: UUID, organization_id: UUID | None = None
+) -> list[SensorModel]:
+    stmt = select(SensorModel).where(SensorModel.device_id == device_id)
+    if organization_id is not None:
+        # Sensors have no organization column: scope through the parent device.
+        stmt = stmt.where(
+            SensorModel.device_id.in_(
+                select(DeviceModel.id).where(DeviceModel.organization_id == organization_id)
+            )
+        )
+    result = await db.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_sensor_by_id(
+    db: AsyncSession, sensor_id: UUID, organization_id: UUID | None = None
+) -> SensorModel | None:
+    """Sensor lookup scoped through its parent device's organization."""
+    stmt = select(SensorModel).options(selectinload(SensorModel.device)).where(
+        SensorModel.id == sensor_id
+    )
+    if organization_id is not None:
+        stmt = stmt.join(DeviceModel, SensorModel.device_id == DeviceModel.id).where(
+            DeviceModel.organization_id == organization_id
+        )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
