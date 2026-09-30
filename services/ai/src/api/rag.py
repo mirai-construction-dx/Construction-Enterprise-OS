@@ -1,12 +1,12 @@
 """RAG 検索 + 生成エンドポイント"""
 
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import scope_org
 from ..models.base import get_db
 from ..schemas import (
     EmbeddingSearchResult,
@@ -44,7 +44,7 @@ async def rag_search(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     service = _get_rag_service()
 
     from ..config import get_settings
@@ -90,7 +90,7 @@ async def rag_generate(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     service = _get_rag_service()
 
     from ..config import get_settings
@@ -116,6 +116,7 @@ async def rag_generate(
             model=body.model,
             temperature=body.temperature,
             max_tokens=body.max_tokens,
+            organization_id=org_id,
         )
     finally:
         await service.llm_provider.close()

@@ -1,13 +1,13 @@
 """LLM チャット/補完エンドポイント"""
 
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import scope_org
 from ..models.base import get_db
 from ..schemas import (
     ChatRequest,
@@ -35,12 +35,14 @@ async def chat(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Fail closed before any work (and outside the template try/except below,
+    # which would otherwise swallow the 403).
+    org_id = scope_org(token_data)
     llm = _get_llm_provider()
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
 
     if body.prompt_template_id:
         try:
-            org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
             template = await PromptService.get_template(
                 db, body.prompt_template_id, org_id
             )
@@ -89,12 +91,14 @@ async def chat_stream(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Fail closed before any work (and outside the template try/except below,
+    # which would otherwise swallow the 403).
+    org_id = scope_org(token_data)
     llm = _get_llm_provider()
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
 
     if body.prompt_template_id:
         try:
-            org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
             template = await PromptService.get_template(
                 db, body.prompt_template_id, org_id
             )
@@ -147,7 +151,7 @@ async def complete(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
+    org_id = scope_org(token_data)
     template = await PromptService.get_template(db, body.prompt_template_id, org_id)
     if not template:
         from fastapi import HTTPException, status
