@@ -44,7 +44,7 @@ async def list_wbs(
     query = select(WBSItem)
     count_query = select(func.count(WBSItem.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(WBSItem.organization_id == organization_id)
         count_query = count_query.where(WBSItem.organization_id == organization_id)
     if project_id:
@@ -75,10 +75,13 @@ async def update_wbs(db: AsyncSession, wbs: WBSItem, data: dict) -> WBSItem:
     return wbs
 
 
-async def get_wbs_children(db: AsyncSession, parent_id: uuid.UUID) -> list[WBSItem]:
-    result = await db.execute(
-        select(WBSItem).where(WBSItem.parent_id == parent_id).order_by(WBSItem.wbs_code)
-    )
+async def get_wbs_children(
+    db: AsyncSession, parent_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> list[WBSItem]:
+    query = select(WBSItem).where(WBSItem.parent_id == parent_id)
+    if organization_id is not None:
+        query = query.where(WBSItem.organization_id == organization_id)
+    result = await db.execute(query.order_by(WBSItem.wbs_code))
     return list(result.scalars().all())
 
 
@@ -111,7 +114,8 @@ async def build_wbs_tree(
 
 
 async def _build_subtree(db: AsyncSession, node: WBSItem) -> dict:
-    children = await get_wbs_children(db, node.id)
+    # Children must belong to the same organization as their (already scoped) parent.
+    children = await get_wbs_children(db, node.id, node.organization_id)
     child_trees = []
     for child in children:
         child_trees.append(await _build_subtree(db, child))
@@ -143,8 +147,17 @@ async def create_resource(db: AsyncSession, data: dict) -> Resource:
     return resource
 
 
-async def get_resource(db: AsyncSession, resource_id: uuid.UUID) -> Resource | None:
-    return await db.get(Resource, resource_id)
+async def get_resource(
+    db: AsyncSession, resource_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> Resource | None:
+    obj = await db.get(Resource, resource_id)
+    if (
+        obj is not None
+        and organization_id is not None
+        and obj.organization_id != organization_id
+    ):
+        return None
+    return obj
 
 
 async def list_resources(
@@ -159,7 +172,7 @@ async def list_resources(
     query = select(Resource)
     count_query = select(func.count(Resource.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(Resource.organization_id == organization_id)
         count_query = count_query.where(Resource.organization_id == organization_id)
     if project_id:
@@ -203,9 +216,9 @@ async def update_resource_allocation(
 
 
 async def get_resource_cost_summary(
-    db: AsyncSession, project_id: uuid.UUID
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID | None = None
 ) -> list[dict]:
-    result = await db.execute(
+    query = (
         select(
             Resource.resource_type,
             func.count(Resource.id).label("count"),
@@ -219,6 +232,9 @@ async def get_resource_cost_summary(
         .where(Resource.project_id == project_id)
         .group_by(Resource.resource_type)
     )
+    if organization_id is not None:
+        query = query.where(Resource.organization_id == organization_id)
+    result = await db.execute(query)
     return [
         {
             "resource_type": row.resource_type,
@@ -247,8 +263,17 @@ async def create_schedule(db: AsyncSession, data: dict) -> Schedule:
     return schedule
 
 
-async def get_schedule(db: AsyncSession, schedule_id: uuid.UUID) -> Schedule | None:
-    return await db.get(Schedule, schedule_id)
+async def get_schedule(
+    db: AsyncSession, schedule_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> Schedule | None:
+    obj = await db.get(Schedule, schedule_id)
+    if (
+        obj is not None
+        and organization_id is not None
+        and obj.organization_id != organization_id
+    ):
+        return None
+    return obj
 
 
 async def list_schedules(
@@ -263,7 +288,7 @@ async def list_schedules(
     query = select(Schedule)
     count_query = select(func.count(Schedule.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(Schedule.organization_id == organization_id)
         count_query = count_query.where(Schedule.organization_id == organization_id)
     if project_id:
@@ -297,21 +322,25 @@ async def update_schedule(db: AsyncSession, schedule: Schedule, data: dict) -> S
     return schedule
 
 
-async def get_critical_path(db: AsyncSession, project_id: uuid.UUID) -> list[Schedule]:
-    result = await db.execute(
-        select(Schedule)
-        .where(Schedule.project_id == project_id, Schedule.critical_path.is_(True))
-        .order_by(Schedule.planned_start)
+async def get_critical_path(
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> list[Schedule]:
+    query = select(Schedule).where(
+        Schedule.project_id == project_id, Schedule.critical_path.is_(True)
     )
+    if organization_id is not None:
+        query = query.where(Schedule.organization_id == organization_id)
+    result = await db.execute(query.order_by(Schedule.planned_start))
     return list(result.scalars().all())
 
 
-async def get_gantt_data(db: AsyncSession, project_id: uuid.UUID) -> list[dict]:
-    result = await db.execute(
-        select(Schedule)
-        .where(Schedule.project_id == project_id)
-        .order_by(Schedule.planned_start)
-    )
+async def get_gantt_data(
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> list[dict]:
+    query = select(Schedule).where(Schedule.project_id == project_id)
+    if organization_id is not None:
+        query = query.where(Schedule.organization_id == organization_id)
+    result = await db.execute(query.order_by(Schedule.planned_start))
     schedules = list(result.scalars().all())
     return [
         {
@@ -341,8 +370,17 @@ async def create_method(db: AsyncSession, data: dict) -> MethodStatement:
     return method
 
 
-async def get_method(db: AsyncSession, method_id: uuid.UUID) -> MethodStatement | None:
-    return await db.get(MethodStatement, method_id)
+async def get_method(
+    db: AsyncSession, method_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> MethodStatement | None:
+    obj = await db.get(MethodStatement, method_id)
+    if (
+        obj is not None
+        and organization_id is not None
+        and obj.organization_id != organization_id
+    ):
+        return None
+    return obj
 
 
 async def list_methods(
@@ -357,7 +395,7 @@ async def list_methods(
     query = select(MethodStatement)
     count_query = select(func.count(MethodStatement.id))
 
-    if organization_id:
+    if organization_id is not None:
         query = query.where(MethodStatement.organization_id == organization_id)
         count_query = count_query.where(
             MethodStatement.organization_id == organization_id

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     MethodApprovalRequest,
@@ -15,6 +16,7 @@ from ..schemas import (
     MethodUpdateRequest,
 )
 from ..services import construction_service
+from ._tenant_refs import ensure_wbs_in_org
 
 router = APIRouter()
 
@@ -23,9 +25,13 @@ router = APIRouter()
 async def create_method(
     body: MethodCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.create_method(db, body.model_dump())
+    org = create_org(user, body.organization_id)
+    await ensure_wbs_in_org(db, user, body.wbs_item_id, org)
+    data = body.model_dump()
+    data["organization_id"] = org
+    return await construction_service.create_method(db, data)
 
 
 @router.get("/methods", response_model=MethodListResponse)
@@ -37,11 +43,11 @@ async def list_methods(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
     items, total = await construction_service.list_methods(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(user, organization_id),
         project_id=project_id,
         document_type=document_type,
         status=status,
@@ -55,9 +61,9 @@ async def list_methods(
 async def get_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     return method
@@ -68,9 +74,9 @@ async def update_method(
     method_id: UUID,
     body: MethodUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     return await construction_service.update_method(db, method, body.model_dump(exclude_none=True))
@@ -80,9 +86,9 @@ async def update_method(
 async def delete_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     await db.delete(method)
@@ -92,9 +98,9 @@ async def delete_method(
 async def submit_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:
@@ -108,9 +114,9 @@ async def approve_method(
     method_id: UUID,
     body: MethodApprovalRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:
@@ -123,9 +129,9 @@ async def approve_method(
 async def reject_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:
