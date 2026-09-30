@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -47,7 +48,7 @@ async def create_inspection(
 ):
     inspection = await safety_service.create_inspection(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         title=body.title,
         inspection_type=body.inspection_type,
         inspector_id=body.inspector_id,
@@ -72,7 +73,7 @@ async def list_inspections(
 ):
     inspections = await safety_service.get_inspections(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         inspection_type=inspection_type,
         status=status,
         project_id=project_id,
@@ -84,10 +85,13 @@ async def list_inspections(
 
 @router.get("/inspections/stats")
 async def inspection_stats(
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    stats = await safety_service.get_inspection_stats(db)
+    stats = await safety_service.get_inspection_stats(
+        db, scope_org(current_user, organization_id)
+    )
     return APIResponse(data=stats)
 
 
@@ -97,7 +101,7 @@ async def get_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspection = await safety_service.get_inspection_by_id(db, inspection_id)
+    inspection = await safety_service.get_inspection_by_id(db, inspection_id, scope_org(current_user))
     if not inspection:
         raise HTTPException(
             status_code=404,
@@ -116,6 +120,7 @@ async def update_inspection(
     inspection = await safety_service.update_inspection(
         db,
         inspection_id,
+        organization_id=scope_org(current_user),
         title=body.title,
         status=body.status,
         inspector_id=body.inspector_id,
@@ -144,6 +149,7 @@ async def complete_inspection(
     inspection = await safety_service.complete_inspection(
         db,
         inspection_id,
+        organization_id=scope_org(current_user),
         is_safe=body.is_safe,
         findings=body.findings,
         corrective_actions=body.corrective_actions,

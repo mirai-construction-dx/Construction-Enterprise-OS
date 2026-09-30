@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
     FinancialSummary,
@@ -43,9 +44,11 @@ async def get_ledger_overall_summary(
 async def create_ledger(
     body: LedgerCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.create_ledger(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    ledger = await ledger_service.create_ledger(db, data)
     return ledger
 
 
@@ -57,11 +60,11 @@ async def list_ledgers(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     items, total = await ledger_service.list_ledgers(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         status=status,
         project_type=project_type,
         page=page,
@@ -74,12 +77,13 @@ async def list_ledgers(
 async def get_ledger(
     ledger_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id)
+    org = scope_org(current_user)
+    ledger = await ledger_service.get_ledger(db, ledger_id, org)
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
-    detail = await ledger_service.get_ledger_detail(db, ledger)
+    detail = await ledger_service.get_ledger_detail(db, ledger, org)
     return LedgerDetailResponse(
         **{k: v for k, v in detail.items() if k != "ledger"},
         **LedgerResponse.model_validate(ledger).model_dump(),
@@ -91,9 +95,9 @@ async def update_ledger(
     ledger_id: UUID,
     body: LedgerUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id)
+    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
     return await ledger_service.update_ledger(
@@ -105,9 +109,9 @@ async def update_ledger(
 async def get_financial_summary(
     ledger_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    ledger = await ledger_service.get_ledger(db, ledger_id)
+    ledger = await ledger_service.get_ledger(db, ledger_id, scope_org(current_user))
     if not ledger:
         raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
     return await ledger_service.get_financial_summary(ledger)
