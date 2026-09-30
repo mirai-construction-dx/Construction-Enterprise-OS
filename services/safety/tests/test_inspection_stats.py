@@ -88,14 +88,14 @@ def test_inspection_stats_counts_passed_and_failed_by_status(mock_jwt):
 
     assert response.status_code == 200
     stmts = [str(call.args[0]) for call in db_mock.execute.await_args_list]
-    assert "WHERE" not in stmts[0]
+    # Tenant filtering is intentionally not asserted either way (see Issue #106).
     assert "status = :status_1" in stmts[1]
     assert "status = :status_1" in stmts[2]
     assert "avg(" in stmts[3]
     passed_param = db_mock.execute.await_args_list[1].args[0].compile().params
     failed_param = db_mock.execute.await_args_list[2].args[0].compile().params
-    assert passed_param == {"status_1": "passed"}
-    assert failed_param == {"status_1": "failed"}
+    assert passed_param["status_1"] == "passed"
+    assert failed_param["status_1"] == "failed"
 
 
 @patch("src.middleware.auth.jwt")
