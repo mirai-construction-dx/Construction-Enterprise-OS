@@ -36,7 +36,7 @@ async def get_vector_indices(
     limit: int = 50,
 ) -> list[VectorIndex]:
     stmt = select(VectorIndex)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(VectorIndex.organization_id == organization_id)
     if is_active is not None:
         stmt = stmt.where(VectorIndex.is_active == is_active)
@@ -46,9 +46,11 @@ async def get_vector_indices(
 
 
 async def get_vector_index_by_id(
-    db: AsyncSession, index_id: UUID
+    db: AsyncSession, index_id: UUID, organization_id: UUID | None = None
 ) -> VectorIndex | None:
     stmt = select(VectorIndex).where(VectorIndex.id == index_id)
+    if organization_id is not None:
+        stmt = stmt.where(VectorIndex.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -59,8 +61,9 @@ async def update_vector_index(
     is_active: bool | None = None,
     document_count: int | None = None,
     total_vectors: int | None = None,
+    organization_id: UUID | None = None,
 ) -> VectorIndex | None:
-    vi = await get_vector_index_by_id(db, index_id)
+    vi = await get_vector_index_by_id(db, index_id, organization_id)
     if not vi:
         return None
     if is_active is not None:
@@ -73,17 +76,25 @@ async def update_vector_index(
     return vi
 
 
-async def delete_vector_index(db: AsyncSession, index_id: UUID) -> bool:
+async def delete_vector_index(
+    db: AsyncSession, index_id: UUID, organization_id: UUID | None = None
+) -> bool:
     stmt = delete(VectorIndex).where(VectorIndex.id == index_id)
+    if organization_id is not None:
+        stmt = stmt.where(VectorIndex.organization_id == organization_id)
     result = await db.execute(stmt)
     await db.flush()
     return result.rowcount > 0
 
 
 async def increment_vector_counts(
-    db: AsyncSession, index_id: UUID, added_docs: int, added_vectors: int
+    db: AsyncSession,
+    index_id: UUID,
+    added_docs: int,
+    added_vectors: int,
+    organization_id: UUID | None = None,
 ) -> VectorIndex | None:
-    vi = await get_vector_index_by_id(db, index_id)
+    vi = await get_vector_index_by_id(db, index_id, organization_id)
     if not vi:
         return None
     vi.document_count += added_docs
