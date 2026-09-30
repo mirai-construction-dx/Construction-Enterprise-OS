@@ -8,6 +8,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import AlertRule as AlertRuleModel
 from ..models import AlertHistory as AlertHistoryModel
+from ..models import Device as DeviceModel
+
+
+def _org_device_ids(organization_id: UUID):
+    """Device ids of an organization (alert history has no organization column)."""
+    return select(DeviceModel.id).where(DeviceModel.organization_id == organization_id)
+
+
+def _scoped_alert_stmt(alert_id: int, organization_id: UUID | None):
+    stmt = select(AlertHistoryModel).where(AlertHistoryModel.id == alert_id)
+    if organization_id is not None:
+        stmt = stmt.where(AlertHistoryModel.device_id.in_(_org_device_ids(organization_id)))
+    return stmt
 
 
 _CONDITION_MAP = {
@@ -44,11 +57,21 @@ async def check_alert_rules(
     value: float,
     sensor_id: UUID | None = None,
 ) -> list[AlertHistoryModel]:
-    """テレメトリ投入後、アラートルールの閾値チェックを行う。"""
+    """テレメトリ投入後、アラートルールの閾値チェックを行う。
+
+    ルールはデバイスと同じ組織のものだけを評価する（device_id 無しの組織共通ルールが
+    他組織のデバイスで発火しないようにする。ADR-0004）。未登録デバイスではどのルールも一致しない。
+    """
+    device_org = (
+        select(DeviceModel.organization_id)
+        .where(DeviceModel.id == device_id)
+        .scalar_subquery()
+    )
     result = await db.execute(
         select(AlertRuleModel).where(
             AlertRuleModel.is_active.is_(True),
             AlertRuleModel.metric_name == metric_name,
+            AlertRuleModel.organization_id == device_org,
             (AlertRuleModel.device_id == device_id)
             | (AlertRuleModel.device_id.is_(None)),
         )
@@ -94,11 +117,9 @@ async def check_alert_rules(
 
 
 async def acknowledge_alert(
-    db: AsyncSession, alert_id: int, user_id: UUID
+    db: AsyncSession, alert_id: int, user_id: UUID, organization_id: UUID | None = None
 ) -> AlertHistoryModel | None:
-    result = await db.execute(
-        select(AlertHistoryModel).where(AlertHistoryModel.id == alert_id)
-    )
+    result = await db.execute(_scoped_alert_stmt(alert_id, organization_id))
     alert = result.scalar_one_or_none()
     if not alert:
         return None
@@ -110,10 +131,10 @@ async def acknowledge_alert(
     return alert
 
 
-async def resolve_alert(db: AsyncSession, alert_id: int) -> AlertHistoryModel | None:
-    result = await db.execute(
-        select(AlertHistoryModel).where(AlertHistoryModel.id == alert_id)
-    )
+async def resolve_alert(
+    db: AsyncSession, alert_id: int, organization_id: UUID | None = None
+) -> AlertHistoryModel | None:
+    result = await db.execute(_scoped_alert_stmt(alert_id, organization_id))
     alert = result.scalar_one_or_none()
     if not alert:
         return None
@@ -130,7 +151,7 @@ async def get_alert_rules(
     device_id: UUID | None = None,
 ) -> list[AlertRuleModel]:
     query = select(AlertRuleModel)
-    if organization_id:
+    if organization_id is not None:
         query = query.where(AlertRuleModel.organization_id == organization_id)
     if device_id:
         query = query.where(AlertRuleModel.device_id == device_id)
@@ -146,9 +167,15 @@ async def get_alert_history(
     severity: str | None = None,
     device_id: UUID | None = None,
     acknowledged: bool | None = None,
+    organization_id: UUID | None = None,
 ) -> tuple[list[AlertHistoryModel], int]:
     query = select(AlertHistoryModel)
     count_query = select(func.count(AlertHistoryModel.id))
+
+    if organization_id is not None:
+        org_filter = AlertHistoryModel.device_id.in_(_org_device_ids(organization_id))
+        query = query.where(org_filter)
+        count_query = count_query.where(org_filter)
 
     if severity:
         query = query.where(AlertHistoryModel.severity == severity)

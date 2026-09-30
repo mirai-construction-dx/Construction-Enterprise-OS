@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models import ViewerConfig, ViewerScene
 from ..models.base import get_db
 from ..schemas import (
@@ -36,6 +37,21 @@ def _scene_to_response(s: ViewerScene) -> dict:
     return ViewerSceneResponse.model_validate(s).model_dump(mode="json")
 
 
+def _config_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"code": "NOT_FOUND", "message": "ビューア設定が見つかりません。"},
+    )
+
+
+def _config_by_id(config_id: UUID, organization_id: UUID | None):
+    """Select a viewer config; ``organization_id=None`` is reserved for cross-org admins."""
+    stmt = select(ViewerConfig).where(ViewerConfig.id == config_id)
+    if organization_id is not None:
+        stmt = stmt.where(ViewerConfig.organization_id == organization_id)
+    return stmt
+
+
 # === Viewer Configs ===
 
 @router.post("/configs")
@@ -44,8 +60,9 @@ async def create_viewer_config(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = create_org(token_data, body.organization_id)
     config = ViewerConfig(
-        organization_id=body.organization_id,
+        organization_id=org_id,
         project_id=body.project_id,
         name=body.name,
         viewer_type=body.viewer_type,
@@ -69,11 +86,17 @@ async def list_viewer_configs(
     per_page: int = Query(20, ge=1, le=100),
     viewer_type: str | None = Query(None),
     project_id: UUID | None = Query(None),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(ViewerConfig)
     count_query = select(func.count(ViewerConfig.id))
+
+    org_id = scope_org(token_data, organization_id)
+    if org_id is not None:
+        query = query.where(ViewerConfig.organization_id == org_id)
+        count_query = count_query.where(ViewerConfig.organization_id == org_id)
 
     if viewer_type:
         query = query.where(ViewerConfig.viewer_type == viewer_type)
@@ -104,16 +127,13 @@ async def get_viewer_config(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(ViewerConfig)
-        .where(ViewerConfig.id == config_id)
-        .options(selectinload(ViewerConfig.scenes))
+        _config_by_id(config_id, scope_org(token_data)).options(
+            selectinload(ViewerConfig.scenes)
+        )
     )
     config = result.scalar_one_or_none()
     if not config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "ビューア設定が見つかりません。"},
-        )
+        raise _config_not_found()
     data = ViewerConfigWithScenesResponse.model_validate(config).model_dump(mode="json")
     return _api_response(data=data)
 
@@ -124,15 +144,10 @@ async def delete_viewer_config(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ViewerConfig).where(ViewerConfig.id == config_id)
-    )
+    result = await db.execute(_config_by_id(config_id, scope_org(token_data)))
     config = result.scalar_one_or_none()
     if not config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "ビューア設定が見つかりません。"},
-        )
+        raise _config_not_found()
     await db.delete(config)
     await db.flush()
     return _api_response(data={"deleted": True})
@@ -147,15 +162,10 @@ async def create_viewer_scene(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ViewerConfig).where(ViewerConfig.id == config_id)
-    )
+    result = await db.execute(_config_by_id(config_id, scope_org(token_data)))
     config = result.scalar_one_or_none()
     if not config:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "NOT_FOUND", "message": "ビューア設定が見つかりません。"},
-        )
+        raise _config_not_found()
 
     scene = ViewerScene(
         config_id=config_id,
@@ -178,9 +188,14 @@ async def get_viewer_scene(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ViewerScene).where(ViewerScene.id == scene_id)
-    )
+    # A scene has no organization of its own: it is scoped through its parent config.
+    stmt = select(ViewerScene).where(ViewerScene.id == scene_id)
+    org_id = scope_org(token_data)
+    if org_id is not None:
+        stmt = stmt.join(ViewerConfig, ViewerScene.config_id == ViewerConfig.id).where(
+            ViewerConfig.organization_id == org_id
+        )
+    result = await db.execute(stmt)
     scene = result.scalar_one_or_none()
     if not scene:
         raise HTTPException(

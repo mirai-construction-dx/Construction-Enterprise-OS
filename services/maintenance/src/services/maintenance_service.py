@@ -65,7 +65,7 @@ async def get_disaster_reports(
     limit: int = 50,
 ) -> list[DisasterReport]:
     stmt = select(DisasterReport)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(DisasterReport.organization_id == organization_id)
     if disaster_type:
         stmt = stmt.where(DisasterReport.disaster_type == disaster_type)
@@ -79,9 +79,12 @@ async def get_disaster_reports(
 
 
 async def get_disaster_report_by_id(
-    db: AsyncSession, report_id: UUID
+    db: AsyncSession, report_id: UUID, organization_id: UUID | None = None
 ) -> DisasterReport | None:
+    """Fetch by id; ``organization_id`` restricts to that organization (None = no filter)."""
     stmt = select(DisasterReport).where(DisasterReport.id == report_id)
+    if organization_id is not None:
+        stmt = stmt.where(DisasterReport.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -89,6 +92,7 @@ async def get_disaster_report_by_id(
 async def update_disaster_report(
     db: AsyncSession,
     report_id: UUID,
+    organization_id: UUID | None = None,
     title: str | None = None,
     status: str | None = None,
     severity: str | None = None,
@@ -97,7 +101,7 @@ async def update_disaster_report(
     casualties: int | None = None,
     evacuation_required: bool | None = None,
 ) -> DisasterReport | None:
-    report = await get_disaster_report_by_id(db, report_id)
+    report = await get_disaster_report_by_id(db, report_id, organization_id)
     if not report:
         return None
     if title is not None:
@@ -158,21 +162,24 @@ async def create_recovery_plan(
 
 
 async def get_recovery_plan_by_id(
-    db: AsyncSession, plan_id: UUID
+    db: AsyncSession, plan_id: UUID, organization_id: UUID | None = None
 ) -> RecoveryPlan | None:
+    """Fetch by id; ``organization_id`` restricts to that organization (None = no filter)."""
     stmt = select(RecoveryPlan).where(RecoveryPlan.id == plan_id)
+    if organization_id is not None:
+        stmt = stmt.where(RecoveryPlan.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
 async def get_recovery_plans_for_disaster(
-    db: AsyncSession, disaster_report_id: UUID
+    db: AsyncSession, disaster_report_id: UUID, organization_id: UUID | None = None
 ) -> list[RecoveryPlan]:
-    stmt = (
-        select(RecoveryPlan)
-        .where(RecoveryPlan.disaster_report_id == disaster_report_id)
-        .order_by(RecoveryPlan.created_at.desc())
-    )
+    stmt = select(RecoveryPlan).where(RecoveryPlan.disaster_report_id == disaster_report_id)
+    # Defense in depth: child plans are also filtered by their own organization (ADR-0004).
+    if organization_id is not None:
+        stmt = stmt.where(RecoveryPlan.organization_id == organization_id)
+    stmt = stmt.order_by(RecoveryPlan.created_at.desc())
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -180,6 +187,7 @@ async def get_recovery_plans_for_disaster(
 async def update_recovery_plan(
     db: AsyncSession,
     plan_id: UUID,
+    organization_id: UUID | None = None,
     title: str | None = None,
     description: str | None = None,
     priority: str | None = None,
@@ -193,7 +201,7 @@ async def update_recovery_plan(
     resources_needed: str | None = None,
     progress_percent: Decimal | None = None,
 ) -> RecoveryPlan | None:
-    plan = await get_recovery_plan_by_id(db, plan_id)
+    plan = await get_recovery_plan_by_id(db, plan_id, organization_id)
     if not plan:
         return None
     if title is not None:
@@ -280,7 +288,7 @@ async def get_maintenance_records(
     limit: int = 50,
 ) -> list[MaintenanceRecord]:
     stmt = select(MaintenanceRecord)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(MaintenanceRecord.organization_id == organization_id)
     if asset_type:
         stmt = stmt.where(MaintenanceRecord.asset_type == asset_type)
@@ -294,9 +302,12 @@ async def get_maintenance_records(
 
 
 async def get_maintenance_record_by_id(
-    db: AsyncSession, record_id: UUID
+    db: AsyncSession, record_id: UUID, organization_id: UUID | None = None
 ) -> MaintenanceRecord | None:
+    """Fetch by id; ``organization_id`` restricts to that organization (None = no filter)."""
     stmt = select(MaintenanceRecord).where(MaintenanceRecord.id == record_id)
+    if organization_id is not None:
+        stmt = stmt.where(MaintenanceRecord.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -304,6 +315,7 @@ async def get_maintenance_record_by_id(
 async def update_maintenance_record(
     db: AsyncSession,
     record_id: UUID,
+    organization_id: UUID | None = None,
     asset_name: str | None = None,
     status: str | None = None,
     work_performed: str | None = None,
@@ -314,7 +326,7 @@ async def update_maintenance_record(
     performed_by: UUID | None = None,
     notes: str | None = None,
 ) -> MaintenanceRecord | None:
-    record = await get_maintenance_record_by_id(db, record_id)
+    record = await get_maintenance_record_by_id(db, record_id, organization_id)
     if not record:
         return None
     if asset_name is not None:
@@ -344,6 +356,7 @@ async def update_maintenance_record(
 
 async def get_overdue_maintenance(
     db: AsyncSession,
+    organization_id: UUID | None = None,
 ) -> list[MaintenanceRecord]:
     today = date.today()
     stmt = (
@@ -355,6 +368,8 @@ async def get_overdue_maintenance(
         )
         .order_by(MaintenanceRecord.scheduled_date.asc())
     )
+    if organization_id is not None:
+        stmt = stmt.where(MaintenanceRecord.organization_id == organization_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -399,7 +414,7 @@ async def get_inspection_schedules(
     limit: int = 50,
 ) -> list[InspectionSchedule]:
     stmt = select(InspectionSchedule)
-    if organization_id:
+    if organization_id is not None:
         stmt = stmt.where(InspectionSchedule.organization_id == organization_id)
     if status:
         stmt = stmt.where(InspectionSchedule.status == status)
@@ -409,9 +424,12 @@ async def get_inspection_schedules(
 
 
 async def get_inspection_schedule_by_id(
-    db: AsyncSession, inspection_id: UUID
+    db: AsyncSession, inspection_id: UUID, organization_id: UUID | None = None
 ) -> InspectionSchedule | None:
+    """Fetch by id; ``organization_id`` restricts to that organization (None = no filter)."""
     stmt = select(InspectionSchedule).where(InspectionSchedule.id == inspection_id)
+    if organization_id is not None:
+        stmt = stmt.where(InspectionSchedule.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -419,13 +437,14 @@ async def get_inspection_schedule_by_id(
 async def update_inspection_schedule(
     db: AsyncSession,
     inspection_id: UUID,
+    organization_id: UUID | None = None,
     status: str | None = None,
     checklist: list | None = None,
     notes: str | None = None,
     next_inspection_date: date | None = None,
     inspector: str | None = None,
 ) -> InspectionSchedule | None:
-    inspection = await get_inspection_schedule_by_id(db, inspection_id)
+    inspection = await get_inspection_schedule_by_id(db, inspection_id, organization_id)
     if not inspection:
         return None
     if status is not None:
@@ -450,10 +469,12 @@ async def complete_inspection(
     inspection_id: UUID,
     checklist: list | None = None,
     notes: str | None = None,
+    organization_id: UUID | None = None,
 ) -> InspectionSchedule | None:
     return await update_inspection_schedule(
         db,
         inspection_id,
+        organization_id=organization_id,
         status="completed",
         checklist=checklist,
         notes=notes,
@@ -462,6 +483,7 @@ async def complete_inspection(
 
 async def get_upcoming_inspections(
     db: AsyncSession,
+    organization_id: UUID | None = None,
 ) -> list[InspectionSchedule]:
     from datetime import timedelta
 
@@ -476,12 +498,15 @@ async def get_upcoming_inspections(
         )
         .order_by(InspectionSchedule.next_inspection_date.asc())
     )
+    if organization_id is not None:
+        stmt = stmt.where(InspectionSchedule.organization_id == organization_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
 async def get_overdue_inspections(
     db: AsyncSession,
+    organization_id: UUID | None = None,
 ) -> list[InspectionSchedule]:
     today = date.today()
     stmt = (
@@ -492,5 +517,7 @@ async def get_overdue_inspections(
         )
         .order_by(InspectionSchedule.next_inspection_date.asc())
     )
+    if organization_id is not None:
+        stmt = stmt.where(InspectionSchedule.organization_id == organization_id)
     result = await db.execute(stmt)
     return list(result.scalars().all())

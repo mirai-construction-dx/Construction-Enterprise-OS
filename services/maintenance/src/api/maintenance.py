@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import APIResponse, MaintenanceRecordCreate, MaintenanceRecordUpdate
 from ..services import maintenance_service as svc
@@ -45,7 +46,7 @@ async def create_record(
 ):
     record = await svc.create_maintenance_record(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         asset_name=body.asset_name,
         asset_type=body.asset_type,
         maintenance_type=body.maintenance_type,
@@ -75,7 +76,7 @@ async def list_records(
 ):
     records = await svc.get_maintenance_records(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         asset_type=asset_type,
         maintenance_type=maintenance_type,
         status=status,
@@ -87,10 +88,13 @@ async def list_records(
 
 @router.get("/records/overdue")
 async def get_overdue_records(
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    records = await svc.get_overdue_maintenance(db)
+    records = await svc.get_overdue_maintenance(
+        db, organization_id=scope_org(current_user, organization_id)
+    )
     return APIResponse(data=[_record_to_response(r) for r in records])
 
 
@@ -100,7 +104,7 @@ async def get_record(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    record = await svc.get_maintenance_record_by_id(db, record_id)
+    record = await svc.get_maintenance_record_by_id(db, record_id, scope_org(current_user))
     if not record:
         raise HTTPException(
             status_code=404,
@@ -119,6 +123,7 @@ async def update_record(
     record = await svc.update_maintenance_record(
         db,
         record_id,
+        organization_id=scope_org(current_user),
         asset_name=body.asset_name,
         status=body.status,
         work_performed=body.work_performed,

@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, is_cross_org_admin, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -22,8 +23,49 @@ from ..services.alert_service import (
     acknowledge_alert,
     resolve_alert,
 )
+from ..services.device_service import get_device_by_id, get_sensor_by_id
 
 router = APIRouter()
+
+
+def _not_found(code: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail={"code": code, "message": message}
+    )
+
+
+def _org_mismatch(code: str, message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail={"code": code, "message": message}
+    )
+
+
+async def _validate_rule_targets(
+    db: AsyncSession, body: AlertRuleCreateRequest, org: UUID, user: TokenData
+) -> None:
+    """Referenced device / sensor must belong to the rule's organization.
+
+    Regular users look them up within their token org only, so another org's record is 404.
+    A cross-org admin can see every record, so a record of a different org than the rule is
+    rejected as an invalid request (400) instead of being hidden.
+    """
+    lookup_org = None if is_cross_org_admin(user) else org
+    if body.device_id is not None:
+        device = await get_device_by_id(db, body.device_id, lookup_org)
+        if not device:
+            raise _not_found("DEVICE_NOT_FOUND", "デバイスが見つかりません。")
+        if device.organization_id != org:
+            raise _org_mismatch(
+                "DEVICE_ORG_MISMATCH", "ルールと異なる組織のデバイスは指定できません。"
+            )
+    if body.sensor_id is not None:
+        sensor = await get_sensor_by_id(db, body.sensor_id, lookup_org)
+        if not sensor:
+            raise _not_found("SENSOR_NOT_FOUND", "センサーが見つかりません。")
+        if sensor.device.organization_id != org:
+            raise _org_mismatch(
+                "SENSOR_ORG_MISMATCH", "ルールと異なる組織のセンサーは指定できません。"
+            )
 
 
 @router.post("/alert-rules", response_model=APIResponse[AlertRuleResponse], status_code=status.HTTP_201_CREATED)
@@ -31,10 +73,12 @@ async def create_alert_rule(
     request: Request,
     body: AlertRuleCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org = create_org(current_user, body.organization_id)
+    await _validate_rule_targets(db, body, org, current_user)
     rule = AlertRuleModel(
-        organization_id=body.organization_id,
+        organization_id=org,
         device_id=body.device_id,
         sensor_id=body.sensor_id,
         name=body.name,
@@ -57,10 +101,10 @@ async def list_alert_rules(
     organization_id: UUID | None = Query(None),
     device_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     rules = await get_alert_rules(
-        db, organization_id=organization_id, device_id=device_id
+        db, organization_id=scope_org(current_user, organization_id), device_id=device_id
     )
     return APIResponse(data=[AlertRuleResponse.model_validate(r) for r in rules])
 
@@ -73,9 +117,11 @@ async def list_alerts(
     severity: str | None = Query(None),
     device_id: UUID | None = Query(None),
     acknowledged: bool | None = Query(None),
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_filter = scope_org(current_user, organization_id)
     alerts, total = await get_alert_history(
         db,
         page=page,
@@ -83,6 +129,7 @@ async def list_alerts(
         severity=severity,
         device_id=device_id,
         acknowledged=acknowledged,
+        organization_id=org_filter,
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -105,11 +152,11 @@ async def acknowledge(
     request: Request,
     alert_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    from uuid import UUID as UUIDType
-    user_id = UUIDType(current_user.sub)
-    alert = await acknowledge_alert(db, alert_id, user_id)
+    org = scope_org(current_user)
+    user_id = UUID(current_user.sub)
+    alert = await acknowledge_alert(db, alert_id, user_id, org)
     if not alert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -123,9 +170,9 @@ async def resolve(
     request: Request,
     alert_id: int,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    alert = await resolve_alert(db, alert_id)
+    alert = await resolve_alert(db, alert_id, scope_org(current_user))
     if not alert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

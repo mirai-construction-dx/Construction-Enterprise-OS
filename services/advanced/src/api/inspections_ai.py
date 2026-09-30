@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -48,14 +49,20 @@ def _to_response(record) -> InspectionRecordResponse:
     )
 
 
-@router.post("", response_model=APIResponse[InspectionRecordResponse], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=APIResponse[InspectionRecordResponse],
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_inspection(
     request: Request,
     body: InspectionRecordCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await create_inspection_record(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    record = await create_inspection_record(db, data)
     return APIResponse(data=_to_response(record))
 
 
@@ -69,7 +76,7 @@ async def list_inspections(
     defect_type: str | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     records, total = await list_inspection_records(
         db,
@@ -78,7 +85,7 @@ async def list_inspections(
         asset_type=asset_type,
         severity=severity,
         defect_type=defect_type,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -96,11 +103,13 @@ async def list_inspections(
 @router.get("/defect-summary", response_model=APIResponse[DefectSummaryResponse])
 async def defect_summary(
     request: Request,
-    organization_id: UUID = Query(...),
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    summary = await get_defect_summary(db, organization_id)
+    # Aggregate over the caller's organization only; another organization -> 403 (ADR-0004).
+    # A cross-org admin may pass any organization, or none to aggregate across organizations.
+    summary = await get_defect_summary(db, scope_org(current_user, organization_id))
     return APIResponse(data=summary)
 
 
@@ -109,9 +118,9 @@ async def get_inspection(
     request: Request,
     record_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await get_inspection_record_by_id(db, record_id)
+    record = await get_inspection_record_by_id(db, record_id, scope_org(current_user))
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -126,9 +135,11 @@ async def update_inspection(
     record_id: UUID,
     body: InspectionRecordUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await update_inspection_record(db, record_id, body.model_dump(exclude_unset=True))
+    record = await update_inspection_record(
+        db, record_id, body.model_dump(exclude_unset=True), scope_org(current_user)
+    )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -142,9 +153,9 @@ async def delete_inspection(
     request: Request,
     record_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_inspection_record(db, record_id)
+    deleted = await delete_inspection_record(db, record_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
