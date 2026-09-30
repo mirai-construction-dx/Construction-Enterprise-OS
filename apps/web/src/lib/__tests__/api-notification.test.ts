@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as notificationApi from "../api/notification";
 import {
   listNotifications,
   getUnreadCount,
@@ -8,14 +9,13 @@ import {
   getTemplate,
   createTemplate,
   updateTemplate,
-  listPolicies,
-  createPolicy,
-  updatePolicy,
+  deleteTemplate,
 } from "../api/notification";
 
 const mockFetch = vi.fn();
 
 beforeEach(() => {
+  mockFetch.mockReset();
   vi.stubGlobal("fetch", mockFetch);
   localStorage.clear();
 });
@@ -30,173 +30,197 @@ function mockResponse(body: unknown, status = 200) {
     status,
     statusText: status === 200 ? "OK" : "Error",
     json: () => Promise.resolve(body),
-    text: () => Promise.resolve(JSON.stringify(body)),
+    text: () =>
+      Promise.resolve(body === undefined ? "" : JSON.stringify(body)),
   });
 }
 
+function envelope<T>(data: T) {
+  return { success: true, data, error: null, meta: null };
+}
+
+const pagination = { page: 1, per_page: 20, total: 0, total_pages: 0 };
+
+const template = {
+  id: "7b0c7f0e-0000-4000-8000-000000000001",
+  code: "welcome",
+  name: "Welcome",
+  channels: ["in_app", "email"],
+  title_template: "Hi {{name}}",
+  body_template: "Welcome, {{name}}",
+  priority: "normal",
+  category: "system",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+function lastCall() {
+  const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+  return { url, method: init?.method ?? "GET", body: init?.body };
+}
+
 describe("listNotifications", () => {
-  it("sends GET to /notification without params", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listNotifications();
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification",
-      expect.any(Object),
+  it("sends GET to /api/v1/notifications without params", async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse(envelope({ notifications: [], pagination })),
     );
+    const res = await listNotifications();
+    const { url, method } = lastCall();
+    expect(url).toBe("/api/v1/notifications");
+    expect(method).toBe("GET");
+    expect(res.data.notifications).toEqual([]);
+    expect(res.data.pagination.total).toBe(0);
   });
 
-  it("appends page param when provided", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listNotifications({ page: 2 });
-    const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("page=2");
-  });
-
-  it("appends status filter when provided", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listNotifications({ status: "unread" });
-    const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("status=unread");
+  it("appends status / category / page / per_page query params", async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse(envelope({ notifications: [], pagination })),
+    );
+    await listNotifications({
+      status: "read",
+      category: "safety",
+      page: 2,
+      per_page: 50,
+    });
+    const url = new URL(lastCall().url, "http://localhost");
+    expect(url.pathname).toBe("/api/v1/notifications");
+    expect(url.searchParams.get("status")).toBe("read");
+    expect(url.searchParams.get("category")).toBe("safety");
+    expect(url.searchParams.get("page")).toBe("2");
+    expect(url.searchParams.get("per_page")).toBe("50");
   });
 });
 
 describe("getUnreadCount", () => {
-  it("sends GET to /notification/unread-count", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ count: 5 }));
-    const result = await getUnreadCount();
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/unread-count",
-      expect.any(Object),
-    );
-    expect(result.count).toBe(5);
+  it("sends GET to /api/v1/notifications/unread-count", async () => {
+    mockFetch.mockReturnValueOnce(mockResponse(envelope({ unread_count: 5 })));
+    const res = await getUnreadCount();
+    const { url, method } = lastCall();
+    expect(url).toBe("/api/v1/notifications/unread-count");
+    expect(method).toBe("GET");
+    expect(res.data.unread_count).toBe(5);
   });
 });
 
 describe("markAsRead", () => {
-  it("sends PUT to /notification/:id/read", async () => {
-    const n = { id: "n1", user_id: "u1", title: "Test", notification_type: "info", priority: "normal" as const, status: "read" as const };
-    mockFetch.mockReturnValueOnce(mockResponse(n));
-    await markAsRead("n1");
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/n1/read",
-      expect.objectContaining({ method: "PUT" }),
+  it("sends PATCH to /api/v1/notifications/:id/read", async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse(
+        envelope({
+          id: 42,
+          template_id: null,
+          recipient_id: "u1",
+          title: "Test",
+          body: "Body",
+          metadata: null,
+          channels: ["in_app"],
+          status: "read",
+          read_at: "2026-01-01T00:00:00Z",
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+      ),
     );
+    const res = await markAsRead(42);
+    const { url, method } = lastCall();
+    expect(url).toBe("/api/v1/notifications/42/read");
+    expect(method).toBe("PATCH");
+    expect(res.data.status).toBe("read");
   });
 });
 
 describe("markAllAsRead", () => {
-  it("sends POST to /notification/read-all", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ updated: 3 }));
-    const result = await markAllAsRead();
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/read-all",
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(result.updated).toBe(3);
+  it("sends PATCH to /api/v1/notifications/read-all", async () => {
+    mockFetch.mockReturnValueOnce(mockResponse(envelope({ marked_read: 3 })));
+    const res = await markAllAsRead();
+    const { url, method } = lastCall();
+    expect(url).toBe("/api/v1/notifications/read-all");
+    expect(method).toBe("PATCH");
+    expect(res.data.marked_read).toBe(3);
   });
 });
 
 describe("listTemplates", () => {
-  it("sends GET to /notification/templates without params", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listTemplates();
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/templates",
-      expect.any(Object),
+  it("sends GET to /api/v1/notification-templates without params", async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse(envelope({ templates: [template], pagination })),
     );
+    const res = await listTemplates();
+    const { url, method } = lastCall();
+    expect(url).toBe("/api/v1/notification-templates");
+    expect(method).toBe("GET");
+    expect(res.data.templates[0].code).toBe("welcome");
   });
 
-  it("appends template_type when provided", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listTemplates({ template_type: "email" });
-    const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("template_type=email");
+  it("appends category / page / per_page query params", async () => {
+    mockFetch.mockReturnValueOnce(
+      mockResponse(envelope({ templates: [], pagination })),
+    );
+    await listTemplates({ category: "system", page: 3, per_page: 10 });
+    const url = new URL(lastCall().url, "http://localhost");
+    expect(url.pathname).toBe("/api/v1/notification-templates");
+    expect(url.searchParams.get("category")).toBe("system");
+    expect(url.searchParams.get("page")).toBe("3");
+    expect(url.searchParams.get("per_page")).toBe("10");
   });
 });
 
 describe("getTemplate", () => {
-  it("sends GET to /notification/templates/:code", async () => {
-    const tmpl = { id: "t1", code: "welcome", name: "Welcome", template_type: "email" };
-    mockFetch.mockReturnValueOnce(mockResponse(tmpl));
-    const result = await getTemplate("welcome");
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/templates/welcome",
-      expect.any(Object),
-    );
-    expect(result.code).toBe("welcome");
+  it("sends GET to /api/v1/notification-templates/:code", async () => {
+    mockFetch.mockReturnValueOnce(mockResponse(envelope(template)));
+    const res = await getTemplate("welcome");
+    const { url, method } = lastCall();
+    expect(url).toBe("/api/v1/notification-templates/welcome");
+    expect(method).toBe("GET");
+    expect(res.data.code).toBe("welcome");
   });
 });
 
 describe("createTemplate", () => {
-  it("sends POST to /notification/templates", async () => {
-    mockFetch.mockReturnValueOnce(
-      mockResponse({ id: "t1", code: "welcome", name: "Welcome", template_type: "email" }),
-    );
-    await createTemplate({ code: "welcome", name: "Welcome", template_type: "email" });
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/templates",
-      expect.objectContaining({ method: "POST" }),
-    );
+  it("sends POST to /api/v1/notification-templates with the create schema body", async () => {
+    mockFetch.mockReturnValueOnce(mockResponse(envelope(template), 201));
+    const body = {
+      code: "welcome",
+      name: "Welcome",
+      title_template: "Hi {{name}}",
+      body_template: "Welcome, {{name}}",
+      category: "system",
+    };
+    await createTemplate(body);
+    const call = lastCall();
+    expect(call.url).toBe("/api/v1/notification-templates");
+    expect(call.method).toBe("POST");
+    expect(JSON.parse(call.body as string)).toEqual(body);
   });
 });
 
 describe("updateTemplate", () => {
-  it("sends PUT to /notification/templates/:id", async () => {
+  it("sends PUT to /api/v1/notification-templates/:id", async () => {
     mockFetch.mockReturnValueOnce(
-      mockResponse({ id: "t1", code: "welcome", name: "Updated", template_type: "email" }),
+      mockResponse(envelope({ ...template, name: "Updated" })),
     );
-    await updateTemplate("t1", { name: "Updated" });
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/templates/t1",
-      expect.objectContaining({ method: "PUT" }),
-    );
+    await updateTemplate(template.id, { name: "Updated" });
+    const call = lastCall();
+    expect(call.url).toBe(`/api/v1/notification-templates/${template.id}`);
+    expect(call.method).toBe("PUT");
+    expect(JSON.parse(call.body as string)).toEqual({ name: "Updated" });
   });
 });
 
-describe("listPolicies", () => {
-  it("sends GET to /notification/policies without params", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listPolicies();
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/policies",
-      expect.any(Object),
-    );
-  });
-
-  it("appends organization_id when provided", async () => {
-    mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listPolicies({ organization_id: "org1" });
-    const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("organization_id=org1");
+describe("deleteTemplate", () => {
+  it("sends DELETE to /api/v1/notification-templates/:id and handles 204", async () => {
+    mockFetch.mockReturnValueOnce(mockResponse(undefined, 204));
+    const res = await deleteTemplate(template.id);
+    const call = lastCall();
+    expect(call.url).toBe(`/api/v1/notification-templates/${template.id}`);
+    expect(call.method).toBe("DELETE");
+    expect(res).toBeUndefined();
   });
 });
 
-describe("createPolicy", () => {
-  it("sends POST to /notification/policies", async () => {
-    mockFetch.mockReturnValueOnce(
-      mockResponse({ id: "p1", organization_id: "org1", name: "Policy A", event_type: "alert", channels: ["email"] }),
-    );
-    await createPolicy({
-      organization_id: "org1",
-      name: "Policy A",
-      event_type: "alert",
-      channels: ["email"],
-    });
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/policies",
-      expect.objectContaining({ method: "POST" }),
-    );
-  });
-});
-
-describe("updatePolicy", () => {
-  it("sends PUT to /notification/policies/:id", async () => {
-    mockFetch.mockReturnValueOnce(
-      mockResponse({ id: "p1", organization_id: "org1", name: "Updated", event_type: "alert", channels: ["email"] }),
-    );
-    await updatePolicy("p1", { name: "Updated" });
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/notification/policies/p1",
-      expect.objectContaining({ method: "PUT" }),
-    );
+describe("notification policies", () => {
+  it("are not exposed because the notification service has no policy API", () => {
+    expect(notificationApi).not.toHaveProperty("listPolicies");
+    expect(notificationApi).not.toHaveProperty("createPolicy");
+    expect(notificationApi).not.toHaveProperty("updatePolicy");
   });
 });

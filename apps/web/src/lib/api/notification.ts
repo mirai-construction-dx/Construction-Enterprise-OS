@@ -1,114 +1,169 @@
-import { get, post, put } from "../api-client";
+import { del, get, patch, post, put } from "../api-client";
+
+// Types mirror services/notification/src/schemas/__init__.py.
+// Routes: services/notification/src/main.py mounts
+//   /api/v1/notifications           (api/notifications.py)
+//   /api/v1/notification-templates  (api/templates.py)
+// api-client prepends "/api/v1", so paths below are relative to it.
+// Notification policies are not implemented by the service, so no client exists.
+
+/** Standard response envelope (APIResponse) returned by the notification service. */
+export interface NotificationApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: { code: string; message: string; details?: unknown[] | null } | null;
+  meta?: {
+    page?: number | null;
+    per_page?: number | null;
+    total?: number | null;
+    total_pages?: number | null;
+  } | null;
+}
+
+export interface PaginationMeta {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export type NotificationStatus = "pending" | "sent" | "read" | "failed";
+export type NotificationPriority = "low" | "normal" | "high" | "urgent";
 
 export interface Notification {
-  id: string;
-  user_id: string;
+  id: number;
+  template_id: string | null;
+  recipient_id: string;
   title: string;
-  body?: string;
-  notification_type: string;
-  priority: "low" | "normal" | "high" | "urgent";
-  status: "unread" | "read" | "archived";
-  action_url?: string;
-  metadata?: Record<string, unknown>;
-  created_at?: string;
-  read_at?: string;
+  body: string;
+  metadata: Record<string, unknown> | null;
+  channels: string[];
+  status: NotificationStatus;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationList {
+  notifications: Notification[];
+  pagination: PaginationMeta;
 }
 
 export interface NotificationTemplate {
   id: string;
   code: string;
   name: string;
-  template_type: string;
-  subject_template?: string;
-  body_template?: string;
-  variables?: string[];
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface NotificationPolicy {
-  id: string;
-  organization_id: string;
-  name: string;
-  event_type: string;
   channels: string[];
-  recipient_roles?: string[];
-  is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  title_template: string;
+  body_template: string;
+  priority: NotificationPriority;
+  category: string;
+  created_at: string;
+  updated_at: string;
 }
 
-interface ListResponse<T> {
-  items: T[];
-  total: number;
+export interface NotificationTemplateList {
+  templates: NotificationTemplate[];
+  pagination: PaginationMeta;
 }
 
+export interface NotificationTemplateCreate {
+  code: string;
+  name: string;
+  channels?: string[];
+  title_template: string;
+  body_template: string;
+  priority?: NotificationPriority;
+  category: string;
+}
+
+export type NotificationTemplateUpdate = Partial<
+  Omit<NotificationTemplateCreate, "code">
+>;
+
+function withQuery(path: string, q: URLSearchParams) {
+  const s = q.toString();
+  return s ? `${path}?${s}` : path;
+}
+
+/** GET /api/v1/notifications — recipient is derived from the access token. */
 export function listNotifications(params?: {
-  user_id?: string;
-  status?: string;
+  status?: NotificationStatus;
+  category?: string;
   page?: number;
+  per_page?: number;
 }) {
   const q = new URLSearchParams();
-  if (params?.user_id) q.set("user_id", params.user_id);
   if (params?.status) q.set("status", params.status);
+  if (params?.category) q.set("category", params.category);
   if (params?.page) q.set("page", String(params.page));
-  return get<ListResponse<Notification>>(
-    `/notification${q.toString() ? `?${q}` : ""}`,
+  if (params?.per_page) q.set("per_page", String(params.per_page));
+  return get<NotificationApiResponse<NotificationList>>(
+    withQuery("/notifications", q),
   );
 }
 
+/** GET /api/v1/notifications/unread-count */
 export function getUnreadCount() {
-  return get<{ count: number }>("/notification/unread-count");
+  return get<NotificationApiResponse<{ unread_count: number }>>(
+    "/notifications/unread-count",
+  );
 }
 
-export function markAsRead(id: string) {
-  return put<Notification>(`/notification/${id}/read`, {});
+/** PATCH /api/v1/notifications/{id}/read */
+export function markAsRead(id: number) {
+  return patch<NotificationApiResponse<Notification>>(
+    `/notifications/${id}/read`,
+    {},
+  );
 }
 
+/** PATCH /api/v1/notifications/read-all */
 export function markAllAsRead() {
-  return post<{ updated: number }>("/notification/read-all", {});
-}
-
-export function listTemplates(params?: { template_type?: string }) {
-  const q = new URLSearchParams();
-  if (params?.template_type) q.set("template_type", params.template_type);
-  return get<ListResponse<NotificationTemplate>>(
-    `/notification/templates${q.toString() ? `?${q}` : ""}`,
+  return patch<NotificationApiResponse<{ marked_read: number }>>(
+    "/notifications/read-all",
+    {},
   );
 }
 
+/** GET /api/v1/notification-templates */
+export function listTemplates(params?: {
+  category?: string;
+  page?: number;
+  per_page?: number;
+}) {
+  const q = new URLSearchParams();
+  if (params?.category) q.set("category", params.category);
+  if (params?.page) q.set("page", String(params.page));
+  if (params?.per_page) q.set("per_page", String(params.per_page));
+  return get<NotificationApiResponse<NotificationTemplateList>>(
+    withQuery("/notification-templates", q),
+  );
+}
+
+/** GET /api/v1/notification-templates/{code} */
 export function getTemplate(code: string) {
-  return get<NotificationTemplate>(`/notification/templates/${code}`);
-}
-
-export function createTemplate(
-  body: Omit<NotificationTemplate, "id" | "created_at" | "updated_at">,
-) {
-  return post<NotificationTemplate>("/notification/templates", body);
-}
-
-export function updateTemplate(
-  id: string,
-  body: Partial<NotificationTemplate>,
-) {
-  return put<NotificationTemplate>(`/notification/templates/${id}`, body);
-}
-
-export function listPolicies(params?: { organization_id?: string }) {
-  const q = new URLSearchParams();
-  if (params?.organization_id) q.set("organization_id", params.organization_id);
-  return get<ListResponse<NotificationPolicy>>(
-    `/notification/policies${q.toString() ? `?${q}` : ""}`,
+  return get<NotificationApiResponse<NotificationTemplate>>(
+    `/notification-templates/${encodeURIComponent(code)}`,
   );
 }
 
-export function createPolicy(
-  body: Omit<NotificationPolicy, "id" | "created_at" | "updated_at">,
-) {
-  return post<NotificationPolicy>("/notification/policies", body);
+/** POST /api/v1/notification-templates */
+export function createTemplate(body: NotificationTemplateCreate) {
+  return post<NotificationApiResponse<NotificationTemplate>>(
+    "/notification-templates",
+    body,
+  );
 }
 
-export function updatePolicy(id: string, body: Partial<NotificationPolicy>) {
-  return put<NotificationPolicy>(`/notification/policies/${id}`, body);
+/** PUT /api/v1/notification-templates/{template_id} */
+export function updateTemplate(id: string, body: NotificationTemplateUpdate) {
+  return put<NotificationApiResponse<NotificationTemplate>>(
+    `/notification-templates/${id}`,
+    body,
+  );
+}
+
+/** DELETE /api/v1/notification-templates/{template_id} (204 No Content) */
+export function deleteTemplate(id: string) {
+  return del<void>(`/notification-templates/${id}`);
 }
