@@ -1,0 +1,26 @@
+# Known web-client/service route mismatches accepted by
+# scripts/tools/check_web_api_routes.py (Issue #114 step 9).
+#
+# Format: METHOD /api/v1/path  # reason
+#   - path is the normalised form: path params as {}, no query, no trailing slash
+#   - every entry must have a reason; fix the client/service and delete the line
+#   - stale entries (no longer mismatching) are reported as warnings
+#
+# Baseline taken on origin/main (2026-09-30). Fixes are tracked separately.
+
+# erp: apps/web/src/lib/api/erp.ts:81,89,105,113
+# service exposes budgets/costs only under a ledger (services/erp/src/api/budget.py:21,38 / costs.py:22,39)
+GET /api/v1/erp/budget  # service: GET /api/v1/erp/ledger/{ledger_id}/budgets
+POST /api/v1/erp/budget  # service: POST /api/v1/erp/ledger/{ledger_id}/budgets
+GET /api/v1/erp/costs  # service: GET /api/v1/erp/ledger/{ledger_id}/costs
+POST /api/v1/erp/costs  # service: POST /api/v1/erp/ledger/{ledger_id}/costs
+
+# partner: apps/web/src/lib/api/partner.ts:120,133,137,144
+# service mounts contracts/evaluations/assignments as top-level collections (services/partner/src/main.py:74-86)
+POST /api/v1/partner/{}/contracts  # service: POST /api/v1/partners/contracts (partner_id in body)
+POST /api/v1/partner/{}/evaluations  # service: POST /api/v1/partners/evaluations (partner_id in body)
+GET /api/v1/partner/{}/assignments  # service: GET /api/v1/partners/assignments?partner_id=...
+POST /api/v1/partner/{}/assignments  # service: POST /api/v1/partners/assignments (partner_id in body)
+
+# vision: apps/web/src/lib/api/vision.ts:148
+PUT /api/v1/vectors/indices/{}  # service: PATCH /api/v1/vectors/indices/{index_id} (services/vision/src/api/vectors.py:88)
