@@ -7,7 +7,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
-from ..models import ConstructionSite, Infrastructure
+from ..middleware.tenant import create_org, scope_org
+from ..models import Infrastructure
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -17,6 +18,7 @@ from ..schemas import (
     InfrastructureUpdate,
 )
 from ..services.geo_service import geojson_to_wkt, wkb_to_geojson_geometry
+from .sites import get_scoped_site
 
 router = APIRouter()
 
@@ -76,7 +78,7 @@ async def create_infrastructure(
     line_wkt = geojson_to_wkt(body.line_geom) if body.line_geom else None
 
     infra = Infrastructure(
-        organization_id=body.organization_id,
+        organization_id=create_org(token_data, body.organization_id),
         name=body.name,
         infra_type=body.infra_type,
         location=location_wkt,
@@ -96,6 +98,7 @@ async def list_infrastructure(
     per_page: int = Query(20, ge=1, le=100),
     infra_type: str | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -103,8 +106,13 @@ async def list_infrastructure(
 
     from ..schemas import MetaInfo
 
+    org = scope_org(token_data, organization_id)
     query = select(Infrastructure)
     count_query = select(func.count(Infrastructure.id))
+
+    if org is not None:
+        query = query.where(Infrastructure.organization_id == org)
+        count_query = count_query.where(Infrastructure.organization_id == org)
 
     if infra_type:
         query = query.where(Infrastructure.infra_type == infra_type)
@@ -133,14 +141,14 @@ async def list_infrastructure(
 async def infrastructure_near_site(
     site_id: UUID,
     radius_m: float = Query(gt=0, default=1000),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """指定工事現場の近くにあるインフラ設備を検索"""
-    site_result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
-    )
-    site = site_result.scalar_one_or_none()
+    # The parent site lookup and the child spatial query use the same organization filter.
+    org = scope_org(token_data, organization_id)
+    site = await get_scoped_site(db, site_id, org)
     if not site:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -154,6 +162,8 @@ async def infrastructure_near_site(
             radius_m,
         )
     )
+    if org is not None:
+        query = query.where(Infrastructure.organization_id == org)
     query = query.order_by(Infrastructure.created_at.desc())
     result = await db.execute(query)
     infras = result.scalars().all()
@@ -169,9 +179,11 @@ async def get_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Infrastructure).where(Infrastructure.id == infra_id)
-    )
+    stmt = select(Infrastructure).where(Infrastructure.id == infra_id)
+    org = scope_org(token_data)
+    if org is not None:
+        stmt = stmt.where(Infrastructure.organization_id == org)
+    result = await db.execute(stmt)
     infra = result.scalar_one_or_none()
     if not infra:
         raise HTTPException(
@@ -188,9 +200,11 @@ async def update_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Infrastructure).where(Infrastructure.id == infra_id)
-    )
+    stmt = select(Infrastructure).where(Infrastructure.id == infra_id)
+    org = scope_org(token_data)
+    if org is not None:
+        stmt = stmt.where(Infrastructure.organization_id == org)
+    result = await db.execute(stmt)
     infra = result.scalar_one_or_none()
     if not infra:
         raise HTTPException(
@@ -220,9 +234,11 @@ async def delete_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Infrastructure).where(Infrastructure.id == infra_id)
-    )
+    stmt = select(Infrastructure).where(Infrastructure.id == infra_id)
+    org = scope_org(token_data)
+    if org is not None:
+        stmt = stmt.where(Infrastructure.organization_id == org)
+    result = await db.execute(stmt)
     infra = result.scalar_one_or_none()
     if not infra:
         raise HTTPException(
