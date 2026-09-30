@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -37,8 +38,12 @@ def _to_response(record) -> MarineConstructionResponse:
         tide_info=record.tide_info,
         wave_condition=record.wave_condition,
         equipment_deployed=record.equipment_deployed,
-        material_volume=float(record.material_volume) if record.material_volume else None,
-        progress_percent=float(record.progress_percent) if record.progress_percent else None,
+        material_volume=float(record.material_volume)
+        if record.material_volume
+        else None,
+        progress_percent=float(record.progress_percent)
+        if record.progress_percent
+        else None,
         location=record.location,
         start_date=record.start_date,
         end_date=record.end_date,
@@ -48,14 +53,20 @@ def _to_response(record) -> MarineConstructionResponse:
     )
 
 
-@router.post("", response_model=APIResponse[MarineConstructionResponse], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=APIResponse[MarineConstructionResponse],
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_marine(
     request: Request,
     body: MarineConstructionCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await create_marine_construction(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    record = await create_marine_construction(db, data)
     return APIResponse(data=_to_response(record))
 
 
@@ -69,7 +80,7 @@ async def list_marine(
     project_id: UUID | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     records, total = await list_marine_constructions(
         db,
@@ -78,7 +89,7 @@ async def list_marine(
         construction_type=construction_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -98,9 +109,9 @@ async def get_marine(
     request: Request,
     record_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await get_marine_construction_by_id(db, record_id)
+    record = await get_marine_construction_by_id(db, record_id, scope_org(current_user))
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -115,9 +126,11 @@ async def update_marine(
     record_id: UUID,
     body: MarineConstructionUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await update_marine_construction(db, record_id, body.model_dump(exclude_unset=True))
+    record = await update_marine_construction(
+        db, record_id, body.model_dump(exclude_unset=True), scope_org(current_user)
+    )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,9 +144,9 @@ async def delete_marine(
     request: Request,
     record_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_marine_construction(db, record_id)
+    deleted = await delete_marine_construction(db, record_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -142,16 +155,21 @@ async def delete_marine(
     return APIResponse(data={"message": "施工記録を削除しました。"})
 
 
-@router.patch("/{record_id}/progress", response_model=APIResponse[MarineConstructionResponse])
+@router.patch(
+    "/{record_id}/progress", response_model=APIResponse[MarineConstructionResponse]
+)
 async def update_progress(
     request: Request,
     record_id: UUID,
     body: ProgressUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     record = await update_marine_construction(
-        db, record_id, {"progress_percent": body.progress_percent}
+        db,
+        record_id,
+        {"progress_percent": body.progress_percent},
+        scope_org(current_user),
     )
     if not record:
         raise HTTPException(
