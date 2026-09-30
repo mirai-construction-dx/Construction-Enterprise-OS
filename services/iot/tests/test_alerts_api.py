@@ -104,6 +104,12 @@ AUTH = {"Authorization": "Bearer mock-user-token"}
 # ============================================
 def test_create_alert_rule_returns_201_with_rule(client, mock_db):
     device_id = str(uuid4())
+    # The referenced device must exist in the rule's organization (ADR-0004).
+    device = MagicMock()
+    device.organization_id = UUID(ORG_ID)
+    mock_db.execute = AsyncMock(
+        return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=device))
+    )
     response = client.post(
         "/api/v1/iot/alert-rules",
         json={
@@ -236,6 +242,7 @@ def test_list_alerts_passes_severity_and_acknowledged_filters(client, monkeypatc
         "severity": "critical",
         "device_id": None,
         "acknowledged": False,
+        "organization_id": None,  # admin token without organization filter
     }
 
 

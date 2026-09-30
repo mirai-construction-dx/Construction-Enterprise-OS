@@ -38,10 +38,13 @@ def geojson_to_wkt_element(geometry: dict) -> WKTElement | None:
 
 
 async def create_bim_model(
-    db: AsyncSession, body: BIMModelCreate, uploaded_by: UUID
+    db: AsyncSession,
+    body: BIMModelCreate,
+    uploaded_by: UUID,
+    organization_id: UUID,
 ) -> BIMModel:
     model = BIMModel(
-        organization_id=body.organization_id,
+        organization_id=organization_id,
         project_id=body.project_id,
         name=body.name,
         description=body.description,
@@ -75,9 +78,15 @@ async def list_bim_models(
     model_type: str | None = None,
     status: str | None = None,
     project_id: UUID | None = None,
+    organization_id: UUID | None = None,
 ) -> tuple[list[BIMModel], int]:
     query = select(BIMModel)
     count_query = select(func.count(BIMModel.id))
+
+    # None means "all organizations" and is only allowed for cross-org admins
+    if organization_id is not None:
+        query = query.where(BIMModel.organization_id == organization_id)
+        count_query = count_query.where(BIMModel.organization_id == organization_id)
 
     if model_type:
         query = query.where(BIMModel.model_type == model_type)
@@ -99,15 +108,23 @@ async def list_bim_models(
     return list(models), total
 
 
-async def get_bim_model(db: AsyncSession, model_id: UUID) -> BIMModel | None:
-    result = await db.execute(select(BIMModel).where(BIMModel.id == model_id))
+async def get_bim_model(
+    db: AsyncSession, model_id: UUID, organization_id: UUID | None = None
+) -> BIMModel | None:
+    stmt = select(BIMModel).where(BIMModel.id == model_id)
+    if organization_id is not None:
+        stmt = stmt.where(BIMModel.organization_id == organization_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
 async def update_bim_model(
-    db: AsyncSession, model_id: UUID, body: BIMModelUpdate
+    db: AsyncSession,
+    model_id: UUID,
+    body: BIMModelUpdate,
+    organization_id: UUID | None = None,
 ) -> BIMModel | None:
-    model = await get_bim_model(db, model_id)
+    model = await get_bim_model(db, model_id, organization_id)
     if not model:
         return None
 
@@ -123,8 +140,10 @@ async def update_bim_model(
     return model
 
 
-async def delete_bim_model(db: AsyncSession, model_id: UUID) -> bool:
-    model = await get_bim_model(db, model_id)
+async def delete_bim_model(
+    db: AsyncSession, model_id: UUID, organization_id: UUID | None = None
+) -> bool:
+    model = await get_bim_model(db, model_id, organization_id)
     if not model:
         return False
     await db.delete(model)
