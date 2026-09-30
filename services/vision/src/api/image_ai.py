@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import APIResponse, ImageAnalyzeRequest
 from ..services import vision_service
@@ -36,7 +37,7 @@ async def analyze_image(
 ):
     analysis = await vision_service.create_image_analysis(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         file_key=body.file_key,
         analysis_type=body.analysis_type,
         results={},
@@ -57,7 +58,7 @@ async def list_analyses(
 ):
     analyses = await vision_service.get_image_analyses(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         analysis_type=analysis_type,
         status=status_filter,
         skip=skip,
@@ -72,7 +73,9 @@ async def get_analysis(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    analysis = await vision_service.get_image_analysis_by_id(db, analysis_id)
+    analysis = await vision_service.get_image_analysis_by_id(
+        db, analysis_id, scope_org(current_user)
+    )
     if not analysis:
         raise HTTPException(
             status_code=404,
