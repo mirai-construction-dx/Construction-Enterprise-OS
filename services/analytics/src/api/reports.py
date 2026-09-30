@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     ReportCreateRequest,
@@ -28,9 +29,11 @@ router = APIRouter()
 async def create_report(
     body: ReportCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    report = await service.create_report(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(user, body.organization_id)
+    report = await service.create_report(db, data)
     return report
 
 
@@ -42,11 +45,11 @@ async def list_reports(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
     items, total = await service.list_reports(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(user, organization_id),
         report_type=report_type,
         status=status,
         page=page,
@@ -61,9 +64,9 @@ async def list_reports(
 async def get_report(
     report_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    report = await service.get_report(db, report_id)
+    report = await service.get_report(db, report_id, scope_org(user))
     if not report:
         raise HTTPException(status_code=404, detail="レポートが見つかりません")
     return report
@@ -74,9 +77,9 @@ async def update_report(
     report_id: UUID,
     body: ReportUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    report = await service.get_report(db, report_id)
+    report = await service.get_report(db, report_id, scope_org(user))
     if not report:
         raise HTTPException(status_code=404, detail="レポートが見つかりません")
     return await service.update_report(
@@ -88,9 +91,9 @@ async def update_report(
 async def delete_report(
     report_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    report = await service.get_report(db, report_id)
+    report = await service.get_report(db, report_id, scope_org(user))
     if not report:
         raise HTTPException(status_code=404, detail="レポートが見つかりません")
     await service.delete_report(db, report)
@@ -103,9 +106,9 @@ async def delete_report(
 async def generate_report(
     report_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    report = await service.get_report(db, report_id)
+    report = await service.get_report(db, report_id, scope_org(user))
     if not report:
         raise HTTPException(status_code=404, detail="レポートが見つかりません")
     result = await service.generate_report(db, report)
@@ -120,9 +123,9 @@ async def export_report(
     report_id: UUID,
     format: str = Query("json", pattern="^(csv|json)$"),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    report = await service.get_report(db, report_id)
+    report = await service.get_report(db, report_id, scope_org(user))
     if not report:
         raise HTTPException(status_code=404, detail="レポートが見つかりません")
     result = await service.export_report(db, report, format)

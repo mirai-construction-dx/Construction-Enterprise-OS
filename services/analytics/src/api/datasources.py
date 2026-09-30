@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     DataSourceCreateRequest,
@@ -27,9 +28,11 @@ router = APIRouter()
 async def create_datasource(
     body: DataSourceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    ds = await service.create_datasource(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(user, body.organization_id)
+    ds = await service.create_datasource(db, data)
     return ds
 
 
@@ -41,11 +44,11 @@ async def list_datasources(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
     items, total = await service.list_datasources(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(user, organization_id),
         source_type=source_type,
         status=status,
         page=page,
@@ -60,9 +63,9 @@ async def list_datasources(
 async def get_datasource(
     datasource_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    ds = await service.get_datasource(db, datasource_id)
+    ds = await service.get_datasource(db, datasource_id, scope_org(user))
     if not ds:
         raise HTTPException(status_code=404, detail="データソースが見つかりません")
     return ds
@@ -73,9 +76,9 @@ async def update_datasource(
     datasource_id: UUID,
     body: DataSourceUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    ds = await service.get_datasource(db, datasource_id)
+    ds = await service.get_datasource(db, datasource_id, scope_org(user))
     if not ds:
         raise HTTPException(status_code=404, detail="データソースが見つかりません")
     return await service.update_datasource(db, ds, body.model_dump(exclude_none=True))
@@ -85,9 +88,9 @@ async def update_datasource(
 async def delete_datasource(
     datasource_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    ds = await service.get_datasource(db, datasource_id)
+    ds = await service.get_datasource(db, datasource_id, scope_org(user))
     if not ds:
         raise HTTPException(status_code=404, detail="データソースが見つかりません")
     await service.delete_datasource(db, ds)
@@ -100,9 +103,9 @@ async def delete_datasource(
 async def test_datasource_connection(
     datasource_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    ds = await service.get_datasource(db, datasource_id)
+    ds = await service.get_datasource(db, datasource_id, scope_org(user))
     if not ds:
         raise HTTPException(status_code=404, detail="データソースが見つかりません")
     result = await service.test_datasource_connection(ds)
