@@ -181,11 +181,14 @@ class EmbeddingService:
         db: AsyncSession,
         source_type: str,
         source_id: UUID,
+        organization_id: UUID | None = None,
     ) -> int:
         stmt = delete(Embedding).where(
             Embedding.source_type == source_type,
             Embedding.source_id == source_id,
         )
+        if organization_id is not None:
+            stmt = stmt.where(Embedding.organization_id == organization_id)
         result = await db.execute(stmt)
         return result.rowcount
 

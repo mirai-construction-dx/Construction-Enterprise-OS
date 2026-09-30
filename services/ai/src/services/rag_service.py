@@ -67,9 +67,12 @@ class RAGService:
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        organization_id: UUID | None = None,
     ) -> tuple[str, list[dict]]:
         if prompt_template_id:
             stmt = select(PromptTemplate).where(PromptTemplate.id == prompt_template_id)
+            if organization_id is not None:
+                stmt = stmt.where(PromptTemplate.organization_id == organization_id)
             result = await db.execute(stmt)
             template = result.scalar_one_or_none()
             if template:

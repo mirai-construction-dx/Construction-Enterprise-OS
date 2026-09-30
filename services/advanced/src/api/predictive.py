@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -52,9 +53,11 @@ async def create_model(
     request: Request,
     body: PredictiveModelCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await create_predictive_model(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = create_org(current_user, body.organization_id)
+    record = await create_predictive_model(db, data)
     return APIResponse(data=_to_response(record))
 
 
@@ -68,7 +71,7 @@ async def list_models(
     asset_type: str | None = Query(None),
     organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     records, total = await list_predictive_models(
         db,
@@ -77,7 +80,7 @@ async def list_models(
         model_type=model_type,
         status=status,
         asset_type=asset_type,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -97,9 +100,9 @@ async def get_model(
     request: Request,
     model_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await get_predictive_model_by_id(db, model_id)
+    record = await get_predictive_model_by_id(db, model_id, scope_org(current_user))
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -114,9 +117,11 @@ async def update_model(
     model_id: UUID,
     body: PredictiveModelUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    record = await update_predictive_model(db, model_id, body.model_dump(exclude_unset=True))
+    record = await update_predictive_model(
+        db, model_id, body.model_dump(exclude_unset=True), scope_org(current_user)
+    )
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -130,9 +135,9 @@ async def delete_model(
     request: Request,
     model_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    deleted = await delete_predictive_model(db, model_id)
+    deleted = await delete_predictive_model(db, model_id, scope_org(current_user))
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -146,9 +151,9 @@ async def get_prediction(
     request: Request,
     model_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    result = await get_prediction_result(db, model_id)
+    result = await get_prediction_result(db, model_id, scope_org(current_user))
     if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
