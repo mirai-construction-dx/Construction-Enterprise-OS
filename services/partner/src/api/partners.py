@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import get_current_user
+from ..middleware.tenant import scope_org, token_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -25,6 +26,13 @@ from .contracts import _contract_to_response
 from .evaluations import _evaluation_to_response
 
 router = APIRouter()
+
+
+def _partner_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
+    )
 
 
 def _partner_to_response(partner) -> PartnerResponse:
@@ -73,7 +81,8 @@ async def create_partner(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = UUID(current_user.org) if current_user.org else UUID("00000000-0000-0000-0000-000000000001")
+    # PartnerCreate has no organization_id: the record belongs to the caller's token org (ADR-0004).
+    org_id = token_org(current_user)
     partner = await partner_service.create_partner(db, org_id, body.model_dump())
     await db.flush()
     await db.refresh(partner)
@@ -89,11 +98,13 @@ async def list_partners(
     status: str | None = Query(None),
     specialization: str | None = Query(None),
     search: str | None = Query(None),
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
     partners, total = await partner_service.list_partners(
         db,
+        organization_id=scope_org(current_user, organization_id),
         page=page,
         per_page=per_page,
         company_type=company_type,
@@ -120,14 +131,14 @@ async def get_partner(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    partner = await partner_service.get_partner_by_id(db, partner_id)
+    org = scope_org(current_user)
+    partner = await partner_service.get_partner_by_id(db, partner_id, org)
     if not partner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
-        )
+        raise _partner_not_found()
 
-    contracts, _ = await contract_service.list_contracts_for_partner(db, partner_id, page=1, per_page=5)
+    contracts, _ = await contract_service.list_contracts_for_partner(
+        db, partner_id, page=1, per_page=5, organization_id=org
+    )
     contracts_summary = [
         {"id": c.id, "title": c.title, "contract_type": c.contract_type, "status": c.status, "amount": float(c.amount)}
         for c in contracts
@@ -148,12 +159,11 @@ async def update_partner(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    partner = await partner_service.update_partner(db, partner_id, body.model_dump(exclude_unset=True))
+    partner = await partner_service.update_partner(
+        db, partner_id, body.model_dump(exclude_unset=True), scope_org(current_user)
+    )
     if not partner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
-        )
+        raise _partner_not_found()
     return APIResponse(data=_partner_to_response(partner))
 
 
@@ -165,12 +175,10 @@ async def add_contact(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    partner = await partner_service.get_partner_by_id(db, partner_id)
+    # PartnerContact has no organization_id: access is gated by the org-scoped parent lookup.
+    partner = await partner_service.get_partner_by_id(db, partner_id, scope_org(current_user))
     if not partner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
-        )
+        raise _partner_not_found()
 
     contact = await partner_service.add_contact(db, partner_id, body.model_dump())
     await db.flush()
@@ -185,12 +193,10 @@ async def list_contacts(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    partner = await partner_service.get_partner_by_id(db, partner_id)
+    # PartnerContact has no organization_id: access is gated by the org-scoped parent lookup.
+    partner = await partner_service.get_partner_by_id(db, partner_id, scope_org(current_user))
     if not partner:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},
-        )
+        raise _partner_not_found()
 
     contacts = await partner_service.list_contacts(db, partner_id)
     return APIResponse(data=[_contact_to_response(c) for c in contacts])
@@ -205,8 +211,11 @@ async def get_partner_contracts(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org = scope_org(current_user)
+    if not await partner_service.get_partner_by_id(db, partner_id, org):
+        raise _partner_not_found()
     contracts_, total = await contract_service.list_contracts_for_partner(
-        db, partner_id, page=page, per_page=per_page
+        db, partner_id, page=page, per_page=per_page, organization_id=org
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
     return APIResponse(
@@ -229,8 +238,11 @@ async def get_partner_evaluations(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org = scope_org(current_user)
+    if not await partner_service.get_partner_by_id(db, partner_id, org):
+        raise _partner_not_found()
     evaluations, total = await evaluation_service.get_partner_evaluations(
-        db, partner_id, page=page, per_page=per_page
+        db, partner_id, page=page, per_page=per_page, organization_id=org
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
     return APIResponse(
@@ -251,7 +263,10 @@ async def get_partner_rating(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    rating, count = await evaluation_service.get_partner_rating(db, partner_id)
+    org = scope_org(current_user)
+    if not await partner_service.get_partner_by_id(db, partner_id, org):
+        raise _partner_not_found()
+    rating, count = await evaluation_service.get_partner_rating(db, partner_id, org)
     return APIResponse(data=PartnerRatingResponse(
         partner_id=partner_id,
         average_rating=rating,

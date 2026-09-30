@@ -68,9 +68,11 @@ async def get_inspections(
 
 
 async def get_inspection_by_id(
-    db: AsyncSession, inspection_id: UUID
+    db: AsyncSession, inspection_id: UUID, organization_id: UUID | None = None
 ) -> SafetyInspection | None:
     stmt = select(SafetyInspection).where(SafetyInspection.id == inspection_id)
+    if organization_id is not None:
+        stmt = stmt.where(SafetyInspection.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -87,8 +89,9 @@ async def update_inspection(
     corrective_actions: str | None = None,
     score: int | None = None,
     is_safe: bool | None = None,
+    organization_id: UUID | None = None,
 ) -> SafetyInspection | None:
-    inspection = await get_inspection_by_id(db, inspection_id)
+    inspection = await get_inspection_by_id(db, inspection_id, organization_id)
     if not inspection:
         return None
     if title is not None:
@@ -121,8 +124,9 @@ async def complete_inspection(
     findings: str | None = None,
     corrective_actions: str | None = None,
     score: int | None = None,
+    organization_id: UUID | None = None,
 ) -> SafetyInspection | None:
-    inspection = await get_inspection_by_id(db, inspection_id)
+    inspection = await get_inspection_by_id(db, inspection_id, organization_id)
     if not inspection:
         return None
     inspection.is_safe = is_safe
@@ -136,13 +140,20 @@ async def complete_inspection(
 
 
 async def get_inspection_stats(
-    db: AsyncSession,
+    db: AsyncSession, organization_id: UUID | None = None
 ) -> dict:
-    total_stmt = select(func.count()).select_from(SafetyInspection)
+    """Aggregate inspection counts and average score (scoped to an organization if given)."""
+
+    def _scoped(stmt):
+        if organization_id is not None:
+            stmt = stmt.where(SafetyInspection.organization_id == organization_id)
+        return stmt
+
+    total_stmt = _scoped(select(func.count()).select_from(SafetyInspection))
     total_result = await db.execute(total_stmt)
     total = total_result.scalar() or 0
 
-    passed_stmt = (
+    passed_stmt = _scoped(
         select(func.count())
         .select_from(SafetyInspection)
         .where(SafetyInspection.status == "passed")
@@ -150,7 +161,7 @@ async def get_inspection_stats(
     passed_result = await db.execute(passed_stmt)
     passed = passed_result.scalar() or 0
 
-    failed_stmt = (
+    failed_stmt = _scoped(
         select(func.count())
         .select_from(SafetyInspection)
         .where(SafetyInspection.status == "failed")
@@ -158,7 +169,7 @@ async def get_inspection_stats(
     failed_result = await db.execute(failed_stmt)
     failed = failed_result.scalar() or 0
 
-    avg_stmt = select(func.avg(SafetyInspection.score)).select_from(SafetyInspection)
+    avg_stmt = _scoped(select(func.avg(SafetyInspection.score)).select_from(SafetyInspection))
     avg_result = await db.execute(avg_stmt)
     avg_score = avg_result.scalar()
 
@@ -166,7 +177,8 @@ async def get_inspection_stats(
         "total": total,
         "passed": passed,
         "failed": failed,
-        "average_score": round(float(avg_score), 2) if avg_score else None,
+        # 0.0 is a valid average; only a missing value (no scored rows) maps to None
+        "average_score": round(float(avg_score), 2) if avg_score is not None else None,
     }
 
 
@@ -231,19 +243,22 @@ async def get_hazards(
 
 
 async def get_hazard_by_id(
-    db: AsyncSession, hazard_id: UUID
+    db: AsyncSession, hazard_id: UUID, organization_id: UUID | None = None
 ) -> HazardReport | None:
     stmt = select(HazardReport).where(HazardReport.id == hazard_id)
+    if organization_id is not None:
+        stmt = stmt.where(HazardReport.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_open_hazards(db: AsyncSession) -> list[HazardReport]:
-    stmt = (
-        select(HazardReport)
-        .where(HazardReport.status.notin_(["closed"]))
-        .order_by(HazardReport.created_at.desc())
-    )
+async def get_open_hazards(
+    db: AsyncSession, organization_id: UUID | None = None
+) -> list[HazardReport]:
+    stmt = select(HazardReport).where(HazardReport.status.notin_(["closed"]))
+    if organization_id is not None:
+        stmt = stmt.where(HazardReport.organization_id == organization_id)
+    stmt = stmt.order_by(HazardReport.created_at.desc())
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -258,8 +273,9 @@ async def update_hazard(
     severity: str | None = None,
     assigned_to: UUID | None = None,
     mitigation: str | None = None,
+    organization_id: UUID | None = None,
 ) -> HazardReport | None:
-    hazard = await get_hazard_by_id(db, hazard_id)
+    hazard = await get_hazard_by_id(db, hazard_id, organization_id)
     if not hazard:
         return None
     if title is not None:
@@ -347,9 +363,11 @@ async def get_safety_incidents(
 
 
 async def get_safety_incident_by_id(
-    db: AsyncSession, incident_id: UUID
+    db: AsyncSession, incident_id: UUID, organization_id: UUID | None = None
 ) -> SafetyIncident | None:
     stmt = select(SafetyIncident).where(SafetyIncident.id == incident_id)
+    if organization_id is not None:
+        stmt = stmt.where(SafetyIncident.organization_id == organization_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -367,8 +385,9 @@ async def update_safety_incident(
     injured_count: int | None = None,
     fatality_count: int | None = None,
     is_osha_reportable: bool | None = None,
+    organization_id: UUID | None = None,
 ) -> SafetyIncident | None:
-    incident = await get_safety_incident_by_id(db, incident_id)
+    incident = await get_safety_incident_by_id(db, incident_id, organization_id)
     if not incident:
         return None
     if title is not None:
