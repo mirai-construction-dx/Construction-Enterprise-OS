@@ -59,13 +59,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
-    setup_cors(app)
-
-    # ミドルウェア（追加順と逆順に実行）
+    # ミドルウェア（後から追加したものほど外側。外側 -> 内側:
+    # CORS -> Auth -> RateLimit -> Logging）
     app.add_middleware(LoggingMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(AuthMiddleware)
+
+    # CORS は最外側に置く（Issue #107）。preflight（Origin +
+    # Access-Control-Request-Method 付き OPTIONS）は認証前に CORSMiddleware が応答し、
+    # 401/429 などの内側のエラー応答にも CORS ヘッダーが付与される。
+    # preflight 以外のリクエストは素通しされるため、引き続き Auth が認証を強制する。
+    setup_cors(app)
 
     # ヘルスチェック（catch-all プロキシルートより先に定義）
     @app.get("/health")
