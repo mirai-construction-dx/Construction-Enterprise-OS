@@ -108,15 +108,15 @@ class PromptService:
     @staticmethod
     async def list_templates(
         db: AsyncSession,
-        organization_id: UUID,
+        organization_id: UUID | None,
         page: int = 1,
         per_page: int = 20,
         category: str | None = None,
         is_active: bool | None = None,
     ) -> tuple[list[PromptTemplate], dict]:
-        stmt = select(PromptTemplate).where(
-            PromptTemplate.organization_id == organization_id
-        )
+        stmt = select(PromptTemplate)
+        if organization_id is not None:
+            stmt = stmt.where(PromptTemplate.organization_id == organization_id)
         if category:
             stmt = stmt.where(PromptTemplate.category == category)
         if is_active is not None:
@@ -144,12 +144,11 @@ class PromptService:
     async def get_template(
         db: AsyncSession,
         template_id: UUID,
-        organization_id: UUID,
+        organization_id: UUID | None,
     ) -> PromptTemplate | None:
-        stmt = select(PromptTemplate).where(
-            PromptTemplate.id == template_id,
-            PromptTemplate.organization_id == organization_id,
-        )
+        stmt = select(PromptTemplate).where(PromptTemplate.id == template_id)
+        if organization_id is not None:
+            stmt = stmt.where(PromptTemplate.organization_id == organization_id)
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -157,7 +156,7 @@ class PromptService:
     async def update_template(
         db: AsyncSession,
         template_id: UUID,
-        organization_id: UUID,
+        organization_id: UUID | None,
         data: dict,
     ) -> PromptTemplate | None:
         template = await PromptService.get_template(db, template_id, organization_id)
@@ -173,7 +172,7 @@ class PromptService:
     async def delete_template(
         db: AsyncSession,
         template_id: UUID,
-        organization_id: UUID,
+        organization_id: UUID | None,
     ) -> bool:
         template = await PromptService.get_template(db, template_id, organization_id)
         if not template:

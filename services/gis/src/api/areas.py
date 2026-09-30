@@ -8,7 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
-from ..models import ConstructionSite, HazardZone
+from ..middleware.tenant import create_org, scope_org
+from ..models import HazardZone
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -19,6 +20,7 @@ from ..schemas import (
     MetaInfo,
 )
 from ..services.geo_service import geojson_to_wkt, wkb_to_geojson_geometry
+from .sites import get_scoped_site
 
 router = APIRouter()
 
@@ -72,7 +74,7 @@ async def create_hazard_zone(
     area_wkt = geojson_to_wkt(body.zone_area)
 
     zone = HazardZone(
-        organization_id=body.organization_id,
+        organization_id=create_org(token_data, body.organization_id),
         name=body.name,
         hazard_type=body.hazard_type,
         zone_area=area_wkt,
@@ -94,11 +96,17 @@ async def list_hazard_zones(
     per_page: int = Query(20, ge=1, le=100),
     hazard_type: str | None = Query(None),
     risk_level: str | None = Query(None),
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org = scope_org(token_data, organization_id)
     query = select(HazardZone)
     count_query = select(func.count(HazardZone.id))
+
+    if org is not None:
+        query = query.where(HazardZone.organization_id == org)
+        count_query = count_query.where(HazardZone.organization_id == org)
 
     if hazard_type:
         query = query.where(HazardZone.hazard_type == hazard_type)
@@ -126,14 +134,14 @@ async def list_hazard_zones(
 @router.get("/intersecting/{site_id}")
 async def hazard_zones_intersecting_site(
     site_id: UUID,
+    organization_id: UUID | None = Query(None),
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """指定工事現場と重複する危険区域を検索 (ST_Intersects)"""
-    site_result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
-    )
-    site = site_result.scalar_one_or_none()
+    # The parent site lookup and the child spatial query use the same organization filter.
+    org = scope_org(token_data, organization_id)
+    site = await get_scoped_site(db, site_id, org)
     if not site:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -153,6 +161,8 @@ async def hazard_zones_intersecting_site(
             site.work_area,
         )
     )
+    if org is not None:
+        query = query.where(HazardZone.organization_id == org)
     query = query.order_by(HazardZone.risk_level.desc())
     result = await db.execute(query)
     zones = result.scalars().all()
@@ -168,9 +178,11 @@ async def get_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(HazardZone).where(HazardZone.id == zone_id)
-    )
+    stmt = select(HazardZone).where(HazardZone.id == zone_id)
+    org = scope_org(token_data)
+    if org is not None:
+        stmt = stmt.where(HazardZone.organization_id == org)
+    result = await db.execute(stmt)
     zone = result.scalar_one_or_none()
     if not zone:
         raise HTTPException(
@@ -187,9 +199,11 @@ async def update_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(HazardZone).where(HazardZone.id == zone_id)
-    )
+    stmt = select(HazardZone).where(HazardZone.id == zone_id)
+    org = scope_org(token_data)
+    if org is not None:
+        stmt = stmt.where(HazardZone.organization_id == org)
+    result = await db.execute(stmt)
     zone = result.scalar_one_or_none()
     if not zone:
         raise HTTPException(
@@ -217,9 +231,11 @@ async def delete_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(HazardZone).where(HazardZone.id == zone_id)
-    )
+    stmt = select(HazardZone).where(HazardZone.id == zone_id)
+    org = scope_org(token_data)
+    if org is not None:
+        stmt = stmt.where(HazardZone.organization_id == org)
+    result = await db.execute(stmt)
     zone = result.scalar_one_or_none()
     if not zone:
         raise HTTPException(
