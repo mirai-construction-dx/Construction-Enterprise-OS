@@ -10,7 +10,7 @@
 |---|---|---|
 | `/api/v1/health` `/api/v1/auth` `/api/v1/users` `/api/v1/roles` `/api/v1/permissions` `/api/v1/api-clients` `/api/v1/audit-logs` | auth | 8000 |
 | `/api/v1/documents` | document | 8001 |
-| `/api/v1/workflow` | workflow | 8002 |
+| `/api/v1/workflow` `/api/v1/cases` | workflow | 8002 |
 | `/api/v1/gis` | gis | 8003 |
 | `/api/v1/iot` | iot | 8004 |
 | `/api/v1/ai` | ai | 8005 |
@@ -18,7 +18,7 @@
 | `/api/v1/bim` | bim | 8008 |
 | `/api/v1/maintenance` | maintenance | 8009 |
 | `/api/v1/autonomous` | autonomous | 8010 |
-| `/api/v1/vision` | vision | 8011 |
+| `/api/v1/vision` `/api/v1/ocr` `/api/v1/vectors` | vision | 8011 |
 | `/api/v1/integrations` `/api/v1/platform` | platform | 8012 |
 | `/api/v1/advanced` | advanced | 8013 |
 | `/api/v1/analytics` | analytics | 8014 |
@@ -31,6 +31,8 @@
 | `/api/v1/security` | security | 8021 |
 
 設定: `services/gateway/src/config.py` の `UPSTREAM_SERVICES`(環境変数で上書き可)
+
+`/api/v1/cases` `/api/v1/ocr` `/api/v1/vectors` はパス境界付き(`(?:/|$)`)で登録しており、`/api/v1/casesX` のような近接パスは転送しない。
 
 ## 2. サービス別エンドポイント
 
@@ -84,7 +86,7 @@
 ### automation / autonomous / bim / vision / analytics / advanced / maintenance / notification / platform
 - 各サービスの CRUD + 特化エンドポイント(上記「エンドポイント収集」参照)
 - bim: `/api/v1/bim/{model_id}/elements`・`/elements/search`・`/pointcloud`
-- vision: `/api/v1/vision/ocr/process`・`/vision/analyze`・`/vectors/search`
+- vision: `/api/v1/ocr/process`・`/api/v1/vision/analyze`・`/api/v1/vectors/search`
 - analytics: `/api/v1/analytics/datasources`・`/pipelines`・`/reports`
 
 ## 3. 認証方式
