@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -57,7 +58,7 @@ async def create_incident(
 ):
     incident = await incident_service.create_incident(
         db,
-        organization_id=body.organization_id,
+        organization_id=create_org(current_user, body.organization_id),
         title=body.title,
         severity=body.severity,
         incident_type=body.incident_type,
@@ -82,7 +83,7 @@ async def list_incidents(
 ):
     incidents = await incident_service.get_incidents(
         db,
-        organization_id=organization_id,
+        organization_id=scope_org(current_user, organization_id),
         severity=severity,
         status=status,
         incident_type=incident_type,
@@ -94,10 +95,13 @@ async def list_incidents(
 
 @router.get("/incidents/active")
 async def get_active_count(
+    organization_id: UUID | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    count = await incident_service.get_active_incident_count(db)
+    count = await incident_service.get_active_incident_count(
+        db, scope_org(current_user, organization_id)
+    )
     return APIResponse(data={"active_incidents": count})
 
 
@@ -107,7 +111,9 @@ async def get_incident(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    incident = await incident_service.get_incident_by_id(db, incident_id)
+    incident = await incident_service.get_incident_by_id(
+        db, incident_id, scope_org(current_user)
+    )
     if not incident:
         raise HTTPException(
             status_code=404,
@@ -128,6 +134,7 @@ async def update_incident(
     incident = await incident_service.update_incident(
         db,
         incident_id,
+        organization_id=scope_org(current_user),
         status=body.status,
         severity=body.severity,
         assigned_to=body.assigned_to,
@@ -154,6 +161,7 @@ async def add_update(
         user_id=UUID(current_user.sub),
         update_type=body.update_type,
         content=body.content,
+        organization_id=scope_org(current_user),
     )
     if not update:
         raise HTTPException(
