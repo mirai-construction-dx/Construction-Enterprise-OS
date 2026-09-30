@@ -183,51 +183,55 @@ construction-enterprise-os/
 ## 📊 開発状況 — 全23サービス
 
 ```mermaid
-pie title テスト構成（サービス別の目安）
-    "Foundation 層" : 76
-    "Data & AI 層" : 184
-    "Platform 層" : 117
-    "Business 層" : 57
-    "Autonomous 層" : 17
+pie title テスト構成（レイヤ別・pytest 収集件数）
+    "Foundation 層" : 307
+    "Data & AI 層" : 251
+    "Platform 層" : 151
+    "Business 層" : 160
+    "Autonomous 層" : 73
 ```
 
 | 🔢 レイヤ        | 🧩 コンポーネント   | 📁 サービス                  | 🧪 テスト | 📊 状態 |
 | ---------------- | ------------------- | ---------------------------- | --------- | ------- |
-| **① Foundation** | 🔐 認証基盤         | `services/auth/`             | 30        | ✅      |
-|                  | 🌐 API Gateway      | `services/gateway/`          | 9         | ✅      |
-|                  | 📨 イベント基盤     | `packages/event-core/`       | —         | ✅      |
+| **① Foundation** | 🔐 認証基盤         | `services/auth/`             | 85        | ✅      |
+|                  | 🌐 API Gateway      | `services/gateway/`          | 56        | ✅      |
+|                  | 📨 イベント基盤     | `packages/event-core/`       | 37        | ✅      |
 |                  | 📊 共通ログ         | `packages/logging/`          | 24        | ✅      |
-|                  | 🔔 共通通知         | `services/notification/`     | 13        | ✅      |
-|                  | 🛡️ 権限管理 (RBAC)  | `services/auth/`             | —         | ✅      |
-|                  | 📝 監査証跡         | `services/auth/`             | —         | ✅      |
-|                  | 🎨 統合UI           | `packages/ui/` + `apps/web/` | —         | ✅      |
-| **② Data & AI**  | 🗺️ GIS              | `services/gis/`              | 25        | ✅      |
-|                  | 📄 文書管理         | `services/document/`         | 12        | ✅      |
-|                  | 📡 IoT              | `services/iot/`              | 22        | ✅      |
-|                  | 🤖 AI               | `services/ai/`               | 29        | ✅      |
-|                  | 🏗️ BIM/CIM          | `services/bim/`              | 35        | ✅      |
-|                  | 👁️ OCR/画像AI       | `services/vision/`           | 17        | ✅      |
-|                  | 🧬 ベクトルDB       | `services/vision/`           | 17        | ✅      |
-|                  | 🗄️ データレイク     | `services/analytics/`        | 27        | ✅      |
-| **③ Platform**   | 🔄 ワークフロー     | `services/workflow/`         | 17        | ✅      |
-|                  | 🔒 セキュリティ     | `services/security/`         | 23        | ✅      |
-|                  | 🤝 協力会社連携     | `services/partner/`          | 21        | ✅      |
+|                  | 🔔 共通通知         | `services/notification/`     | 25        | ✅      |
+|                  | 🛡️ 権限管理 (RBAC)  | `services/auth/`             | (認証に含む) | ✅   |
+|                  | 📝 監査証跡         | `services/auth/`             | (認証に含む) | ✅   |
+|                  | 🔌 MCP 公開(読取専用) | `services/mcp/`            | 80        | 🟡 PoC  |
+|                  | 🎨 統合UI           | `packages/ui/` + `apps/web/` | Web 227   | ✅      |
+| **② Data & AI**  | 🗺️ GIS              | `services/gis/`              | 30        | ✅      |
+|                  | 📄 文書管理         | `services/document/`         | 53        | ✅      |
+|                  | 📡 IoT              | `services/iot/`              | 48        | ✅      |
+|                  | 🤖 AI               | `services/ai/`               | 31        | ✅      |
+|                  | 🏗️ BIM/CIM          | `services/bim/`              | 39        | ✅      |
+|                  | 👁️ OCR/画像AI       | `services/vision/`           | 22        | ✅      |
+|                  | 🧬 ベクトルDB       | `services/vision/`           | (同上)    | ✅      |
+|                  | 🗄️ データレイク     | `services/analytics/`        | 28        | ✅      |
+| **③ Platform**   | 🔄 ワークフロー     | `services/workflow/`         | 42        | ✅      |
+|                  | 🔒 セキュリティ     | `services/security/`         | 28        | ✅      |
+|                  | 🤝 協力会社連携     | `services/partner/`          | 22        | ✅      |
 |                  | 📱 モバイル/PWA     | `apps/mobile/`               | —         | ✅      |
-|                  | ⚡ 自動化/RPA       | `services/automation/`       | 12        | ✅      |
-|                  | 🏢 共通PF           | `services/platform/`         | 22        | ✅      |
-| **④ Business**   | 💰 ERP/経営         | `services/erp/`              | 27        | ✅      |
-|                  | ⛑️ 安全管理         | `services/safety/`           | 14        | ✅      |
-|                  | 🏗️ 現場DX           | `services/field-dx/`         | 20        | ✅      |
-|                  | 🔮 維持管理         | `services/maintenance/`      | 18        | ✅      |
-|                  | 🚢 港湾/点検        | `services/advanced/`         | 17        | ✅      |
-| **⑤ Autonomous** | 🧠 AI Agent         | `services/autonomous/`       | 17        | ✅      |
-|                  | 👥 デジタルツイン   | `services/autonomous/`       | 17        | ✅      |
-|                  | 🎯 自動最適化       | `services/autonomous/`       | 17        | ✅      |
+|                  | ⚡ 自動化/RPA       | `services/automation/`       | 34        | ✅      |
+|                  | 🏢 共通PF           | `services/platform/`         | 25        | ✅      |
+| **④ Business**   | 🏗️ 工程・施工管理   | `services/construction/`     | 26        | ✅      |
+|                  | 💰 ERP/経営         | `services/erp/`              | 30        | ✅      |
+|                  | ⛑️ 安全管理         | `services/safety/`           | 24        | ✅      |
+|                  | 🏗️ 現場DX           | `services/field-dx/`         | 27        | ✅      |
+|                  | 🔮 維持管理         | `services/maintenance/`      | 35        | ✅      |
+|                  | 🚢 港湾/点検        | `services/advanced/`         | 18        | ✅      |
+| **⑤ Autonomous** | 🧠 AI Agent         | `services/autonomous/`       | 73        | ✅      |
+|                  | 👥 デジタルツイン   | `services/autonomous/`       | (同上)    | ✅      |
+|                  | 🎯 自動最適化       | `services/autonomous/`       | (同上)    | ✅      |
 |                  | 🚜 自律施工         | 未着手                       | —         | ⚪      |
 |                  | 🌊 海洋ロボティクス | 未着手                       | —         | ⚪      |
 |                  | 🎮 自律制御         | 未着手                       | —         | ⚪      |
 
-> **総計: 23サービス + 5パッケージ + 2アプリ | サービスPython 694 + Web 229 テスト（CI 実行）**
+> **総計: 23サービス + 5パッケージ + 2アプリ | サービスPython 881 + 共有パッケージ 61 + Web 227 テスト（CI 実行）**
+>
+> 📏 測定方法（2026-09-30, main `ef57553`）: Python は各サービス／パッケージで `pytest tests/ --collect-only -q` の収集件数（parametrize 展開後）、Web は `pnpm --filter ./apps/web test` の件数。1 サービスが複数コンポーネントを担う行は「(同上)」とし二重計上しない。
 
 ---
 
@@ -464,4 +468,4 @@ make test
 
 ---
 
-> 💚 **最終更新**: 2026-09-23 | 🟢 **ステータス**: STABLE | 🧪 **サービスPython 694 + Web 229 テスト CI 成功** | ⚙️ **23サービス** | 🏛️ **ADR-0001 で責任範囲を定義** | 🔌 **MCP: Harness-Core v0.6.0 契約整合（Issue #93、MCP テスト 66 passed / 2 skipped）**
+> 💚 **最終更新**: 2026-09-30 | 🟢 **ステータス**: STABLE | 🧪 **サービスPython 881 + パッケージ 61 + Web 227 テスト CI 成功** | ⚙️ **23サービス** | 🏛️ **ADR-0001 で責任範囲を定義** | 🔌 **MCP: Harness-Core v0.6.0 契約整合・Allowlist スキーマ検証（Issue #79）** | 🔒 **全 Actions SHA 固定・全サービス Docker build（Issue #101）**
