@@ -45,7 +45,12 @@ CEOS が正本を持つ **工程・原価・契約** データを、Model Contex
   タグ・commit・ファイル SHA-256 を固定し、`tests/test_core_conformance.py` が
   「CEOS のハッシュ実装＝Core `tool_def_hash.py`」「Core 登録済み mcip ハッシュの再現」
   「`registries/systems.yaml` の ceos 識別子一致」を検査する。
+- 同テストは、契約から作る Allowlist 登録項目（`name` / `effect` / `tier` / `definition_sha256`）を
+  vendored の Core `schemas/registry/mcp-allowlist.schema.json`（JSON Schema）で検証する。
+  サーバー単位の `trust` / `surfaces` / `scopes` は Core 判断待ちのため検証対象外。
 - `x-mirai.operation` は Core 承認階層表に CEOS 用カテゴリが無いため未設定（ADR-0002 未決事項）。
+- 証跡（`core.evidence.*`）は ADR-0001 により MCIP が正本で、CEOS は証跡レコードを出力しない
+  （監査ログはテキストのみ）ため照合対象なし。HTTP エラー形式の Core 整合は ADR-0002 未決事項を参照。
 
 > **上流パスの確認結果（deviation）**
 > 指示上の `ceos.cost.list` は `GET /api/v1/erp/costs` とされていたが、

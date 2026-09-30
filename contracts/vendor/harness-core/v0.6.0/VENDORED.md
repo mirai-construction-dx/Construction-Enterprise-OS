@@ -11,7 +11,8 @@ Core 規約に照合するために必要なファイルを **無改変で** コ
 | `registries/mcp-allowlist.yaml` | 上記 golden vector の登録ハッシュ |
 | `registries/systems.yaml` | システム台帳（`ceos` の `mcp_server_id` / `audience`） |
 | `approval-tiers/tiers.yaml` | 承認階層（R0〜R4）と操作カテゴリ |
-| `schemas/registry/mcp-allowlist.schema.json` | Allowlist 登録時の effect/tier 制約 |
+| `schemas/registry/mcp-allowlist.schema.json` | Allowlist 登録時の effect/tier 制約。CEOS 契約から作るツール登録項目をこのスキーマで検証する |
+| `schemas/common/defs.schema.json` | 上記スキーマが `$ref` で参照する共通定義（toolName・effect・sha256 等） |
 | `VERSION` | Core の版 |
 
 ## 改変禁止

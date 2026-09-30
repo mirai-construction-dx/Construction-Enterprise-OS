@@ -6,3 +6,5 @@ ruff==0.6.9
 mypy==1.11.2
 # Core 適合テスト（vendored registries/*.yaml の読込み）
 PyYAML==6.0.3
+# Core 適合テスト（vendored schemas/*.schema.json による Allowlist 登録項目の検証。mcp の依存と同版）
+jsonschema==4.26.0
