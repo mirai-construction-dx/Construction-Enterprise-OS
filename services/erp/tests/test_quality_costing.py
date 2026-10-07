@@ -3,10 +3,9 @@
 対象: ``services/erp`` の原価管理フロー。DB 不要（``CaptureDB`` + ``TestClient``）。
 
 判定の読み方:
-- ``xfail(strict=True)`` = 仕様どおりの期待を assert（現状は失敗 = 欠陥が実在）。
-- ``*_current_behavior*`` = 現状の挙動を固定して PASS（欠陥の積極的証拠）。
+- 欠陥テスト = 仕様どおりの期待を assert（修正後は PASS）。
 - H4（承認済み削除禁止）は **仕様どおり機能している**ことを PASS で確認する。
-- 実装は変更していない。詳細は ``reports/quality-tests/qa-erp.md``。
+- 実装は修正済み。詳細は ``reports/quality-tests/qa-erp.md``。
 """
 
 import uuid
@@ -25,7 +24,6 @@ try:  # pytest の import 形態差を吸収
         make_client,
         make_cost,
         make_ledger,
-        statement_wheres,
     )
 except ImportError:  # pragma: no cover
     from _quality_support import (  # type: ignore[no-redef]
@@ -37,7 +35,6 @@ except ImportError:  # pragma: no cover
         make_client,
         make_cost,
         make_ledger,
-        statement_wheres,
     )
 
 
@@ -171,33 +168,6 @@ class TestQ6ApprovalStateMachine:
 # D9: budget の誤帰属（台帳・テナント整合検査なし）
 # ============================================================
 class TestD9BudgetAttribution:
-    def test_approve_current_behavior_credits_budget_of_other_ledger(self):
-        ledger_id = uuid.uuid4()
-        other_ledger_id = uuid.uuid4()
-        budget_id = uuid.uuid4()
-        ledger = make_ledger(ORG_A, lid=ledger_id, actual="0")
-        foreign_budget = make_budget(
-            ORG_A, lid=other_ledger_id, bid=budget_id, actual="0"
-        )
-        cost = make_cost(ORG_A, lid=ledger_id, budget_id=budget_id, amount="500")
-        db = CaptureDB()
-        db.put(ledger)
-        db.put(foreign_budget)
-        db.put(cost)
-        client = make_client(db, org=ORG_A)
-
-        response = client.post(
-            f"/api/v1/erp/costs/{cost.id}/approve",
-            json={"approved_by": str(USER_A)},
-        )
-
-        assert response.status_code == 200
-        assert Decimal(str(foreign_budget.actual_amount)) == Decimal("500")
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D9: 他台帳の予算へ実績が加算される（budget_id の整合検査なし）",
-    )
     def test_approve_rejects_budget_of_other_ledger(self):
         ledger_id = uuid.uuid4()
         other_ledger_id = uuid.uuid4()
@@ -219,32 +189,6 @@ class TestD9BudgetAttribution:
         )
         assert response.status_code in (400, 422)
 
-    def test_approve_current_behavior_credits_other_tenant_budget(self):
-        ledger_id = uuid.uuid4()
-        budget_id = uuid.uuid4()
-        ledger = make_ledger(ORG_A, lid=ledger_id, actual="0")
-        other_tenant_budget = make_budget(
-            ORG_B, lid=ledger_id, bid=budget_id, actual="0"
-        )
-        cost = make_cost(ORG_A, lid=ledger_id, budget_id=budget_id, amount="700")
-        db = CaptureDB()
-        db.put(ledger)
-        db.put(other_tenant_budget)
-        db.put(cost)
-        client = make_client(db, org=ORG_A)
-
-        response = client.post(
-            f"/api/v1/erp/costs/{cost.id}/approve",
-            json={"approved_by": str(USER_A)},
-        )
-
-        assert response.status_code == 200
-        assert Decimal(str(other_tenant_budget.actual_amount)) == Decimal("700")
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D9: 他テナントの予算へ実績が加算される（予算の org 検査なし）",
-    )
     def test_approve_rejects_budget_of_other_tenant(self):
         ledger_id = uuid.uuid4()
         budget_id = uuid.uuid4()
@@ -281,27 +225,11 @@ class TestH5MoneyPrecision:
         assert response.status_code == 200
         return response.json()
 
-    def test_summary_current_behavior_float_artifacts(self):
-        """0.30 - 0.10 が 0.19999999999999998 として API に漏れる。"""
-        data = self._summary("0.30", "0.10", "0.30")
-
-        assert data["estimated_profit"] == "0.19999999999999998"
-        assert data["profit_margin"] == "66.66666666666666"
-        assert data["budget_utilization"] == "33.333333333333336"
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5: 金額が float 経由で計算され 2 桁に収まらない（0.20 になるべき）",
-    )
     def test_summary_estimated_profit_is_two_decimals(self):
         data = self._summary("0.30", "0.10", "0.30")
 
         assert Decimal(data["estimated_profit"]) == Decimal("0.20")
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5: 利益率/予算消化率が丸められない（無限小数が返る）",
-    )
     def test_summary_rates_are_rounded(self):
         data = self._summary("0.30", "0.10", "0.30")
         quantum = Decimal("0.01")
@@ -327,37 +255,6 @@ class TestH5MoneyPrecision:
         assert Decimal(data["budget_utilization"]) == Decimal("0")
         assert Decimal(data["profit_margin"]) == Decimal("0")
 
-    def test_approve_current_behavior_float_accumulation(self):
-        """0.10 と 0.20 の承認で実績が 0.30000000000000004 になる。"""
-        ledger_id = uuid.uuid4()
-        budget_id = uuid.uuid4()
-        ledger = make_ledger(ORG_A, lid=ledger_id, actual="0")
-        budget = make_budget(ORG_A, lid=ledger_id, bid=budget_id, actual="0")
-        first = make_cost(ORG_A, lid=ledger_id, budget_id=budget_id, amount="0.10")
-        second = make_cost(ORG_A, lid=ledger_id, budget_id=budget_id, amount="0.20")
-        db = CaptureDB()
-        db.put(ledger)
-        db.put(budget)
-        db.put(first)
-        db.put(second)
-        client = make_client(db, org=ORG_A)
-
-        for cost in (first, second):
-            response = client.post(
-                f"/api/v1/erp/costs/{cost.id}/approve",
-                json={"approved_by": str(USER_A)},
-            )
-            assert response.status_code == 200
-
-        assert Decimal(str(budget.actual_amount)) == Decimal(
-            "0.30000000000000004"
-        )
-        assert Decimal(str(ledger.actual_cost)) == Decimal("0.30000000000000004")
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5: 承認時の実績加算が float 演算（0.30 になるべき）",
-    )
     def test_approve_accumulation_is_decimal_exact(self):
         ledger_id = uuid.uuid4()
         budget_id = uuid.uuid4()
@@ -381,32 +278,6 @@ class TestH5MoneyPrecision:
         assert Decimal(str(budget.actual_amount)) == Decimal("0.30")
         assert Decimal(str(ledger.actual_cost)) == Decimal("0.30")
 
-    def test_create_invoice_current_behavior_float_total(self):
-        db = CaptureDB()
-        client = make_client(db, org=ORG_A)
-
-        response = client.post(
-            "/api/v1/erp/invoices",
-            json={
-                "organization_id": str(ORG_A),
-                "invoice_number": "INV-QA-Q1",
-                "invoice_type": "payable",
-                "vendor_name": "テスト商事",
-                "amount": "0.10",
-                "tax_amount": "0.20",
-                "issue_date": "2026-05-20",
-            },
-        )
-
-        assert response.status_code == 201
-        assert Decimal(str(db.added[0].total_amount)) == Decimal(
-            "0.30000000000000004"
-        )
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5: 請求 total_amount が float 加算（0.30 になるべき）",
-    )
     def test_create_invoice_total_is_exact(self):
         db = CaptureDB()
         client = make_client(db, org=ORG_A)
@@ -428,23 +299,6 @@ class TestH5MoneyPrecision:
 
 
 class TestH5BoundaryValidation:
-    def test_update_cost_current_behavior_accepts_negative_amount(self):
-        cost = make_cost(ORG_A, amount="100")
-        db = CaptureDB()
-        db.put(cost)
-        client = make_client(db, org=ORG_A)
-
-        response = client.put(
-            f"/api/v1/erp/costs/{cost.id}", json={"amount": "-100"}
-        )
-
-        assert response.status_code == 200
-        assert Decimal(str(cost.amount)) == Decimal("-100")
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5/異常系: 原価更新で負値が拒否されない（gt=0 制約が無い）",
-    )
     def test_update_cost_rejects_non_positive_amount(self):
         cost = make_cost(ORG_A, amount="100")
         db = CaptureDB()
@@ -456,23 +310,6 @@ class TestH5BoundaryValidation:
         )
         assert response.status_code in (400, 422)
 
-    def test_update_ledger_current_behavior_accepts_negative_contract(self):
-        ledger = make_ledger(ORG_A, contract="1000000")
-        db = CaptureDB()
-        db.put(ledger)
-        client = make_client(db, org=ORG_A)
-
-        response = client.put(
-            f"/api/v1/erp/ledger/{ledger.id}", json={"contract_amount": "-5"}
-        )
-
-        assert response.status_code == 200
-        assert Decimal(str(ledger.contract_amount)) == Decimal("-5")
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5/異常系: 請負金額の負値が拒否されない（gt=0 制約が無い）",
-    )
     def test_update_ledger_rejects_non_positive_contract(self):
         ledger = make_ledger(ORG_A, contract="1000000")
         db = CaptureDB()
@@ -484,27 +321,6 @@ class TestH5BoundaryValidation:
         )
         assert response.status_code in (400, 422)
 
-    @pytest.mark.parametrize("progress_rate", ["150", "-10"])
-    def test_update_ledger_current_behavior_accepts_out_of_range_progress(
-        self, progress_rate
-    ):
-        ledger = make_ledger(ORG_A)
-        db = CaptureDB()
-        db.put(ledger)
-        client = make_client(db, org=ORG_A)
-
-        response = client.put(
-            f"/api/v1/erp/ledger/{ledger.id}",
-            json={"progress_rate": progress_rate},
-        )
-
-        assert response.status_code == 200
-        assert Decimal(str(ledger.progress_rate)) == Decimal(progress_rate)
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D5/異常系: 進捗率の範囲(0..100)検査が無い",
-    )
     def test_update_ledger_rejects_out_of_range_progress(self):
         ledger = make_ledger(ORG_A)
         db = CaptureDB()
@@ -520,30 +336,24 @@ class TestH5BoundaryValidation:
 # ============================================================
 # H6: GET /ledger/summary が固定スタブ値
 # ============================================================
-class TestH6LedgerSummaryStub:
-    EXPECTED_STUB = {
-        "total_revenue": 850000000,
-        "total_cost": 680000000,
-        "gross_profit": 170000000,
-        "operating_profit": 145000000,
-        "projects_count": 12,
-        "gross_margin": 0.2,
-        "operating_margin": 0.171,
-    }
+class TestH6LedgerSummaryAggregation:
+    """GET /ledger/summary は固定スタブではなく自組織の実データを集計する。"""
 
-    def test_summary_current_behavior_is_fixed_constant_without_db_access(self):
-        """台帳 0 件でも固定値。SQL も一切発行しない（実データ非参照）。"""
+    def test_summary_is_zero_without_ledgers(self):
         db = CaptureDB()
         client = make_client(db, org=ORG_A)
 
         response = client.get("/api/v1/erp/ledger/summary")
 
         assert response.status_code == 200
-        assert response.json() == self.EXPECTED_STUB
-        assert db.statements == []
-        assert statement_wheres(db) == []
+        body = response.json()
+        assert body["total_revenue"] == 0
+        assert body["total_cost"] == 0
+        assert body["projects_count"] == 0
+        # 販管費は未モデル化のため営業利益は未算出（固定値を返さない）
+        assert body["operating_profit"] is None
 
-    def test_summary_current_behavior_ignores_existing_ledger_data(self):
+    def test_summary_reflects_persisted_ledger_data(self):
         db = CaptureDB()
         db.put(make_ledger(ORG_A, contract="1234", actual="999", budget="1"))
         client = make_client(db, org=ORG_A)
@@ -551,22 +361,11 @@ class TestH6LedgerSummaryStub:
         response = client.get("/api/v1/erp/ledger/summary")
 
         assert response.status_code == 200
-        assert response.json()["total_revenue"] == 850000000
-        assert response.json()["projects_count"] == 12
-
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-D6: /ledger/summary が実データを集計せず固定値を返す（仕様/画面は実データ前提）",
-    )
-    def test_summary_reflects_persisted_ledger_data(self):
-        db = CaptureDB()
-        db.put(make_ledger(ORG_A, contract="1000000", actual="0", budget="800000"))
-        client = make_client(db, org=ORG_A)
-
-        response = client.get("/api/v1/erp/ledger/summary")
-
-        assert response.status_code == 200
-        assert Decimal(str(response.json()["total_revenue"])) == Decimal("1000000")
+        body = response.json()
+        assert Decimal(str(body["total_revenue"])) == Decimal("1234")
+        assert Decimal(str(body["total_cost"])) == Decimal("999")
+        assert Decimal(str(body["gross_profit"])) == Decimal("235")
+        assert body["projects_count"] == 1
 
 
 # ============================================================

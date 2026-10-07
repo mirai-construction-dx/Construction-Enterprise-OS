@@ -19,6 +19,7 @@ from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql.elements import BinaryExpression, BooleanClauseList
 
 from src.main import create_app
 from src.middleware.auth import TokenData, get_current_user
@@ -134,7 +135,52 @@ class CaptureDB:
 
     async def execute(self, statement, *args, **kwargs):
         self.statements.append(statement)
-        return Result(items=self.items, total=len(self.items))
+        # put() されたエンティティを WHERE 句の等値条件で絞って返す。
+        # main の org スコープ化された by-id 参照（select(...).where(id==?, org==?)）
+        # を成立させるため、条件に合致するエンティティのみ返す。
+        items = _filter_entities(list(self.entities.values()), statement)
+        return Result(items=items, total=len(items))
+
+
+def _eq_conditions(statement) -> dict:
+    """SELECT 文の WHERE 句から等値条件 (列名 -> 値) を抽出する。"""
+    conds: dict = {}
+    where = getattr(statement, "whereclause", None)
+
+    def walk(node):
+        if node is None:
+            return
+        if isinstance(node, BooleanClauseList):
+            for clause in getattr(node, "clauses", []):
+                walk(clause)
+            return
+        if isinstance(node, BinaryExpression):
+            op = getattr(node.operator, "__name__", str(node.operator))
+            if op not in ("eq", "=", "=="):
+                return
+            left = node.left
+            key = getattr(left, "key", None) or getattr(left, "name", None)
+            if key is None:
+                return
+            right = node.right
+            conds[key] = getattr(right, "value", right)
+
+    walk(where)
+    return conds
+
+
+def _filter_entities(entities, statement) -> list:
+    conds = _eq_conditions(statement)
+    if not conds:
+        return entities
+    result = []
+    for obj in entities:
+        if all(
+            hasattr(obj, key) and getattr(obj, key) == value
+            for key, value in conds.items()
+        ):
+            result.append(obj)
+    return result
 
 
 def make_client(db, org=ORG_A, sub=USER_A, roles=None, scopes=None):
@@ -149,7 +195,7 @@ def make_client(db, org=ORG_A, sub=USER_A, roles=None, scopes=None):
             sub=str(sub),
             type="user",
             org=str(org) if org is not None else None,
-            roles=list(roles or []),
+            roles=list(roles) if roles is not None else ["accountant"],
             scopes=list(scopes or []),
         )
 

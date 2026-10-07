@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,20 +116,72 @@ async def get_financial_summary(
     ledger: ProjectLedger,
 ) -> dict:
     _recalculate_profit(ledger)
-    contract = float(ledger.contract_amount)
-    actual = float(ledger.actual_cost)
-    budget = float(ledger.budget_amount)
+    contract = Decimal(str(ledger.contract_amount))
+    actual = Decimal(str(ledger.actual_cost))
+    budget = Decimal(str(ledger.budget_amount))
+    estimated = contract - actual
+    profit_margin = (
+        ((estimated / contract) * Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        if contract > 0
+        else Decimal("0")
+    )
+    budget_utilization = (
+        ((actual / budget) * Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        if budget > 0
+        else Decimal("0")
+    )
 
     return {
         "contract_amount": contract,
         "budget_amount": budget,
         "actual_cost": actual,
-        "estimated_profit": contract - actual,
-        "profit_margin": ((contract - actual) / contract * 100) if contract > 0 else 0,
-        "progress_rate": float(ledger.progress_rate),
-        "budget_utilization": (actual / budget * 100) if budget > 0 else 0,
+        "estimated_profit": estimated,
+        "profit_margin": profit_margin,
+        "progress_rate": Decimal(str(ledger.progress_rate)),
+        "budget_utilization": budget_utilization,
     }
 
 
 def _recalculate_profit(ledger: ProjectLedger) -> None:
-    ledger.estimated_profit = float(ledger.contract_amount) - float(ledger.actual_cost)
+    ledger.estimated_profit = Decimal(str(ledger.contract_amount)) - Decimal(
+        str(ledger.actual_cost)
+    )
+
+
+async def get_overall_summary(
+    db: AsyncSession, organization_id: uuid.UUID | None = None
+) -> dict:
+    """組織（または全組織）の工事台帳を集計した全社サマリー。
+
+    販管費（SG&A）はモデル化されていないため operating_profit / operating_margin は
+    None（未算出）を返す。organization_id が None の場合は cross-org admin 相当で
+    全組織を集計する（ADR-0004）。
+    """
+    query = select(ProjectLedger)
+    if organization_id is not None:
+        query = query.where(ProjectLedger.organization_id == organization_id)
+    result = await db.execute(query)
+    ledgers = list(result.scalars().all())
+
+    total_revenue = sum(
+        Decimal(str(ledger.contract_amount or 0)) for ledger in ledgers
+    )
+    total_cost = sum(Decimal(str(ledger.actual_cost or 0)) for ledger in ledgers)
+    gross_profit = total_revenue - total_cost
+    projects_count = len(ledgers)
+
+    return {
+        "total_revenue": total_revenue,
+        "total_cost": total_cost,
+        "gross_profit": gross_profit,
+        "operating_profit": None,
+        "projects_count": projects_count,
+        "gross_margin": (
+            float(gross_profit / total_revenue) if total_revenue > 0 else 0.0
+        ),
+        "operating_margin": None,
+    }

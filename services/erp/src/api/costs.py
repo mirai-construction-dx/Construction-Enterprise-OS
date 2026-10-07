@@ -19,6 +19,9 @@ from ..services import budget_service, cost_service, ledger_service
 
 router = APIRouter()
 
+# 原価承認などの財務書込に必要なロール（auth サービスの既定ロール seed と一致）
+FINANCE_ROLES = frozenset({"admin", "accountant"})
+
 
 @router.post(
     "/ledger/{ledger_id}/costs",
@@ -46,6 +49,7 @@ async def create_cost(
             raise HTTPException(status_code=404, detail="予算項目が見つかりません")
     data = body.model_dump()
     data["organization_id"] = org
+    data["created_by"] = UUID(current_user.sub)
     return await cost_service.create_cost(db, ledger_id, data)
 
 
@@ -98,8 +102,13 @@ async def approve_cost(
     cost = await cost_service.get_cost(db, cost_id, scope_org(current_user))
     if not cost:
         raise HTTPException(status_code=404, detail="原価明細が見つかりません")
+    if not (set(current_user.roles or []) & FINANCE_ROLES):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "FORBIDDEN", "message": "この操作には経理ロールが必要です。"},
+        )
     try:
-        return await cost_service.approve_cost(db, cost, body.approved_by)
+        return await cost_service.approve_cost(db, cost, UUID(current_user.sub))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

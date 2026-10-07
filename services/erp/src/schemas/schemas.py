@@ -31,9 +31,9 @@ class LedgerUpdateRequest(BaseModel):
     project_name: str | None = None
     project_type: str | None = None
     client_name: str | None = None
-    contract_amount: Decimal | None = None
+    contract_amount: Decimal | None = Field(default=None, gt=0)
     budget_amount: Decimal | None = None
-    progress_rate: Decimal | None = None
+    progress_rate: Decimal | None = Field(default=None, ge=0, le=100)
     status: str | None = None
     start_date: date | None = None
     planned_end_date: date | None = None
@@ -155,7 +155,7 @@ class CostCreateRequest(BaseModel):
 class CostUpdateRequest(BaseModel):
     category: str | None = None
     description: str | None = None
-    amount: Decimal | None = None
+    amount: Decimal | None = Field(default=None, gt=0)
     cost_date: date | None = None
     vendor_name: str | None = None
     invoice_number: str | None = None
