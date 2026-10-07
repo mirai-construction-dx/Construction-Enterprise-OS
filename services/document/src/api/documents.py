@@ -16,7 +16,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    APPROVAL_ROLES,
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -327,6 +333,9 @@ async def update_document(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # 承認状態への遷移（approved / rejected）は承認ロールを要求する（DOC-1）
+    if body.status in ("approved", "rejected"):
+        require_any_role(token_data, APPROVAL_ROLES)
     document = await document_service.update_document(
         db=db,
         document_id=document_id,
@@ -350,6 +359,8 @@ async def delete_document(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # 文書削除は管理ロールを要求する（DOC-2）
+    require_any_role(token_data, MANAGEMENT_ROLES)
     document = await document_service.soft_delete_document(
         db, document_id, _org_id(token_data)
     )
