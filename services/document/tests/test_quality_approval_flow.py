@@ -307,7 +307,6 @@ class TestUploadValidation:
         db_values = set(Document.__table__.c.document_type.type.enums)
         assert ALLOWED_DOCUMENT_TYPES == db_values
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-DOC-6: MIME 種別の許可リスト検証が無い")
     def test_defect_no_content_type_allowlist(self, client):
         """[欠陥] アップロードの MIME 種別検証が無く実行形式等も受理される。"""
         create = AsyncMock(return_value=_make_document())
