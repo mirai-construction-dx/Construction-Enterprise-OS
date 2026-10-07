@@ -1,0 +1,2486 @@
+===== pytest: services/construction =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+............................x...x...xxx...........xxxxxxxx.xxxxxxxxx.xxx [ 91%]
+xxx.xxx                                                                  [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+48 passed, 31 xfailed, 1 warning in 5.58s
+===== pytest: services/erp =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+.........................................x.x.xx...x.x.x.x..x..x...x.x.x. [ 75%]
+x..x.x.x.x.x.x.x.x.x.x.x                                                 [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+71 passed, 25 xfailed, 1 warning in 4.91s
+===== pytest: services/document =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+...............................................................xx....... [ 71%]
+..x...................x......                                            [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_quality_approval_flow.py::TestUploadValidation::test_oversized_upload_is_rejected_with_413
+tests/test_quality_approval_flow.py::TestUploadValidation::test_version_upload_oversize_is_rejected
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py:345: StarletteDeprecationWarning: 'HTTP_413_REQUEST_ENTITY_TOO_LARGE' is deprecated. Use 'HTTP_413_CONTENT_TOO_LARGE' instead.
+    return await dependant.call(**values)
+
+tests/test_quality_approval_flow.py::TestUploadValidation::test_invalid_document_type_is_rejected_with_422
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py:345: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    return await dependant.call(**values)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+97 passed, 4 xfailed, 4 warnings in 9.20s
+===== pytest: services/workflow =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+......................x................................................. [ 77%]
+.....................                                                    [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+92 passed, 1 xfailed, 1 warning in 18.03s
+===== pytest: services/field-dx =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+...........................FFFFFFFFFFFFFFFFF...FFFFF........             [100%]
+=================================== FAILURES ===================================
+_ TestTenantIsolationDefects.test_defect_list_progress_has_no_token_tenant_filter _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2025ac0>
+make_client = <function make_client.<locals>._factory at 0x7e04c138a840>
+
+    def test_defect_list_progress_has_no_token_tenant_filter(self, make_client):
+        """DEF-FLD-01: 一覧APIがトークンの organization で絞り込まれていない。
+    
+        根拠: src/api/progress.py:148-171（organization_id は Query 由来）
+              src/services/field_service.py:138-140（None なら where を付けない）
+        期待: token org (ORG_A) による絞り込みが SQL に存在する。
+        """
+        client, statements, _ = make_client()
+        response = client.get("/api/v1/field/progress")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            "トークン org によるテナント絞り込みが WHERE 句に存在しない "
+            f"(全テナント横断の読み取り) / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: トークン org によるテナント絞り込みが WHERE 句に存在しない (全テナント横断の読み取り) / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:221: AssertionError
+_ TestTenantIsolationDefects.test_defect_list_quality_has_no_token_tenant_filter _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2025fa0>
+make_client = <function make_client.<locals>._factory at 0x7e04c13f3ce0>
+
+    def test_defect_list_quality_has_no_token_tenant_filter(self, make_client):
+        """DEF-FLD-02: GET /quality がトークンの organization で絞り込まれていない。
+    
+        根拠: src/api/quality.py:125-150, src/services/field_service.py:233-235
+        """
+        client, statements, _ = make_client()
+        response = client.get("/api/v1/field/quality")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:235: AssertionError
+_ TestTenantIsolationDefects.test_defect_list_reports_has_no_token_tenant_filter _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c20264b0>
+make_client = <function make_client.<locals>._factory at 0x7e04c1ca7100>
+
+    def test_defect_list_reports_has_no_token_tenant_filter(self, make_client):
+        """DEF-FLD-03: GET /reports がトークンの organization で絞り込まれていない。
+    
+        根拠: src/api/reports.py:35-59, src/services/field_service.py:44-46
+        """
+        client, statements, _ = make_client()
+        response = client.get("/api/v1/field/reports")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:248: AssertionError
+_ TestTenantIsolationDefects.test_defect_query_org_param_can_select_another_tenant _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2025640>
+make_client = <function make_client.<locals>._factory at 0x7e04c12c7240>
+
+    def test_defect_query_org_param_can_select_another_tenant(self, make_client):
+        """DEF-FLD-04: organization_id クエリでテナント越境の読み取りが可能。
+    
+        根拠: src/api/progress.py:150（organization_id: UUID | None = Query(None)）
+        期待: トークン org (ORG_A) 以外の組織IDが SQL のバインド値に現れない。
+        攻撃: 侵害された/別組織のユーザーが ?organization_id=<他社> を付与するだけで他社の出来形を取得。
+        """
+        client, statements, _ = make_client()
+        response = client.get(f"/api/v1/field/progress?organization_id={ORG_B}")
+        assert response.status_code in (200, 403)
+        params = statements[0].compile().params
+>       assert ORG_B not in params.values(), (
+            "クエリ由来の organization_id がそのまま検索条件に使われている "
+            f"(テナント越境) / bound params = {params}"
+        )
+E       AssertionError: クエリ由来の organization_id がそのまま検索条件に使われている (テナント越境) / bound params = {'organization_id_1': UUID('00000000-0000-0000-0000-0000000000bb')}
+E       assert UUID('00000000-0000-0000-0000-0000000000bb') not in dict_values([UUID('00000000-0000-0000-0000-0000000000bb')])
+E        +  where dict_values([UUID('00000000-0000-0000-0000-0000000000bb')]) = <built-in method values of dict object at 0x7e04c103f040>()
+E        +    where <built-in method values of dict object at 0x7e04c103f040> = {'organization_id_1': UUID('00000000-0000-0000-0000-0000000000bb')}.values
+
+tests/test_quality_tenant_isolation.py:263: AssertionError
+___ TestTenantIsolationDefects.test_defect_get_progress_by_id_crosses_tenant ___
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c20269c0>
+make_client = <function make_client.<locals>._factory at 0x7e04c13f14e0>
+
+    def test_defect_get_progress_by_id_crosses_tenant(self, make_client):
+        """DEF-FLD-05: 他テナントの出来形記録をID指定で取得できる。
+    
+        根拠: src/api/progress.py:181-183（get_progress_record に対象外 org の判定が無い）
+              src/services/field_service.py:121-124（PK 取得のみ）
+        期待: 404 または 403。実際: 200 + 他テナントの内容を返す。
+        """
+        other = _progress(ORG_B)
+        client, _, _ = make_client(get_value=other)
+        response = client.get(f"/api/v1/field/progress/{other.id}")
+>       assert response.status_code in (403, 404), (
+            f"他テナント(ORG_B)の出来形記録を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)の出来形記録を 200 で返した: 405
+E       assert 405 in (403, 404)
+E        +  where 405 = <Response [405 Method Not Allowed]>.status_code
+
+tests/test_quality_tenant_isolation.py:278: AssertionError
+_ TestTenantIsolationDefects.test_defect_update_progress_by_id_crosses_tenant __
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2026ed0>
+make_client = <function make_client.<locals>._factory at 0x7e04c12c79c0>
+
+    def test_defect_update_progress_by_id_crosses_tenant(self, make_client):
+        """DEF-FLD-06: 他テナントの出来形記録を更新できる。
+    
+        根拠: src/api/progress.py:174-186
+        """
+        other = _progress(ORG_B)
+        client, _, _ = make_client(get_value=other)
+        response = client.put(
+            f"/api/v1/field/progress/{other.id}", json={"progress_percent": 99.0}
+        )
+>       assert response.status_code in (403, 404), (
+            f"他テナントの出来形記録を更新できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの出来形記録を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:292: AssertionError
+____ TestTenantIsolationDefects.test_defect_get_report_by_id_crosses_tenant ____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c20273e0>
+make_client = <function make_client.<locals>._factory at 0x7e04c13f3b00>
+
+    def test_defect_get_report_by_id_crosses_tenant(self, make_client):
+        """DEF-FLD-07: 他テナントの作業日報をID指定で取得できる。
+    
+        根拠: src/api/reports.py:62-71
+        """
+        other = _report(ORG_B)
+        client, _, _ = make_client(get_value=other)
+        response = client.get(f"/api/v1/field/reports/{other.id}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの日報を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナントの日報を 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:304: AssertionError
+_____ TestTenantIsolationDefects.test_defect_submit_report_crosses_tenant ______
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c20278f0>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e0f40>
+
+    def test_defect_submit_report_crosses_tenant(self, make_client):
+        """DEF-FLD-08: 他テナントの日報を提出（状態遷移）できる。
+    
+        根拠: src/api/reports.py:89-104
+        """
+        other = _report(ORG_B, status="draft")
+        client, _, _ = make_client(get_value=other)
+        response = client.post(f"/api/v1/field/reports/{other.id}/submit")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの日報を提出状態へ遷移できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの日報を提出状態へ遷移できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:316: AssertionError
+_____ TestTenantIsolationDefects.test_defect_approve_report_crosses_tenant _____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2027e00>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e2200>
+
+    def test_defect_approve_report_crosses_tenant(self, make_client):
+        """DEF-FLD-09: 他テナントの日報を承認できる。
+    
+        根拠: src/api/reports.py:107-123
+        """
+        other = _report(ORG_B, status="submitted")
+        client, _, _ = make_client(get_value=other)
+        response = client.post(
+            f"/api/v1/field/reports/{other.id}/approve?approved_by={OTHER_USER}"
+        )
+>       assert response.status_code in (403, 404), (
+            f"他テナントの日報を承認できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの日報を承認できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:330: AssertionError
+_ TestTenantIsolationDefects.test_defect_approver_identity_comes_from_query_not_token _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2040350>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e3920>
+
+    def test_defect_approver_identity_comes_from_query_not_token(self, make_client):
+        """DEF-FLD-10: 承認者がクエリ引数で指定でき、トークン本人と一致しなくても通る。
+    
+        根拠: src/api/reports.py:113（approved_by: UUID = Query(...)）
+        期待: 承認者(approved_by)はトークン sub から導出される（なりすまし不可）。
+        影響: 承認の否認不能性が破綻（Q6 承認・証跡）。
+        """
+        report = _report(ORG_A, status="submitted")
+        client, _, _ = make_client(get_value=report)
+        response = client.post(
+            f"/api/v1/field/reports/{report.id}/approve?approved_by={OTHER_USER}"
+        )
+        assert response.status_code == 200
+>       assert report.approved_by == uuid.UUID(USER_SUB), (
+            "承認者がクエリ引数で上書きされた: "
+            f"approved_by={report.approved_by} (トークン sub={USER_SUB})"
+        )
+E       AssertionError: 承認者がクエリ引数で上書きされた: approved_by=00000000-0000-0000-0000-0000000000ff (トークン sub=00000000-0000-0000-0000-0000000000dd)
+E       assert UUID('00000000-0000-0000-0000-0000000000ff') == UUID('00000000-0000-0000-0000-0000000000dd')
+E        +  where UUID('00000000-0000-0000-0000-0000000000ff') = <src.models.DailyReport object at 0x7e04c106ea50>.approved_by
+E        +  and   UUID('00000000-0000-0000-0000-0000000000dd') = <class 'uuid.UUID'>('00000000-0000-0000-0000-0000000000dd')
+E        +    where <class 'uuid.UUID'> = uuid.UUID
+
+tests/test_quality_tenant_isolation.py:347: AssertionError
+_ TestTenantIsolationDefects.test_defect_create_progress_accepts_foreign_org_in_body _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2040860>
+make_client = <function make_client.<locals>._factory at 0x7e04c138a7a0>
+
+    def test_defect_create_progress_accepts_foreign_org_in_body(self, make_client):
+        """DEF-FLD-11: 作成時に request body の organization_id をそのまま採用する（Q2）。
+    
+        根拠: src/schemas/__init__.py:77（organization_id: UUID）
+              src/api/progress.py:139-145（body をそのまま service へ）
+              src/services/field_service.py:111-118
+        期待: トークン org 以外の organization_id は 400/403。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/field/progress",
+            json={
+                "organization_id": str(ORG_B),
+                "project_id": str(PROJECT_B),
+                "activity_name": "他社案件への書き込み",
+                "status": "pending",
+                "recorded_by": str(OTHER_USER),
+            },
+        )
+>       assert response.status_code in (400, 403), (
+            f"他テナント(ORG_B)宛の出来形記録を作成できた: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)宛の出来形記録を作成できた: 201
+E       assert 201 in (400, 403)
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_quality_tenant_isolation.py:371: AssertionError
+_ TestTenantIsolationDefects.test_defect_create_report_accepts_foreign_org_in_body _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2040d70>
+make_client = <function make_client.<locals>._factory at 0x7e04c206f240>
+
+    def test_defect_create_report_accepts_foreign_org_in_body(self, make_client):
+        """DEF-FLD-12: 日報作成でも body の organization_id をそのまま採用する（Q2）。
+    
+        根拠: src/schemas/__init__.py:13, src/api/reports.py:26-32
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/field/reports",
+            json={
+                "organization_id": str(ORG_B),
+                "project_id": str(PROJECT_B),
+                "report_date": "2026-05-24",
+                "work_description": "他社案件への日報書き込み",
+                "created_by": str(OTHER_USER),
+            },
+        )
+>       assert response.status_code in (400, 403), (
+            f"他テナント(ORG_B)宛の日報を作成できた: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)宛の日報を作成できた: 201
+E       assert 201 in (400, 403)
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_quality_tenant_isolation.py:391: AssertionError
+_ TestTenantIsolationDefects.test_defect_create_quality_accepts_foreign_org_in_body _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2041280>
+make_client = <function make_client.<locals>._factory at 0x7e04c1c83f60>
+
+    def test_defect_create_quality_accepts_foreign_org_in_body(self, make_client):
+        """DEF-FLD-13: 品質チェック作成でも body の organization_id をそのまま採用する（Q2）。
+    
+        根拠: src/schemas/__init__.py:153, src/api/quality.py:111-122
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/field/quality",
+            json={
+                "organization_id": str(ORG_B),
+                "project_id": str(PROJECT_B),
+                "check_item": "他社案件への品質記録",
+                "check_type": "dummy",
+                "check_date": "2026-05-24",
+                "inspector_id": str(OTHER_USER),
+            },
+        )
+>       assert response.status_code in (400, 403), (
+            f"他テナント(ORG_B)宛の品質チェックを作成できた: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)宛の品質チェックを作成できた: 201
+E       assert 201 in (400, 403)
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_quality_tenant_isolation.py:412: AssertionError
+__ TestTenantIsolationDefects.test_defect_progress_summary_not_tenant_scoped ___
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2041790>
+make_client = <function make_client.<locals>._factory at 0x7e04c138ab60>
+
+    def test_defect_progress_summary_not_tenant_scoped(self, make_client):
+        """DEF-FLD-14: 案件サマリが project_id だけで集計され、テナント検証が無い。
+    
+        根拠: src/api/progress.py:189-198, src/services/field_service.py:171-177
+        期待: 他テナントの project_id を指定した場合もトークン org で絞る（または 404）。
+        """
+        client, statements, _ = make_client(items=[_progress(ORG_B)])
+        response = client.get(f"/api/v1/field/progress/{PROJECT_B}/summary")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = 'field.progress_records.project_id = :project_id_1'
+E       assert 'organization_id' in 'field.progress_records.project_id = :project_id_1'
+
+tests/test_quality_tenant_isolation.py:426: AssertionError
+____ TestTenantIsolationDefects.test_defect_quality_stats_not_tenant_scoped ____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2041ca0>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e2160>
+
+    def test_defect_quality_stats_not_tenant_scoped(self, make_client):
+        """DEF-FLD-15: 品質統計が project_id だけで集計され、テナント検証が無い。
+    
+        根拠: src/api/quality.py:168-177, src/services/field_service.py:269-275
+        """
+        client, statements, _ = make_client(items=[_quality(ORG_B)])
+        response = client.get(f"/api/v1/field/quality/{PROJECT_B}/stats")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = 'field.quality_checks.project_id = :project_id_1'
+E       assert 'organization_id' in 'field.quality_checks.project_id = :project_id_1'
+
+tests/test_quality_tenant_isolation.py:439: AssertionError
+_____ TestTenantIsolationDefects.test_defect_update_quality_crosses_tenant _____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c20421b0>
+make_client = <function make_client.<locals>._factory at 0x7e04c138a5c0>
+
+    def test_defect_update_quality_crosses_tenant(self, make_client):
+        """DEF-FLD-16: 他テナントの品質チェックを更新できる。
+    
+        根拠: src/api/quality.py:153-165
+        """
+        other = _quality(ORG_B)
+        client, _, _ = make_client(get_value=other)
+        response = client.put(
+            f"/api/v1/field/quality/{other.id}", json={"status": "passed"}
+        )
+>       assert response.status_code in (403, 404), (
+            f"他テナントの品質チェックを更新できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの品質チェックを更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:453: AssertionError
+_ TestTenantIsolationDefects.test_defect_jwt_key_resolution_differs_from_other_services _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7e04c2027f50>
+
+    def test_defect_jwt_key_resolution_differs_from_other_services(self):
+        """DEF-FLD-17: field-dx だけ JWT 検証鍵が空文字になり、他サービスと非互換。
+    
+        根拠: services/field-dx/src/middleware/auth.py:29 は ``settings.JWT_PUBLIC_KEY``
+              （生の環境変数値。既定は "" / src/config.py:25）を検証鍵に使う。
+              一方 services/gis/src/middleware/auth.py:29 と
+              services/bim/src/middleware/auth.py:29 は ``settings.jwt_public_key``
+              （プロパティ。既定 "dev-only-do-not-use-in-production" / config.py:27-31）を使う。
+        症状: (a) auth サービスが dev 既定鍵で署名した正規トークンを field-dx は 401 で拒否。
+              (b) 逆に field-dx は「空鍵で署名された任意のトークン」を受理する
+                  （PyJWT は InsecureKeyLengthWarning を出すが例外にはしない）。
+        期待: 3サービスで同一の鍵解決（プロパティ経由）を使う。
+        """
+        import warnings
+    
+        import jwt as pyjwt
+    
+        from src.config import get_settings
+    
+        settings = get_settings()
+        canonical_key = settings.jwt_public_key  # 3サービス共通で使うべき鍵
+        payload = {"sub": USER_SUB, "type": "user", "org": str(ORG_A), "exp": 9999999999}
+    
+        canonical_token = pyjwt.encode(payload, canonical_key, algorithm="HS256")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            empty_key_token = pyjwt.encode(payload, "", algorithm="HS256")
+            from src.middleware.auth import decode_token
+    
+>           assert decode_token(canonical_token) is not None, (
+                "正規鍵(dev-only-do-not-use-in-production)で署名したトークンを "
+                "field-dx が検証できない（他サービス gis/bim は検証できる）"
+            )
+E           AssertionError: 正規鍵(dev-only-do-not-use-in-production)で署名したトークンを field-dx が検証できない（他サービス gis/bim は検証できる）
+E           assert None is not None
+E            +  where None = <function decode_token at 0x7e04c2e20fe0>('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwZGQiLCJ0eXBlIjoidXNlciIs...jAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDBhYSIsImV4cCI6OTk5OTk5OTk5OX0.DPt1hGsrGZZjmnlQuiVBzRbgOFTqlamM_ll8b55j3ro')
+
+tests/test_quality_tenant_isolation.py:486: AssertionError
+_ TestCalculationAndBoundaryDefects.test_defect_progress_percent_above_100_is_accepted _
+
+self = <tests.test_quality_units_coordinates.TestCalculationAndBoundaryDefects object at 0x7e04c2050500>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e0ea0>
+
+    def test_defect_progress_percent_above_100_is_accepted(self, make_client):
+        """DEF-FLD-18: 進捗率に上限検証が無く 100% 超を受け付ける。
+    
+        根拠: src/schemas/__init__.py:88（progress_percent: float | None = None、境界なし）
+              src/api/progress.py:134-145
+        期待: 422（0..100 の範囲外を拒否）。実際: 201 で受理。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/field/progress",
+            json=_progress_payload(progress_percent=150.0),
+        )
+>       assert response.status_code == 422, (
+            f"進捗率 150.0% を受理した（上限検証なし）: {response.status_code}"
+        )
+E       AssertionError: 進捗率 150.0% を受理した（上限検証なし）: 201
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_quality_units_coordinates.py:172: AssertionError
+_ TestCalculationAndBoundaryDefects.test_defect_progress_percent_negative_is_accepted _
+
+self = <tests.test_quality_units_coordinates.TestCalculationAndBoundaryDefects object at 0x7e04c20509e0>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e00e0>
+
+    def test_defect_progress_percent_negative_is_accepted(self, make_client):
+        """DEF-FLD-19: 進捗率に下限検証が無く負値を受け付ける。
+    
+        根拠: src/schemas/__init__.py:88
+        期待: 422。実際: 201。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/field/progress",
+            json=_progress_payload(progress_percent=-12.5),
+        )
+>       assert response.status_code == 422, (
+            f"進捗率 -12.5% を受理した（下限検証なし）: {response.status_code}"
+        )
+E       AssertionError: 進捗率 -12.5% を受理した（下限検証なし）: 201
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_quality_units_coordinates.py:187: AssertionError
+_ TestCalculationAndBoundaryDefects.test_defect_progress_percent_is_not_derived_from_quantities _
+
+self = <tests.test_quality_units_coordinates.TestCalculationAndBoundaryDefects object at 0x7e04c2050ef0>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e2ac0>
+
+    def test_defect_progress_percent_is_not_derived_from_quantities(self, make_client):
+        """DEF-FLD-20: 出来形数量から進捗率を算出していない（申告値の丸写し）。
+    
+        根拠: src/api/progress.py:139-145（body をそのまま保存）
+              src/services/field_service.py:111-118（計算処理なし）
+        期待: planned=100 / actual=50 のとき progress_percent が 50.0 に算出される。
+        実際: 未指定なら None のまま保存され、数量との整合検証も無い。
+        影響: 出来形数量と進捗率が独立に申告でき、出来高の正しさを担保できない。
+        """
+        client, _, db = make_client()
+        response = client.post(
+            "/api/v1/field/progress",
+            json=_progress_payload(
+                planned_quantity=100.0, actual_quantity=50.0, unit="m3"
+            ),
+        )
+        assert response.status_code == 201
+        saved = db.add.call_args[0][0]
+>       assert saved.progress_percent == pytest.approx(50.0), (
+            f"数量から進捗率が算出されていない: progress_percent={saved.progress_percent}"
+        )
+E       AssertionError: 数量から進捗率が算出されていない: progress_percent=None
+E       assert None == 50.0 ± 5.0e-05
+E         
+E         comparison failed
+E         Obtained: None
+E         Expected: 50.0 ± 5.0e-05
+
+tests/test_quality_units_coordinates.py:209: AssertionError
+_ TestCalculationAndBoundaryDefects.test_defect_quality_conformance_is_client_declared _
+
+self = <tests.test_quality_units_coordinates.TestCalculationAndBoundaryDefects object at 0x7e04c2051400>
+make_client = <function make_client.<locals>._factory at 0x7e04c1cf44a0>
+
+    def test_defect_quality_conformance_is_client_declared(self, make_client):
+        """DEF-FLD-21: 品質合否がクライアント申告で確定し、測定値・規格値との突合が無い。
+    
+        根拠: src/schemas/__init__.py:152-164（standard_value/measured_value は自由文字列、
+              is_conforming はクライアントが与える bool）
+              src/api/quality.py:116-122 → src/services/field_service.py:205-212
+        期待: 合否の根拠（measured_value）が無いのに「適合」を主張する入力は 422。
+        実際: 201。サーバ側に閾値ロジックは存在しない（ハードコード以前に未実装）。
+        影響: 品質合否が改ざん可能な申告値になり、検査証跡の信頼性が失われる（Q6）。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/field/quality",
+            json={
+                "organization_id": str(ORG_A),
+                "project_id": str(PROJECT_A),
+                "check_item": "圧縮強度",
+                "check_type": "strength_test",
+                "is_conforming": True,  # 測定値なしで「適合」
+                "check_date": "2026-05-24",
+                "inspector_id": str(uuid.uuid4()),
+            },
+        )
+>       assert response.status_code == 422, (
+            f"測定値なしの『適合』申告を受理した: {response.status_code}"
+        )
+E       AssertionError: 測定値なしの『適合』申告を受理した: 201
+E       assert 201 == 422
+E        +  where 201 = <Response [201 Created]>.status_code
+
+tests/test_quality_units_coordinates.py:236: AssertionError
+_ TestCalculationAndBoundaryDefects.test_defect_undetermined_quality_check_lowers_conformance_rate _
+
+self = <tests.test_quality_units_coordinates.TestCalculationAndBoundaryDefects object at 0x7e04c2051910>
+make_client = <function make_client.<locals>._factory at 0x7e04c11e02c0>
+
+    def test_defect_undetermined_quality_check_lowers_conformance_rate(self, make_client):
+        """DEF-FLD-22: 未判定(is_conforming=None)を分母に含め、適合率を過小算出する。
+    
+        根拠: src/services/field_service.py:277-289
+              total_checks = len(checks) / conforming_count は is_conforming が真の件数のみ
+              → conformance_rate = conforming / total * 100
+        期待: 未判定は分母から除外（適合1・未判定1 → 100.0）。
+        実際: 1/2*100 = 50.0。
+        影響: 検査未完の現場で品質成績が過小評価される（Q3 計算再現性・Q8）。
+        """
+        client, _, _ = make_client(
+            items=[_quality(True), _quality(None, status="pending")]
+        )
+        response = client.get(f"/api/v1/field/quality/{PROJECT_A}/stats")
+        assert response.status_code == 200
+        rate = response.json()["conformance_rate"]
+>       assert rate == pytest.approx(100.0), (
+            f"未判定を含めた分母で適合率を算出: conformance_rate={rate} (期待 100.0)"
+        )
+E       AssertionError: 未判定を含めた分母で適合率を算出: conformance_rate=50.0 (期待 100.0)
+E       assert 50.0 == 100.0 ± 1.0e-04
+E         
+E         comparison failed
+E         Obtained: 50.0
+E         Expected: 100.0 ± 1.0e-04
+
+tests/test_quality_units_coordinates.py:256: AssertionError
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_quality_tenant_isolation.py::TestTenantIsolationVerified::test_ok_non_user_token_is_rejected
+  /home/kensan/.local/lib/python3.12/site-packages/jwt/api_jwt.py:365: InsecureKeyLengthWarning: The HMAC key is 0 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    decoded = self.decode_complete(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_progress_has_no_token_tenant_filter
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_quality_has_no_token_tenant_filter
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_reports_has_no_token_tenant_filter
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_query_org_param_can_select_another_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_progress_by_id_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_progress_by_id_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_report_by_id_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_submit_report_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_approve_report_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_approver_identity_comes_from_query_not_token
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_progress_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_report_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_quality_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_progress_summary_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_quality_stats_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_quality_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_jwt_key_resolution_differs_from_other_services
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_progress_percent_above_100_is_accepted
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_progress_percent_negative_is_accepted
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_progress_percent_is_not_derived_from_quantities
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_quality_conformance_is_client_declared
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_undetermined_quality_check_lowers_conformance_rate
+22 failed, 38 passed, 2 warnings in 4.17s
+===== pytest: services/gis =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+...........................FFFFFFFFFFFFFF...FFFFFF...............        [100%]
+=================================== FAILURES ===================================
+____ TestTenantIsolationDefects.test_defect_list_sites_is_not_tenant_scoped ____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cc7d0>
+make_client = <function make_client.<locals>._factory at 0x73978cf779c0>
+
+    def test_defect_list_sites_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-01: 現場一覧がトークン組織で絞り込まれていない（全社横断の読み取り）。
+    
+        根拠: src/api/sites.py:111-143（site_type / status のみで where。organization_id 条件なし）
+        期待: WHERE 句に organization_id が含まれる。
+        """
+        client, statements, _ = make_client(items=[_site(ORG_B)])
+        response = client.get("/api/v1/gis/sites")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:191: AssertionError
+__ TestTenantIsolationDefects.test_defect_nearby_search_is_not_tenant_scoped ___
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cccb0>
+make_client = <function make_client.<locals>._factory at 0x73978cf858a0>
+
+    def test_defect_nearby_search_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-02: /nearby（空間検索）がトークン組織で絞り込まれていない。
+    
+        根拠: src/api/sites.py:146-169
+        """
+        client, statements, _ = make_client(items=[_site(ORG_B)])
+        response = client.get("/api/v1/gis/sites/nearby?lat=35.0&lng=139.0&radius_m=1000")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = 'ST_DWithin(gis.construction_sites.location, ST_GeomFromText(:ST_GeomFromText_1), :ST_DWithin_1) ORDER BY gis.construction_sites.created_at DESC'
+E       assert 'organization_id' in 'ST_DWithin(gis.construction_sites.location, ST_GeomFromText(:ST_GeomFromText_1), :ST_DWithin_1) ORDER BY gis.construction_sites.created_at DESC'
+
+tests/test_quality_tenant_isolation.py:204: AssertionError
+__ TestTenantIsolationDefects.test_defect_in_area_search_is_not_tenant_scoped __
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cd1c0>
+make_client = <function make_client.<locals>._factory at 0x73978cf86660>
+
+    def test_defect_in_area_search_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-03: /in-area（範囲検索）がトークン組織で絞り込まれていない。
+    
+        根拠: src/api/sites.py:172-198
+        """
+        client, statements, _ = make_client(items=[_site(ORG_B)])
+        response = client.get(
+            "/api/v1/gis/sites/in-area?min_lat=35.0&min_lng=139.0&max_lat=35.1&max_lng=139.1"
+        )
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = 'ST_Intersects(gis.construction_sites.location, ST_GeomFromText(:ST_GeomFromText_1)) ORDER BY gis.construction_sites.created_at DESC'
+E       assert 'organization_id' in 'ST_Intersects(gis.construction_sites.location, ST_GeomFromText(:ST_GeomFromText_1)) ORDER BY gis.construction_sites.created_at DESC'
+
+tests/test_quality_tenant_isolation.py:219: AssertionError
+________ TestTenantIsolationDefects.test_defect_get_site_crosses_tenant ________
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cd6d0>
+make_client = <function make_client.<locals>._factory at 0x73978cf877e0>
+
+    def test_defect_get_site_crosses_tenant(self, make_client):
+        """DEF-GIS-04: 他テナントの現場をID指定で取得できる。
+    
+        根拠: src/api/sites.py:201-216（id のみで検索）
+        """
+        client, _, _ = make_client(items=[_site(ORG_B)])
+        response = client.get(f"/api/v1/gis/sites/{SITE_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナント(ORG_B)の現場を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)の現場を 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:230: AssertionError
+______ TestTenantIsolationDefects.test_defect_update_site_crosses_tenant _______
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cdbe0>
+make_client = <function make_client.<locals>._factory at 0x73978cf85e40>
+
+    def test_defect_update_site_crosses_tenant(self, make_client):
+        """DEF-GIS-05: 他テナントの現場を更新できる。
+    
+        根拠: src/api/sites.py:219-251
+        """
+        client, _, _ = make_client(items=[_site(ORG_B)])
+        response = client.put(f"/api/v1/gis/sites/{SITE_B}", json={"name": "改ざん"})
+>       assert response.status_code in (403, 404), (
+            f"他テナントの現場を更新できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの現場を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:241: AssertionError
+______ TestTenantIsolationDefects.test_defect_delete_site_crosses_tenant _______
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39ce0f0>
+make_client = <function make_client.<locals>._factory at 0x73978cf76b60>
+
+    def test_defect_delete_site_crosses_tenant(self, make_client):
+        """DEF-GIS-06: 他テナントの現場を削除できる。
+    
+        根拠: src/api/sites.py:254-271
+        """
+        client, _, db = make_client(items=[_site(ORG_B)])
+        response = client.delete(f"/api/v1/gis/sites/{SITE_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの現場を削除できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの現場を削除できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:252: AssertionError
+_ TestTenantIsolationDefects.test_defect_create_site_accepts_foreign_org_in_body _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39ce600>
+make_client = <function make_client.<locals>._factory at 0x73978cf77100>
+
+    def test_defect_create_site_accepts_foreign_org_in_body(self, make_client):
+        """DEF-GIS-07: 現場作成で body の organization_id をそのまま採用する（Q2）。
+    
+        根拠: src/schemas/__init__.py:61（organization_id: UUID）
+              src/api/sites.py:88-104（body.organization_id を保存）
+        期待: トークン org 以外は 400/403。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/gis/sites",
+            json={
+                "organization_id": str(ORG_B),
+                "name": "他社テナント宛の現場",
+                "location": {"type": "Point", "coordinates": [139.0, 35.0]},
+            },
+        )
+>       assert response.status_code in (400, 403), (
+            f"他テナント(ORG_B)宛の現場を作成できた: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)宛の現場を作成できた: 200
+E       assert 200 in (400, 403)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:272: AssertionError
+_ TestTenantIsolationDefects.test_defect_list_infrastructure_is_not_tenant_scoped _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39ceb10>
+make_client = <function make_client.<locals>._factory at 0x73978cf877e0>
+
+    def test_defect_list_infrastructure_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-08: インフラ設備一覧がテナント絞り込みされていない。
+    
+        根拠: src/api/infrastructure.py:93-129
+        """
+        client, statements, _ = make_client(items=[_infra(ORG_B)])
+        response = client.get("/api/v1/gis/infrastructure")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:285: AssertionError
+_ TestTenantIsolationDefects.test_defect_infrastructure_near_site_is_not_tenant_scoped _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cf020>
+make_client = <function make_client.<locals>._factory at 0x73978d038fe0>
+
+    def test_defect_infrastructure_near_site_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-09: /near-site が現場の所有組織を検証していない。
+    
+        根拠: src/api/infrastructure.py:132-163（site を id だけで取得し、無条件に近傍検索）
+        期待: 現場取得の WHERE 句に organization_id が含まれる。
+        """
+        client, statements, _ = make_client(
+            results=[{"items": [_site(ORG_B)]}, {"items": []}]
+        )
+        response = client.get(f"/api/v1/gis/infrastructure/near-site/{SITE_B}")
+        assert response.status_code == 200
+        first_where = _where_clause(statements[0])
+>       assert "organization_id" in first_where, (
+            f"現場の所有組織を検証していない / actual WHERE = {first_where!r}"
+        )
+E       AssertionError: 現場の所有組織を検証していない / actual WHERE = 'gis.construction_sites.id = :id_1'
+E       assert 'organization_id' in 'gis.construction_sites.id = :id_1'
+
+tests/test_quality_tenant_isolation.py:301: AssertionError
+___ TestTenantIsolationDefects.test_defect_get_infrastructure_crosses_tenant ___
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cd190>
+make_client = <function make_client.<locals>._factory at 0x73978cf84040>
+
+    def test_defect_get_infrastructure_crosses_tenant(self, make_client):
+        """DEF-GIS-10: 他テナントのインフラ設備を取得できる。
+    
+        根拠: src/api/infrastructure.py:166-181
+        """
+        client, _, _ = make_client(items=[_infra(ORG_B)])
+        response = client.get(f"/api/v1/gis/infrastructure/{INFRA_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの設備を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナントの設備を 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:312: AssertionError
+_ TestTenantIsolationDefects.test_defect_list_hazard_zones_is_not_tenant_scoped _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cf530>
+make_client = <function make_client.<locals>._factory at 0x73978cf77a60>
+
+    def test_defect_list_hazard_zones_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-11: 危険区域一覧がテナント絞り込みされていない。
+    
+        根拠: src/api/areas.py:91-123
+        """
+        client, statements, _ = make_client(items=[_zone(ORG_B)])
+        response = client.get("/api/v1/gis/hazard-zones")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:325: AssertionError
+_ TestTenantIsolationDefects.test_defect_intersecting_zones_is_not_tenant_scoped _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cfa40>
+make_client = <function make_client.<locals>._factory at 0x73978cf86020>
+
+    def test_defect_intersecting_zones_is_not_tenant_scoped(self, make_client):
+        """DEF-GIS-12: /intersecting/{site_id} が現場の所有組織を検証していない。
+    
+        根拠: src/api/areas.py:126-162（site を id だけで取得し、zone 側にも org 条件なし）
+        """
+        site = _site(ORG_B)
+        site.work_area = DUMMY_POLY  # 現場ポリゴン有り → 危険区域検索まで到達させる
+        client, statements, _ = make_client(
+            results=[{"items": [site]}, {"items": []}]
+        )
+        response = client.get(f"/api/v1/gis/hazard-zones/intersecting/{SITE_B}")
+        assert response.status_code == 200
+        assert len(statements) == 2, "現場取得と危険区域検索の2クエリを想定"
+        unscoped = [
+            where
+            for where in (_where_clause(s) for s in statements)
+            if "organization_id" not in where
+        ]
+>       assert not unscoped, (
+            f"テナント絞り込みの無いクエリが存在する / actual WHERE = {unscoped}"
+        )
+E       AssertionError: テナント絞り込みの無いクエリが存在する / actual WHERE = ['gis.construction_sites.id = :id_1', 'ST_Intersects(gis.hazard_zones.zone_area, :ST_Intersects_1) ORDER BY gis.hazard_zones.risk_level DESC']
+E       assert not ['gis.construction_sites.id = :id_1', 'ST_Intersects(gis.hazard_zones.zone_area, :ST_Intersects_1) ORDER BY gis.hazard_zones.risk_level DESC']
+
+tests/test_quality_tenant_isolation.py:347: AssertionError
+____ TestTenantIsolationDefects.test_defect_get_hazard_zone_crosses_tenant _____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39cff20>
+make_client = <function make_client.<locals>._factory at 0x73978d039440>
+
+    def test_defect_get_hazard_zone_crosses_tenant(self, make_client):
+        """DEF-GIS-13: 他テナントの危険区域を取得できる。
+    
+        根拠: src/api/areas.py:165-180
+        """
+        client, _, _ = make_client(items=[_zone(ORG_B)])
+        response = client.get(f"/api/v1/gis/hazard-zones/{ZONE_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの危険区域を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナントの危険区域を 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:358: AssertionError
+___ TestTenantIsolationDefects.test_defect_update_hazard_zone_crosses_tenant ___
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7397a39e8470>
+make_client = <function make_client.<locals>._factory at 0x73978cf87d80>
+
+    def test_defect_update_hazard_zone_crosses_tenant(self, make_client):
+        """DEF-GIS-14: 他テナントの危険区域を更新できる。
+    
+        根拠: src/api/areas.py:183-211
+        """
+        client, _, _ = make_client(items=[_zone(ORG_B)])
+        response = client.put(
+            f"/api/v1/gis/hazard-zones/{ZONE_B}", json={"risk_level": "low"}
+        )
+>       assert response.status_code in (403, 404), (
+            f"他テナントの危険区域を更新できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの危険区域を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:371: AssertionError
+_ TestCoordinateAndUnitDefects.test_defect_create_site_accepts_latitude_out_of_range _
+
+self = <tests.test_quality_units_coordinates.TestCoordinateAndUnitDefects object at 0x7397a39eaa50>
+make_client = <function make_client.<locals>._factory at 0x73978d0396c0>
+
+    def test_defect_create_site_accepts_latitude_out_of_range(self, make_client):
+        """DEF-GIS-15: 書き込み系の緯度に範囲検証が無く、lat=999 を受理する。
+    
+        根拠: src/schemas/__init__.py:38-41（GeoJSONGeometry.coordinates: Any、範囲制約なし）
+              src/services/geo_service.py:32-52（値の検証なしで WKT 化）
+              ※ 検索系は Query(ge=-90, le=90) で検証されている（src/api/sites.py:148-149）
+        期待: 422。実際: 200 で受理し、範囲外座標をそのまま返す。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/gis/sites",
+            json=_site_payload(
+                location={"type": "Point", "coordinates": [DUMMY_LON, 999.0]}
+            ),
+        )
+>       assert response.status_code == 422, (
+            f"緯度 999.0 を受理した（書き込み系の範囲検証なし）: {response.status_code}"
+        )
+E       AssertionError: 緯度 999.0 を受理した（書き込み系の範囲検証なし）: 200
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_units_coordinates.py:143: AssertionError
+_ TestCoordinateAndUnitDefects.test_defect_create_site_accepts_longitude_out_of_range _
+
+self = <tests.test_quality_units_coordinates.TestCoordinateAndUnitDefects object at 0x7397a39eaf30>
+make_client = <function make_client.<locals>._factory at 0x73978cd9e660>
+
+    def test_defect_create_site_accepts_longitude_out_of_range(self, make_client):
+        """DEF-GIS-16: 書き込み系の経度に範囲検証が無く、lon=999 を受理する。
+    
+        根拠: src/schemas/__init__.py:38-41, src/services/geo_service.py:32-52
+        期待: 422。実際: 200。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/gis/sites",
+            json=_site_payload(
+                location={"type": "Point", "coordinates": [999.0, DUMMY_LAT]}
+            ),
+        )
+>       assert response.status_code == 422, (
+            f"経度 999.0 を受理した（書き込み系の範囲検証なし）: {response.status_code}"
+        )
+E       AssertionError: 経度 999.0 を受理した（書き込み系の範囲検証なし）: 200
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_units_coordinates.py:160: AssertionError
+_ TestCoordinateAndUnitDefects.test_defect_create_site_with_incomplete_point_returns_500 _
+
+self = <tests.test_quality_units_coordinates.TestCoordinateAndUnitDefects object at 0x7397a39eb050>
+make_client = <function make_client.<locals>._factory at 0x73978cd9fba0>
+
+    def test_defect_create_site_with_incomplete_point_returns_500(self, make_client):
+        """DEF-GIS-17: 座標要素が不足した Point で IndexError が送出され 500 になる。
+    
+        根拠: src/services/geo_service.py:38（``coords[1]`` を検証なしで参照）
+              src/api/main.py:66-78 の包括ハンドラが INTERNAL_ERROR に変換
+        期待: 422（入力検証エラー）。実際: 500（未処理例外）。
+        影響: 不正入力がサーバ内部エラーになり、監視ノイズと情報漏洩面を作る（Q8）。
+        """
+        client, _, _ = make_client(raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/gis/sites",
+            json=_site_payload(
+                location={"type": "Point", "coordinates": [DUMMY_LON]}
+            ),
+        )
+>       assert response.status_code == 422, (
+            f"座標要素不足の Point が 500 になった（IndexError 未処理）: {response.status_code}"
+        )
+E       AssertionError: 座標要素不足の Point が 500 になった（IndexError 未処理）: 500
+E       assert 500 == 422
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+tests/test_quality_units_coordinates.py:179: AssertionError
+------------------------------ Captured log call -------------------------------
+ERROR    src.main:main.py:83 Unhandled exception: list index out of range
+Traceback (most recent call last):
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 1766, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 2740, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 1786, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 1265, in handle
+    await app(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 151, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/home/kensan/.local/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 137, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 691, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py", line 345, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/services/gis/src/api/sites.py", line 85, in create_site
+    location_wkt = geojson_to_wkt(body.location)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/services/gis/src/services/geo_service.py", line 38, in geojson_to_wkt
+    return f"SRID=4326;POINT({coords[0]} {coords[1]})"
+                                          ~~~~~~^^^
+IndexError: list index out of range
+_ TestCoordinateAndUnitDefects.test_defect_nearby_radius_has_no_geography_cast _
+
+self = <tests.test_quality_units_coordinates.TestCoordinateAndUnitDefects object at 0x7397a39eb230>
+make_client = <function make_client.<locals>._factory at 0x73978d03aca0>
+
+    def test_defect_nearby_radius_has_no_geography_cast(self, make_client):
+        """DEF-GIS-18: radius_m（メートル）が geography キャスト無しで ST_DWithin に渡る。
+    
+        根拠: src/api/sites.py:154-162（半径の説明は "半径radius_m以内"）
+              src/models/__init__.py:35-40（location は Geometry(srid=4326)）
+              src/api/infrastructure.py:150-156（同型の呼び出し）
+        期待: geography へのキャスト、または球面距離関数（ST_DistanceSphere 等）の使用。
+        実際: ``ST_DWithin(location, ST_GeomFromText(...), :radius)`` を geometry 同士で評価。
+        未確認: PostGIS 未導入の QA DB では距離単位（度/メートル）の実測ができなかったため、
+               「半径がメートルとして扱われない」という数値的帰結は **未確認**（コード上の
+               geography キャスト欠落のみを本テストの証拠とする）。
+        """
+        client, statements, _ = make_client(items=[])
+        response = client.get(
+            f"/api/v1/gis/sites/nearby?lat={DUMMY_LAT}&lng={DUMMY_LON}&radius_m=1000"
+        )
+        assert response.status_code == 200
+        sql = _sql(statements[0]).lower()
+>       assert "geography" in sql, (
+            "radius_m に geography キャスト/球面距離関数が無い "
+            f"(geometry は SRID の座標単位で評価される) / actual SQL = {_sql(statements[0])}"
+        )
+E       AssertionError: radius_m に geography キャスト/球面距離関数が無い (geometry は SRID の座標単位で評価される) / actual SQL = SELECT gis.construction_sites.id, gis.construction_sites.organization_id, gis.construction_sites.project_id, gis.construction_sites.name, gis.construction_sites.site_code, ST_AsEWKB(gis.construction_sites.location) AS location, ST_AsEWKB(gis.construction_sites.work_area) AS work_area, gis.construction_sites.site_type, gis.construction_sites.status, gis.construction_sites.address, gis.construction_sites.elevation, gis.construction_sites.area_sqm, gis.construction_sites.start_date, gis.construction_sites.end_date, gis.construction_sites.metadata, gis.construction_sites.created_by, gis.construction_sites.created_at, gis.construction_sites.updated_at FROM gis.construction_sites WHERE ST_DWithin(gis.construction_sites.location, ST_GeomFromText(:ST_GeomFromText_1), :ST_DWithin_1) ORDER BY gis.construction_sites.created_at DESC
+E       assert 'geography' in 'select gis.construction_sites.id, gis.construction_sites.organization_id, gis.construction_sites.project_id, gis.cons...on_sites.location, st_geomfromtext(:st_geomfromtext_1), :st_dwithin_1) order by gis.construction_sites.created_at desc'
+
+tests/test_quality_units_coordinates.py:201: AssertionError
+__ TestCoordinateAndUnitDefects.test_defect_inverted_bounding_box_is_accepted __
+
+self = <tests.test_quality_units_coordinates.TestCoordinateAndUnitDefects object at 0x7397a39eb740>
+make_client = <function make_client.<locals>._factory at 0x73978d038ae0>
+
+    def test_defect_inverted_bounding_box_is_accepted(self, make_client):
+        """DEF-GIS-19: min>max の逆転バウンディングボックスを受理する。
+    
+        根拠: src/api/sites.py:172-198（4値それぞれの範囲のみ検証し、大小関係を検証しない）
+        期待: 422（min_lat<=max_lat / min_lng<=max_lng）。実際: 200。
+        影響: 自己交差した POLYGON を ST_Intersects に渡し、検索結果が不定になる（Q8）。
+        """
+        client, _, _ = make_client(items=[])
+        response = client.get(
+            "/api/v1/gis/sites/in-area?min_lat=36.0&min_lng=140.0&max_lat=35.0&max_lng=139.0"
+        )
+>       assert response.status_code == 422, (
+            f"逆転した bbox(min>max)を受理した: {response.status_code}"
+        )
+E       AssertionError: 逆転した bbox(min>max)を受理した: 200
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_units_coordinates.py:217: AssertionError
+_ TestCoordinateAndUnitDefects.test_defect_hazard_zone_risk_order_is_lexical_not_severity _
+
+self = <tests.test_quality_units_coordinates.TestCoordinateAndUnitDefects object at 0x7397a39ebc50>
+make_client = <function make_client.<locals>._factory at 0x73978cf86d40>
+
+    def test_defect_hazard_zone_risk_order_is_lexical_not_severity(self, make_client):
+        """DEF-GIS-20: 危険区域の並び順が severity ではなく文字列辞書順になっている。
+    
+        根拠: src/api/areas.py:156 ``order_by(HazardZone.risk_level.desc())``
+        症状: 文字列降順では "medium" > "low" > "high" > "critical" となり、
+              最も危険な critical が最後に来る。
+        期待: severity 順（critical → high → medium → low）。
+        未確認: 並び順を規定したリポジトリ内資料は無いため、順序そのものは仕様未確認。
+              ただしコードの意図（``.desc()`` = 危険度の高い順）とは矛盾する。
+        """
+        lexical_desc = sorted(["critical", "high", "medium", "low"], reverse=True)
+>       assert lexical_desc == ["critical", "high", "medium", "low"], (
+            f"文字列降順の並びは {lexical_desc} であり severity 順にならない"
+        )
+E       AssertionError: 文字列降順の並びは ['medium', 'low', 'high', 'critical'] であり severity 順にならない
+E       assert ['medium', 'l...', 'critical'] == ['critical', ...edium', 'low']
+E         
+E         At index 0 diff: 'medium' != 'critical'
+E         Use -v to get more diff
+
+tests/test_quality_units_coordinates.py:232: AssertionError
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_sites_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_nearby_search_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_in_area_search_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_site_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_site_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_delete_site_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_site_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_infrastructure_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_infrastructure_near_site_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_infrastructure_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_hazard_zones_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_intersecting_zones_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_hazard_zone_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_hazard_zone_crosses_tenant
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_create_site_accepts_latitude_out_of_range
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_create_site_accepts_longitude_out_of_range
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_create_site_with_incomplete_point_returns_500
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_nearby_radius_has_no_geography_cast
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_inverted_bounding_box_is_accepted
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_hazard_zone_risk_order_is_lexical_not_severity
+20 failed, 45 passed, 1 warning in 8.69s
+===== pytest: services/bim =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+.....................................FFFFFFFFFFFF..FFFFF........         [100%]
+=================================== FAILURES ===================================
+___ TestTenantIsolationDefects.test_defect_list_models_is_not_tenant_scoped ____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a5700>
+make_client = <function make_client.<locals>._factory at 0x7040a6b9d580>
+
+    def test_defect_list_models_is_not_tenant_scoped(self, make_client):
+        """DEF-BIM-01: モデル一覧がトークン組織で絞り込まれていない。
+    
+        根拠: src/services/bim_service.py:70-99（model_type/status/project_id のみ）
+              src/api/models.py:47-67
+        期待: WHERE 句に organization_id が含まれる。
+        """
+        client, statements, _ = make_client(items=[_model(ORG_B)])
+        response = client.get("/api/v1/bim/models")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:205: AssertionError
+_______ TestTenantIsolationDefects.test_defect_get_model_crosses_tenant ________
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a5be0>
+make_client = <function make_client.<locals>._factory at 0x7040a6baec00>
+
+    def test_defect_get_model_crosses_tenant(self, make_client):
+        """DEF-BIM-02: 他テナントのBIMモデルを取得できる。
+    
+        根拠: src/services/bim_service.py:102-104（id のみで取得）
+        """
+        client, _, _ = make_client(items=[_model(ORG_B)])
+        response = client.get(f"/api/v1/bim/models/{MODEL_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナント(ORG_B)のモデルを 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)のモデルを 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:216: AssertionError
+______ TestTenantIsolationDefects.test_defect_update_model_crosses_tenant ______
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a60f0>
+make_client = <function make_client.<locals>._factory at 0x7040a95b8900>
+
+    def test_defect_update_model_crosses_tenant(self, make_client):
+        """DEF-BIM-03: 他テナントのBIMモデルを更新できる。
+    
+        根拠: src/services/bim_service.py:107-123, src/api/models.py:85-98
+        """
+        client, _, _ = make_client(items=[_model(ORG_B)])
+        response = client.put(
+            f"/api/v1/bim/models/{MODEL_B}", json={"name": "改ざん"}
+        )
+>       assert response.status_code in (403, 404), (
+            f"他テナントのモデルを更新できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントのモデルを更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:229: AssertionError
+______ TestTenantIsolationDefects.test_defect_delete_model_crosses_tenant ______
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a6600>
+make_client = <function make_client.<locals>._factory at 0x7040abf4ff60>
+
+    def test_defect_delete_model_crosses_tenant(self, make_client):
+        """DEF-BIM-04: 他テナントのBIMモデルを削除できる。
+    
+        根拠: src/services/bim_service.py:126-132, src/api/models.py:101-113
+        """
+        client, _, _ = make_client(items=[_model(ORG_B)])
+        response = client.delete(f"/api/v1/bim/models/{MODEL_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントのモデルを削除できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントのモデルを削除できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:240: AssertionError
+_ TestTenantIsolationDefects.test_defect_create_model_accepts_foreign_org_in_body _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a6b10>
+make_client = <function make_client.<locals>._factory at 0x7040a6bac680>
+
+    def test_defect_create_model_accepts_foreign_org_in_body(self, make_client):
+        """DEF-BIM-05: モデル作成で body の organization_id をそのまま採用する（Q2）。
+    
+        根拠: src/schemas/__init__.py:42, src/services/bim_service.py:40-67
+        期待: トークン org 以外は 400/403。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/bim/models",
+            json={
+                "organization_id": str(ORG_B),
+                "name": "他社テナント宛のモデル",
+                "model_type": "architecture",
+                "file_format": "ifc",
+            },
+        )
+>       assert response.status_code in (400, 403), (
+            f"他テナント(ORG_B)宛のモデルを作成できた: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)宛のモデルを作成できた: 200
+E       assert 200 in (400, 403)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:260: AssertionError
+__ TestTenantIsolationDefects.test_defect_list_elements_is_not_tenant_scoped ___
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a7020>
+make_client = <function make_client.<locals>._factory at 0x7040a4148e00>
+
+    def test_defect_list_elements_is_not_tenant_scoped(self, make_client):
+        """DEF-BIM-06: 要素一覧が model_id だけで絞られ、モデルの所有組織を検証しない。
+    
+        根拠: src/api/elements.py:30-64（モデル存在確認も organization 条件も無い）
+        期待: 親モデルの所有組織で絞る（または 403/404）。
+        """
+        client, statements, _ = make_client(
+            results=[{"items": [_element()], "total": 1}]
+        )
+        response = client.get(f"/api/v1/bim/{MODEL_B}/elements")
+        assert response.status_code == 200
+        unscoped = [
+            where
+            for where in (_where_clause(s) for s in statements)
+            if "organization_id" not in where
+        ]
+>       assert not unscoped, (
+            f"テナント絞り込みの無いクエリが存在する / actual WHERE = {unscoped}"
+        )
+E       AssertionError: テナント絞り込みの無いクエリが存在する / actual WHERE = ['bim.bim_elements.model_id = :model_id_1', 'bim.bim_elements.model_id = :model_id_1 ORDER BY bim.bim_elements.created_at DESC LIMIT :param_1 OFFSET :param_2']
+E       assert not ['bim.bim_elements.model_id = :model_id_1', 'bim.bim_elements.model_id = :model_id_1 ORDER BY bim.bim_elements.created_at DESC LIMIT :param_1 OFFSET :param_2']
+
+tests/test_quality_tenant_isolation.py:280: AssertionError
+______ TestTenantIsolationDefects.test_defect_get_element_crosses_tenant _______
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a7530>
+make_client = <function make_client.<locals>._factory at 0x7040a6bac2c0>
+
+    def test_defect_get_element_crosses_tenant(self, make_client):
+        """DEF-BIM-07: 他テナントのモデルに属する要素を取得できる。
+    
+        根拠: src/api/elements.py:67-82（要素IDのみで検索。要素に organization_id が無く
+              親モデルへの join も無い）
+        """
+        client, _, _ = make_client(items=[_element(model_id=MODEL_B)])
+        response = client.get(f"/api/v1/bim/elements/{ELEMENT_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの要素を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナントの要素を 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:292: AssertionError
+_ TestTenantIsolationDefects.test_defect_list_pointclouds_is_not_tenant_scoped _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a7a40>
+make_client = <function make_client.<locals>._factory at 0x7040a95ba660>
+
+    def test_defect_list_pointclouds_is_not_tenant_scoped(self, make_client):
+        """DEF-BIM-08: 点群一覧がトークン組織で絞り込まれていない。
+    
+        根拠: src/api/pointcloud.py:64-95（project_id/capture_method のみ）
+        """
+        client, statements, _ = make_client(items=[_pointcloud(ORG_B)])
+        response = client.get("/api/v1/bim/pointclouds")
+        assert response.status_code == 200
+        where_sql = _where_clause(statements[0])
+>       assert "organization_id" in where_sql, (
+            f"テナント絞り込みなし / actual WHERE = {where_sql!r}"
+        )
+E       AssertionError: テナント絞り込みなし / actual WHERE = ''
+E       assert 'organization_id' in ''
+
+tests/test_quality_tenant_isolation.py:305: AssertionError
+_____ TestTenantIsolationDefects.test_defect_get_pointcloud_crosses_tenant _____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91a7f50>
+make_client = <function make_client.<locals>._factory at 0x7040abf4fd80>
+
+    def test_defect_get_pointcloud_crosses_tenant(self, make_client):
+        """DEF-BIM-09: 他テナントの点群を取得できる。
+    
+        根拠: src/api/pointcloud.py:98-113
+        """
+        client, _, _ = make_client(items=[_pointcloud(ORG_B)])
+        response = client.get(f"/api/v1/bim/pointclouds/{POINTCLOUD_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの点群を 200 で返した: {response.status_code}"
+        )
+E       AssertionError: 他テナントの点群を 200 で返した: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:316: AssertionError
+___ TestTenantIsolationDefects.test_defect_update_pointcloud_crosses_tenant ____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91c04a0>
+make_client = <function make_client.<locals>._factory at 0x7040a6bac400>
+
+    def test_defect_update_pointcloud_crosses_tenant(self, make_client):
+        """DEF-BIM-10: 他テナントの点群を更新できる。
+    
+        根拠: src/api/pointcloud.py:116-142
+        """
+        client, _, _ = make_client(items=[_pointcloud(ORG_B)])
+        response = client.put(
+            f"/api/v1/bim/pointclouds/{POINTCLOUD_B}", json={"name": "改ざん"}
+        )
+>       assert response.status_code in (403, 404), (
+            f"他テナントの点群を更新できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの点群を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:329: AssertionError
+___ TestTenantIsolationDefects.test_defect_delete_pointcloud_crosses_tenant ____
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91c09b0>
+make_client = <function make_client.<locals>._factory at 0x7040a41498a0>
+
+    def test_defect_delete_pointcloud_crosses_tenant(self, make_client):
+        """DEF-BIM-11: 他テナントの点群を削除できる。
+    
+        根拠: src/api/pointcloud.py:145-162
+        """
+        client, _, _ = make_client(items=[_pointcloud(ORG_B)])
+        response = client.delete(f"/api/v1/bim/pointclouds/{POINTCLOUD_B}")
+>       assert response.status_code in (403, 404), (
+            f"他テナントの点群を削除できた: {response.status_code}"
+        )
+E       AssertionError: 他テナントの点群を削除できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:340: AssertionError
+_ TestTenantIsolationDefects.test_defect_create_pointcloud_accepts_foreign_org_in_body _
+
+self = <tests.test_quality_tenant_isolation.TestTenantIsolationDefects object at 0x7040b91c0ec0>
+make_client = <function make_client.<locals>._factory at 0x7040a6bafec0>
+
+    def test_defect_create_pointcloud_accepts_foreign_org_in_body(self, make_client):
+        """DEF-BIM-12: 点群作成で body の organization_id をそのまま採用する（Q2）。
+    
+        根拠: src/api/pointcloud.py:32-61
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/bim/pointclouds",
+            json={
+                "organization_id": str(ORG_B),
+                "name": "他社テナント宛の点群",
+            },
+        )
+>       assert response.status_code in (400, 403), (
+            f"他テナント(ORG_B)宛の点群を作成できた: {response.status_code}"
+        )
+E       AssertionError: 他テナント(ORG_B)宛の点群を作成できた: 200
+E       assert 200 in (400, 403)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+tests/test_quality_tenant_isolation.py:357: AssertionError
+__ TestVersionAndRoutingDefects.test_defect_elements_search_route_is_shadowed __
+
+self = <tests.test_quality_units_coordinates.TestVersionAndRoutingDefects object at 0x7040b91c2810>
+make_client = <function make_client.<locals>._factory at 0x7040a4149300>
+
+    def test_defect_elements_search_route_is_shadowed(self, make_client):
+        """DEF-BIM-13: 文書化された /elements/search がルーティング衝突で到達不能。
+    
+        根拠: src/api/elements.py:30（``/{model_id}/elements``）, :67（``/elements/{element_id}``）,
+              :133（``/elements/search``）
+              FastAPI は登録順に照合するため ``/elements/search`` は
+              ``/elements/{element_id}`` に先に一致し、element_id="search" の UUID 変換で 422 になる。
+              契約の文書: docs/api/overview.md:87
+        症状: 要素検索APIが常に 422 を返し、機能しない。
+        期待: 200。
+        """
+        client, _, _ = make_client(items=[])
+        response = client.get("/api/v1/bim/elements/search?q=wall")
+>       assert response.status_code == 200, (
+            f"要素検索が到達不能（ルーティング衝突）: status={response.status_code}, "
+            f"body={str(response.json())[:200]}"
+        )
+E       AssertionError: 要素検索が到達不能（ルーティング衝突）: status=422, body={'detail': [{'type': 'uuid_parsing', 'loc': ['path', 'element_id'], 'msg': 'Input should be a valid UUID, invalid character: found `s` at 1', 'input': 'search', 'ctx': {'error': 'invalid character: fo
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+tests/test_quality_units_coordinates.py:151: AssertionError
+_ TestVersionAndRoutingDefects.test_defect_model_version_is_not_assigned_or_required _
+
+self = <tests.test_quality_units_coordinates.TestVersionAndRoutingDefects object at 0x7040b91c2cf0>
+make_client = <function make_client.<locals>._factory at 0x7040a414a8e0>
+
+    def test_defect_model_version_is_not_assigned_or_required(self, make_client):
+        """DEF-BIM-14: モデル登録時に版番号が採番されず、未指定のまま登録できる（Q5）。
+    
+        根拠: src/schemas/__init__.py:50（version は任意の自由文字列）
+              src/services/bim_service.py:40-67（版の採番・必須検証・改訂履歴の記録なし）
+        期待: 登録されたモデルには版番号が存在する（サーバ採番 or 必須入力）。
+        実際: version 未指定で 200、レスポンスの version は None。
+        未確認: 版番号体系（規則・版の粒度）を規定したリポジトリ内資料は無い。
+        """
+        client, _, _ = make_client()
+        response = client.post("/api/v1/bim/models", json=_model_body())
+        assert response.status_code == 200
+        version = response.json()["data"]["version"]
+>       assert version, (
+            f"版番号が採番・必須化されていない: version={version!r}"
+        )
+E       AssertionError: 版番号が採番・必須化されていない: version=None
+E       assert None
+
+tests/test_quality_units_coordinates.py:169: AssertionError
+___ TestVersionAndRoutingDefects.test_defect_pointcloud_has_no_version_field ___
+
+self = <tests.test_quality_units_coordinates.TestVersionAndRoutingDefects object at 0x7040b91c31d0>
+make_client = <function make_client.<locals>._factory at 0x7040a17a4f40>
+
+    def test_defect_pointcloud_has_no_version_field(self, make_client):
+        """DEF-BIM-15: 点群に「生成版」を保持する項目が無い（Q5）。
+    
+        根拠: src/schemas/__init__.py:165-225（PointCloudCreate/Response に版の項目なし）
+              src/models/__init__.py:116-157（PointCloud に version 列なし）
+        参考仕様: docs/…V3.5.html:326「…処理手法、座標系、精度、生成版を保持」
+        期待: レスポンスに版（version 等）が含まれる。
+        未確認: 本サービスでの必須性は資料上確認できない。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/bim/pointclouds",
+            json={"organization_id": str(ORG_A), "name": "ダミー点群"},
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+>       assert any(key in data for key in ("version", "generation", "revision")), (
+            f"点群に生成版の項目が無い: keys={sorted(data)}"
+        )
+E       AssertionError: 点群に生成版の項目が無い: keys=['accuracy_mm', 'bounding_box', 'capture_date', 'capture_method', 'coordinate_system', 'created_at', 'density', 'description', 'file_format', 'file_key', 'file_size', 'id', 'is_classified', 'is_colorized', 'metadata', 'name', 'organization_id', 'point_count', 'project_id', 'uploaded_by']
+E       assert False
+E        +  where False = any(<generator object TestVersionAndRoutingDefects.test_defect_pointcloud_has_no_version_field.<locals>.<genexpr> at 0x7040a41cd8a0>)
+
+tests/test_quality_units_coordinates.py:189: AssertionError
+_ TestVersionAndRoutingDefects.test_defect_pointcloud_has_no_source_model_linkage _
+
+self = <tests.test_quality_units_coordinates.TestVersionAndRoutingDefects object at 0x7040b91c36e0>
+make_client = <function make_client.<locals>._factory at 0x7040a95ba660>
+
+    def test_defect_pointcloud_has_no_source_model_linkage(self, make_client):
+        """DEF-BIM-16: 点群と元モデル（BIMモデル）の紐付け項目が無い（Q5 / H9）。
+    
+        根拠: src/schemas/__init__.py:165-225・src/models/__init__.py:116-157
+              （PointCloud に model_id 等の外部参照が無い）
+        期待: 点群から元モデルを辿れる参照が存在する。
+        影響: 点群とモデル版の対応が取れず、出来形照合の証跡が追跡できない。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/bim/pointclouds",
+            json={"organization_id": str(ORG_A), "name": "ダミー点群"},
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+>       assert any(
+            key in data for key in ("model_id", "bim_model_id", "source_model_id")
+        ), f"点群から元モデルへの紐付けが無い: keys={sorted(data)}"
+E       AssertionError: 点群から元モデルへの紐付けが無い: keys=['accuracy_mm', 'bounding_box', 'capture_date', 'capture_method', 'coordinate_system', 'created_at', 'density', 'description', 'file_format', 'file_key', 'file_size', 'id', 'is_classified', 'is_colorized', 'metadata', 'name', 'organization_id', 'point_count', 'project_id', 'uploaded_by']
+E       assert False
+E        +  where False = any(<generator object TestVersionAndRoutingDefects.test_defect_pointcloud_has_no_source_model_linkage.<locals>.<genexpr> at 0x7040a4161f20>)
+
+tests/test_quality_units_coordinates.py:208: AssertionError
+_ TestVersionAndRoutingDefects.test_defect_pointcloud_has_no_source_provenance_field _
+
+self = <tests.test_quality_units_coordinates.TestVersionAndRoutingDefects object at 0x7040b91c3bf0>
+make_client = <function make_client.<locals>._factory at 0x7040a95b82c0>
+
+    def test_defect_pointcloud_has_no_source_provenance_field(self, make_client):
+        """DEF-BIM-17: 点群に出典（元動画ID等）の項目が無い（Q5 版・由来）。
+    
+        根拠: src/schemas/__init__.py:165-225（capture_method はあるが元データ参照が無い）
+        参考仕様: docs/…V3.5.html:326「元動画ID、処理手法、座標系、精度、生成版を保持」
+        期待: 出典（元データ識別子）を保持する項目が存在する。
+        未確認: 本サービスでの必須性は資料上確認できない。
+        """
+        client, _, _ = make_client()
+        response = client.post(
+            "/api/v1/bim/pointclouds",
+            json={"organization_id": str(ORG_A), "name": "ダミー点群"},
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+>       assert any(
+            key in data
+            for key in (
+                "source_id",
+                "source_video_id",
+                "original_video_id",
+                "provenance",
+                "source",
+            )
+        ), f"点群に出典の項目が無い: keys={sorted(data)}"
+E       AssertionError: 点群に出典の項目が無い: keys=['accuracy_mm', 'bounding_box', 'capture_date', 'capture_method', 'coordinate_system', 'created_at', 'density', 'description', 'file_format', 'file_key', 'file_size', 'id', 'is_classified', 'is_colorized', 'metadata', 'name', 'organization_id', 'point_count', 'project_id', 'uploaded_by']
+E       assert False
+E        +  where False = any(<generator object TestVersionAndRoutingDefects.test_defect_pointcloud_has_no_source_provenance_field.<locals>.<genexpr> at 0x7040a6b628e0>)
+
+tests/test_quality_units_coordinates.py:227: AssertionError
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_models_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_model_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_model_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_delete_model_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_model_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_elements_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_element_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_pointclouds_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_pointcloud_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_pointcloud_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_delete_pointcloud_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_pointcloud_accepts_foreign_org_in_body
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_elements_search_route_is_shadowed
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_model_version_is_not_assigned_or_required
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_pointcloud_has_no_version_field
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_pointcloud_has_no_source_model_linkage
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_pointcloud_has_no_source_provenance_field
+17 failed, 47 passed, 1 warning in 4.33s
+===== pytest: services/ai =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+...............................F.FF                                      [100%]
+=================================== FAILURES ===================================
+_____ TestPromptTemplateSSTI.test_user_template_is_not_evaluated_as_python _____
+
+self = <tests.test_quality_ai_input_boundary.TestPromptTemplateSSTI object at 0x7bcea3579b20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7bce9397ea80>
+
+    def test_user_template_is_not_evaluated_as_python(self, monkeypatch):
+        """利用者が保存したテンプレート本文が Jinja2 の式として評価されてはならない。
+    
+        `{{ 7*7 }}` が "49" に展開されるなら、任意の Python 式
+        （例: クラス階層の走査）が実行可能であり、RCE に到達しうる。
+        """
+        # provider はモックに固定（外部 LLM へ接続しない）
+        from src.services import llm_service
+    
+        sent: dict = {}
+    
+        async def fake_complete(self, messages, **kwargs):
+            sent["messages"] = messages
+            return "ok"
+    
+        monkeypatch.setattr(llm_service.MockLLMProvider, "complete", fake_complete)
+        monkeypatch.setattr(llm_service.OpenAICompatibleProvider, "complete", fake_complete)
+    
+        client = _client_with(_Template("数量は {{ 7*7 }} です"))
+        r = client.post(
+            "/api/v1/ai/complete",
+            json={"prompt_template_id": str(TEMPLATE_ID), "variables": {}},
+            headers=_headers(),
+        )
+        assert r.status_code == 200, r.text
+        user_message = sent["messages"][-1]["content"]
+>       assert "49" not in user_message, (
+            f"テンプレート本文が Jinja2 式として評価されている（SSTI）: {user_message!r}"
+        )
+E       AssertionError: テンプレート本文が Jinja2 式として評価されている（SSTI）: '数量は 49 です'
+E       assert '49' not in '数量は 49 です'
+E         
+E         '49' is contained here:
+E           数量は 49 です
+E         ?     ++
+
+tests/test_quality_ai_input_boundary.py:132: AssertionError
+____ TestEmbeddingTenantScope.test_delete_embeddings_is_organization_scoped ____
+
+self = <tests.test_quality_ai_input_boundary.TestEmbeddingTenantScope object at 0x7bcea357a540>
+
+    def test_delete_embeddings_is_organization_scoped(self):
+        """DELETE /ai/embeddings/{type}/{id} は自組織の埋め込みだけを消すこと。"""
+        import asyncio
+    
+        from src.services.embedding_service import EmbeddingService
+    
+        captured: dict = {}
+        db = AsyncMock()
+    
+        async def mock_execute(stmt, *args, **kwargs):
+            captured["stmt"] = stmt
+            return _Result()
+    
+        db.execute = mock_execute
+        service = EmbeddingService(base_url="http://127.0.0.1:1", api_key="x")
+        asyncio.run(
+            service.delete_embeddings(
+                db, "document", uuid.UUID("00000000-0000-0000-0000-0000000000d1")
+            )
+        )
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+            )
+        )
+>       assert "organization_id" in sql, (
+            f"埋め込み削除が組織スコープされていない（越境削除）: {sql}"
+        )
+E       AssertionError: 埋め込み削除が組織スコープされていない（越境削除）: DELETE FROM ai.embeddings WHERE ai.embeddings.source_type = 'document' AND ai.embeddings.source_id = '00000000-0000-0000-0000-0000000000d1'
+E       assert 'organization_id' in "DELETE FROM ai.embeddings WHERE ai.embeddings.source_type = 'document' AND ai.embeddings.source_id = '00000000-0000-0000-0000-0000000000d1'"
+
+tests/test_quality_ai_input_boundary.py:181: AssertionError
+____ TestMaskingBeforeModelSend.test_pii_is_masked_before_sending_to_model _____
+
+self = <tests.test_quality_ai_input_boundary.TestMaskingBeforeModelSend object at 0x7bcea357aa20>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7bce963f7c80>
+
+    def test_pii_is_masked_before_sending_to_model(self, monkeypatch):
+        """個人情報を含む入力はモデルへ送る前にマスキングされること（仕様 V3.5）。"""
+        from src.services import llm_service
+    
+        sent: dict = {}
+    
+        async def fake_complete(self, messages, **kwargs):
+            sent["messages"] = messages
+            return "ok"
+    
+        monkeypatch.setattr(llm_service.MockLLMProvider, "complete", fake_complete)
+        monkeypatch.setattr(llm_service.OpenAICompatibleProvider, "complete", fake_complete)
+    
+        client = _client_with(None)
+        pii = "担当者テスト太郎の連絡先は test-taro@example.invalid / 090-0000-0000 です"
+        r = client.post(
+            "/api/v1/ai/chat",
+            json={"messages": [{"role": "user", "content": pii}]},
+            headers=_headers(),
+        )
+        assert r.status_code == 200, r.text
+        payload = str(sent["messages"])
+>       assert "test-taro@example.invalid" not in payload, (
+            "メールアドレスがマスキングされずにモデルへ送信されている"
+        )
+E       AssertionError: メールアドレスがマスキングされずにモデルへ送信されている
+E       assert 'test-taro@example.invalid' not in "[{'role': '...0-0000 です'}]"
+E         
+E         'test-taro@example.invalid' is contained here:
+E           スト太郎の連絡先は test-taro@example.invalid / 090-0000-0000 です'}]
+
+tests/test_quality_ai_input_boundary.py:212: AssertionError
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_quality_ai_input_boundary.py::TestPromptTemplateSSTI::test_user_template_is_not_evaluated_as_python
+FAILED tests/test_quality_ai_input_boundary.py::TestEmbeddingTenantScope::test_delete_embeddings_is_organization_scoped
+FAILED tests/test_quality_ai_input_boundary.py::TestMaskingBeforeModelSend::test_pii_is_masked_before_sending_to_model
+3 failed, 32 passed, 1 warning in 3.18s
+===== pytest: services/vision =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+......................                                                   [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+22 passed, 1 warning in 2.44s
+===== integration (real PostgreSQL): postgresql://ceos_qa:ceos_qa_local_only@127.0.0.1:55432/ceos_qa =====
+----- integration: construction -----
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+FFFFFFFFFFFFFF.F.F                                                       [100%]
+=================================== FAILURES ===================================
+____ TestListTenantIsolation.test_list_resources_does_not_leak_other_tenant ____
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x755ef506d640>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_list_resources_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/resources", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(RESOURCE_B) not in ids, "他テナントの資源が一覧に漏えいしている"
+E       AssertionError: 他テナントの資源が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0001' not in {'00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000b0001'}
+E        +  where '00000000-0000-0000-0000-0000000b0001' = str(UUID('00000000-0000-0000-0000-0000000b0001'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:181: AssertionError
+_ TestListTenantIsolation.test_list_resources_ignores_foreign_organization_query _
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x755ef50e40e0>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_list_resources_ignores_foreign_organization_query(self, client):
+        r = client.get(
+            f"{BASE}/resources",
+            params={"organization_id": str(ORG_B)},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(RESOURCE_B) not in ids, "クエリの organization_id で他テナントを指定できてしまう"
+E       AssertionError: クエリの organization_id で他テナントを指定できてしまう
+E       assert '00000000-0000-0000-0000-0000000b0001' not in {'00000000-0000-0000-0000-0000000b0001'}
+E        +  where '00000000-0000-0000-0000-0000000b0001' = str(UUID('00000000-0000-0000-0000-0000000b0001'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:191: AssertionError
+____ TestListTenantIsolation.test_list_schedules_does_not_leak_other_tenant ____
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x755ef50e45f0>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_list_schedules_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/schedules", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(SCHEDULE_B) not in ids, "他テナントの工程が一覧に漏えいしている"
+E       AssertionError: 他テナントの工程が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0002' not in {'00000000-0000-0000-0000-0000000b0002'}
+E        +  where '00000000-0000-0000-0000-0000000b0002' = str(UUID('00000000-0000-0000-0000-0000000b0002'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:197: AssertionError
+_____ TestListTenantIsolation.test_list_methods_does_not_leak_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x755ef50e4b60>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_list_methods_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/methods", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(METHOD_B) not in ids, "他テナントの施工計画書が一覧に漏えいしている"
+E       AssertionError: 他テナントの施工計画書が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0003' not in {'00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-0000000b0003'}
+E        +  where '00000000-0000-0000-0000-0000000b0003' = str(UUID('00000000-0000-0000-0000-0000000b0003'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:203: AssertionError
+______ TestIdTenantIsolation.test_get_resource_by_id_blocks_other_tenant _______
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x755ef50e5070>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_get_resource_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/resources/{RESOURCE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント資源を取得できた: {r.status_code}"
+E       AssertionError: 他テナント資源を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:212: AssertionError
+_____ TestIdTenantIsolation.test_update_resource_by_id_blocks_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x755ef50e55e0>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_update_resource_by_id_blocks_other_tenant(self, client):
+        r = client.put(
+            f"{BASE}/resources/{RESOURCE_B}",
+            json={"name": "改ざん"},
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナント資源を更新できた: {r.status_code}"
+E       AssertionError: 他テナント資源を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:220: AssertionError
+_____ TestIdTenantIsolation.test_delete_resource_by_id_blocks_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x755ef50e5b50>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_delete_resource_by_id_blocks_other_tenant(self, client):
+        r = client.delete(f"{BASE}/resources/{RESOURCE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント資源を削除できた: {r.status_code}"
+E       AssertionError: 他テナント資源を削除できた: 204
+E       assert 204 in (403, 404)
+E        +  where 204 = <Response [204 No Content]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:224: AssertionError
+______ TestIdTenantIsolation.test_get_schedule_by_id_blocks_other_tenant _______
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x755ef50e6090>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_get_schedule_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/schedules/{SCHEDULE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント工程を取得できた: {r.status_code}"
+E       AssertionError: 他テナント工程を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:228: AssertionError
+_______ TestIdTenantIsolation.test_get_method_by_id_blocks_other_tenant ________
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x755ef50e6600>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_get_method_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/methods/{METHOD_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント施工計画書を取得できた: {r.status_code}"
+E       AssertionError: 他テナント施工計画書を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:232: AssertionError
+_ TestAggregateTenantIsolation.test_resource_cost_summary_does_not_leak_other_tenant _
+
+self = <test_quality_tenant_isolation.TestAggregateTenantIsolation object at 0x755ef50e68a0>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_resource_cost_summary_does_not_leak_other_tenant(self, client):
+        r = client.get(
+            f"{BASE}/projects/{PROJECT_B}/resource-cost-summary",
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code in (200, 403, 404)
+        if r.status_code == 200:
+>           assert r.json() == [], "他テナントの原価集計が漏えいしている"
+E           AssertionError: 他テナントの原価集計が漏えいしている
+E           assert [{'count': 1,...: '200000.0'}] == []
+E             
+E             Left contains one more item: {'count': 1, 'resource_type': 'labor', 'total_actual_cost': '0.0', 'total_planned_cost': '200000.0'}
+E             Use -v to get more diff
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:246: AssertionError
+__ TestAggregateTenantIsolation.test_critical_path_does_not_leak_other_tenant __
+
+self = <test_quality_tenant_isolation.TestAggregateTenantIsolation object at 0x755ef50e6e10>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_critical_path_does_not_leak_other_tenant(self, client):
+        r = client.get(
+            f"{BASE}/projects/{PROJECT_B}/critical-path", headers=headers_for_org_a()
+        )
+        assert r.status_code in (200, 403, 404)
+        if r.status_code == 200:
+>           assert r.json() == [], "他テナントのクリティカルパスが漏えいしている"
+E           AssertionError: 他テナントのクリティカルパスが漏えいしている
+E           assert [{'actual_end...': True, ...}] == []
+E             
+E             Left contains one more item: {'actual_end': None, 'actual_start': None, 'created_at': '2026-10-06T23:50:50.123965Z', 'critical_path': True, ...}
+E             Use -v to get more diff
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:254: AssertionError
+______ TestAggregateTenantIsolation.test_gantt_does_not_leak_other_tenant ______
+
+self = <test_quality_tenant_isolation.TestAggregateTenantIsolation object at 0x755ef50e7350>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_gantt_does_not_leak_other_tenant(self, client):
+        r = client.get(
+            f"{BASE}/projects/{PROJECT_B}/gantt", headers=headers_for_org_a()
+        )
+        assert r.status_code in (200, 403, 404)
+        if r.status_code == 200:
+>           assert r.json() == [], "他テナントのガントデータが漏えいしている"
+E           AssertionError: 他テナントのガントデータが漏えいしている
+E           assert [{'actual_end...テスト工程B', ...}] == []
+E             
+E             Left contains one more item: {'actual_end': None, 'actual_start': None, 'critical_path': True, 'name': 'テスト工程B', ...}
+E             Use -v to get more diff
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:262: AssertionError
+___ TestCreateTenantSpoofing.test_create_resource_cannot_spoof_organization ____
+
+self = <test_quality_tenant_isolation.TestCreateTenantSpoofing object at 0x755ef50e6e40>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_create_resource_cannot_spoof_organization(self, client):
+        r = client.post(
+            f"{BASE}/resources",
+            json={
+                "organization_id": str(ORG_B),
+                "project_id": str(PROJECT_B),
+                "resource_type": "labor",
+                "name": "テスト偽装資源",
+                "unit": "人日",
+                "planned_quantity": "1",
+                "unit_cost": "1000",
+            },
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 201, r.text
+>       assert r.json()["organization_id"] == str(ORG_A), (
+            "リクエストボディの organization_id で他テナント領域へ作成できてしまう"
+        )
+E       AssertionError: リクエストボディの organization_id で他テナント領域へ作成できてしまう
+E       assert '00000000-000...-0000000000bb' == '00000000-000...-0000000000aa'
+E         
+E         - 00000000-0000-0000-0000-0000000000aa
+E         ?                                   ^^
+E         + 00000000-0000-0000-0000-0000000000bb
+E         ?                                   ^^
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:284: AssertionError
+_________ TestApproval.test_approve_method_of_other_tenant_is_blocked __________
+
+self = <test_quality_tenant_isolation.TestApproval object at 0x755ef50e7e90>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_approve_method_of_other_tenant_is_blocked(self, client):
+        r = client.post(
+            f"{BASE}/methods/{METHOD_B}/approve",
+            json={"approved_by": str(_shared.USER_A)},
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナントの施工計画書を承認できた: {r.status_code}"
+E       AssertionError: 他テナントの施工計画書を承認できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:299: AssertionError
+_ TestCostCalculation.test_actual_quantity_zero_does_not_fall_back_to_planned __
+
+self = <test_quality_tenant_isolation.TestCostCalculation object at 0x755ef50eca10>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_actual_quantity_zero_does_not_fall_back_to_planned(self, client):
+        """実績数量 0 は 0 として扱う（planned へのフォールバックは誤り）。"""
+        r = client.put(
+            f"{BASE}/resources/{OWN_RESOURCE}",
+            json={"planned_quantity": "10", "actual_quantity": "0", "unit_cost": "20000"},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        total = r.json()["total_cost"]
+>       assert float(total) == 0.0, f"実績数量0で planned にフォールバックしている: total_cost={total}"
+E       AssertionError: 実績数量0で planned にフォールバックしている: total_cost=200000.00
+E       assert 200000.0 == 0.0
+E        +  where 200000.0 = float('200000.00')
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:329: AssertionError
+______ TestWbsTreeIsolation.test_tree_does_not_include_other_tenant_child ______
+
+self = <test_quality_tenant_isolation.TestWbsTreeIsolation object at 0x755ef50ed580>
+client = <starlette.testclient.TestClient object at 0x755ef4f22b40>
+
+    def test_tree_does_not_include_other_tenant_child(self, client):
+        r = client.get(
+            f"{BASE}/wbs/tree",
+            params={"project_id": str(PROJECT_A)},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        flat: list[str] = []
+    
+        def walk(nodes):
+            for n in nodes:
+                flat.append(n["id"])
+                walk(n.get("children") or [])
+    
+        walk(r.json())
+>       assert str(WBS_CHILD_B) not in flat, (
+            "他テナントの WBS 子ノードがツリーに混入している（親子の組織整合が未検証）"
+        )
+E       AssertionError: 他テナントの WBS 子ノードがツリーに混入している（親子の組織整合が未検証）
+E       assert '00000000-0000-0000-0000-0000000a0004' not in ['00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-0000000a0004']
+E        +  where '00000000-0000-0000-0000-0000000a0004' = str(UUID('00000000-0000-0000-0000-0000000a0004'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:371: AssertionError
+=============================== warnings summary ===============================
+../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_resources_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_resources_ignores_foreign_organization_query
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_schedules_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_methods_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_update_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_delete_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_schedule_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_method_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_resource_cost_summary_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_critical_path_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_gantt_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCreateTenantSpoofing::test_create_resource_cannot_spoof_organization
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestApproval::test_approve_method_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCostCalculation::test_actual_quantity_zero_does_not_fall_back_to_planned
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestWbsTreeIsolation::test_tree_does_not_include_other_tenant_child
+16 failed, 2 passed, 1 warning in 9.10s
+----- integration: erp -----
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+FFFFFFFFFFFF.                                                            [100%]
+=================================== FAILURES ===================================
+____ TestLedgerTenantIsolation.test_list_ledgers_does_not_leak_other_tenant ____
+
+self = <test_quality_tenant_isolation.TestLedgerTenantIsolation object at 0x7f751730e2d0>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_list_ledgers_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/ledger", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {i["id"] for i in r.json()["items"]}
+>       assert str(LEDGER_B) not in ids, "他テナントの工事台帳が一覧に漏えいしている"
+E       AssertionError: 他テナントの工事台帳が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0011' not in {'00000000-0000-0000-0000-0000000a0011', '00000000-0000-0000-0000-0000000b0011'}
+E        +  where '00000000-0000-0000-0000-0000000b0011' = str(UUID('00000000-0000-0000-0000-0000000b0011'))
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:115: AssertionError
+_ TestLedgerTenantIsolation.test_list_ledgers_ignores_foreign_organization_query _
+
+self = <test_quality_tenant_isolation.TestLedgerTenantIsolation object at 0x7f751737b860>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_list_ledgers_ignores_foreign_organization_query(self, client):
+        r = client.get(
+            f"{BASE}/ledger",
+            params={"organization_id": str(ORG_B)},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        ids = {i["id"] for i in r.json()["items"]}
+>       assert str(LEDGER_B) not in ids, "クエリの organization_id で他テナントを指定できてしまう"
+E       AssertionError: クエリの organization_id で他テナントを指定できてしまう
+E       assert '00000000-0000-0000-0000-0000000b0011' not in {'00000000-0000-0000-0000-0000000b0011'}
+E        +  where '00000000-0000-0000-0000-0000000b0011' = str(UUID('00000000-0000-0000-0000-0000000b0011'))
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:125: AssertionError
+_____ TestLedgerTenantIsolation.test_get_ledger_by_id_blocks_other_tenant ______
+
+self = <test_quality_tenant_isolation.TestLedgerTenantIsolation object at 0x7f751737bdd0>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_get_ledger_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/ledger/{LEDGER_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナントの台帳を取得できた: {r.status_code}"
+E       AssertionError: 他テナントの台帳を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:129: AssertionError
+__ TestCostTenantIsolation.test_list_costs_of_other_tenant_ledger_is_blocked ___
+
+self = <test_quality_tenant_isolation.TestCostTenantIsolation object at 0x7f75173a4350>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_list_costs_of_other_tenant_ledger_is_blocked(self, client):
+        r = client.get(
+            f"{BASE}/ledger/{LEDGER_B}/costs", headers=headers_for_org_a()
+        )
+>       assert r.status_code in (403, 404), f"他テナント台帳の原価を一覧できた: {r.status_code}"
+E       AssertionError: 他テナント台帳の原価を一覧できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:137: AssertionError
+__ TestCostTenantIsolation.test_create_cost_in_other_tenant_ledger_is_blocked __
+
+self = <test_quality_tenant_isolation.TestCostTenantIsolation object at 0x7f75173a48c0>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_create_cost_in_other_tenant_ledger_is_blocked(self, client):
+        r = client.post(
+            f"{BASE}/ledger/{LEDGER_B}/costs",
+            json={
+                "organization_id": str(ORG_B),
+                "category": "materials",
+                "description": "テスト越境原価",
+                "amount": "1000",
+                "cost_date": "2026-06-01",
+            },
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナント台帳へ原価を作成できた: {r.status_code}"
+E       AssertionError: 他テナント台帳へ原価を作成できた: 201
+E       assert 201 in (403, 404)
+E        +  where 201 = <Response [201 Created]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:151: AssertionError
+_____ TestCostTenantIsolation.test_update_cost_of_other_tenant_is_blocked ______
+
+self = <test_quality_tenant_isolation.TestCostTenantIsolation object at 0x7f75173a4e30>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_update_cost_of_other_tenant_is_blocked(self, client):
+        r = client.put(
+            f"{BASE}/costs/{COST_B}",
+            json={"description": "改ざん"},
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナント原価を更新できた: {r.status_code}"
+E       AssertionError: 他テナント原価を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:159: AssertionError
+_____ TestCostTenantIsolation.test_delete_cost_of_other_tenant_is_blocked ______
+
+self = <test_quality_tenant_isolation.TestCostTenantIsolation object at 0x7f75173a53a0>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_delete_cost_of_other_tenant_is_blocked(self, client):
+        r = client.delete(f"{BASE}/costs/{COST_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント原価を削除できた: {r.status_code}"
+E       AssertionError: 他テナント原価を削除できた: 204
+E       assert 204 in (403, 404)
+E        +  where 204 = <Response [204 No Content]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:163: AssertionError
+_____ TestCostTenantIsolation.test_approve_cost_of_other_tenant_is_blocked _____
+
+self = <test_quality_tenant_isolation.TestCostTenantIsolation object at 0x7f75173a5910>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_approve_cost_of_other_tenant_is_blocked(self, client):
+        r = client.post(
+            f"{BASE}/costs/{COST_B}/approve",
+            json={"approved_by": str(_shared.USER_A)},
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナント原価を承認できた: {r.status_code}"
+E       AssertionError: 他テナント原価を承認できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:171: AssertionError
+___ TestInvoiceTenantIsolation.test_list_invoices_does_not_leak_other_tenant ___
+
+self = <test_quality_tenant_isolation.TestInvoiceTenantIsolation object at 0x7f75173a5f10>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_list_invoices_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/invoices", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {i["id"] for i in r.json()["items"]}
+>       assert str(INVOICE_B) not in ids, "他テナントの請求書が一覧に漏えいしている"
+E       AssertionError: 他テナントの請求書が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0013' not in {'00000000-0000-0000-0000-0000000b0013'}
+E        +  where '00000000-0000-0000-0000-0000000b0013' = str(UUID('00000000-0000-0000-0000-0000000b0013'))
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:179: AssertionError
+____ TestInvoiceTenantIsolation.test_get_invoice_by_id_blocks_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestInvoiceTenantIsolation object at 0x7f75173a6480>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_get_invoice_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/invoices/{INVOICE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナントの請求書を取得できた: {r.status_code}"
+E       AssertionError: 他テナントの請求書を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:183: AssertionError
+______ TestCreationSpoofing.test_create_ledger_cannot_spoof_organization _______
+
+self = <test_quality_tenant_isolation.TestCreationSpoofing object at 0x7f75173a69f0>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_create_ledger_cannot_spoof_organization(self, client):
+        r = client.post(
+            f"{BASE}/ledger",
+            json={
+                "organization_id": str(ORG_B),
+                "project_id": str(PROJECT_B),
+                "project_code": "X-001",
+                "project_name": "テスト偽装工事",
+                "project_type": "civil",
+                "contract_amount": "1000",
+            },
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 201, r.text
+>       assert r.json()["organization_id"] == str(ORG_A), (
+            "ボディの organization_id で他テナント領域へ台帳を作成できてしまう"
+        )
+E       AssertionError: ボディの organization_id で他テナント領域へ台帳を作成できてしまう
+E       assert '00000000-000...-0000000000bb' == '00000000-000...-0000000000aa'
+E         
+E         - 00000000-0000-0000-0000-0000000000aa
+E         ?                                   ^^
+E         + 00000000-0000-0000-0000-0000000000bb
+E         ?                                   ^^
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:201: AssertionError
+______ TestApproverIdentity.test_approver_is_derived_from_token_not_body _______
+
+self = <test_quality_tenant_isolation.TestApproverIdentity object at 0x7f751737b980>
+client = <starlette.testclient.TestClient object at 0x7f751730f6b0>
+
+    def test_approver_is_derived_from_token_not_body(self, client):
+        """承認者は認証済みユーザーでなければならない（否認防止）。"""
+        forged = uuid.UUID("00000000-0000-0000-0000-00000000dead")
+        r = client.post(
+            f"{BASE}/ledger/{LEDGER_A}/costs",
+            json={
+                "organization_id": str(ORG_A),
+                "category": "materials",
+                "description": "テスト自社原価",
+                "amount": "50000",
+                "cost_date": "2026-06-01",
+            },
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 201, r.text
+        cost_id = r.json()["id"]
+        a = client.post(
+            f"{BASE}/costs/{cost_id}/approve",
+            json={"approved_by": str(forged)},
+            headers=headers_for_org_a(),
+        )
+        assert a.status_code == 200, a.text
+>       assert a.json()["approved_by"] != str(forged), (
+            "ボディの approved_by がそのまま承認者として記録される（承認者偽装）"
+        )
+E       AssertionError: ボディの approved_by がそのまま承認者として記録される（承認者偽装）
+E       assert '00000000-0000-0000-0000-00000000dead' != '00000000-0000-0000-0000-00000000dead'
+E        +  where '00000000-0000-0000-0000-00000000dead' = str(UUID('00000000-0000-0000-0000-00000000dead'))
+
+scripts/quality/integration/erp/test_quality_tenant_isolation.py:229: AssertionError
+=============================== warnings summary ===============================
+../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestLedgerTenantIsolation::test_list_ledgers_does_not_leak_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestLedgerTenantIsolation::test_list_ledgers_ignores_foreign_organization_query
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestLedgerTenantIsolation::test_get_ledger_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_list_costs_of_other_tenant_ledger_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_create_cost_in_other_tenant_ledger_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_update_cost_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_delete_cost_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_approve_cost_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestInvoiceTenantIsolation::test_list_invoices_does_not_leak_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestInvoiceTenantIsolation::test_get_invoice_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCreationSpoofing::test_create_ledger_cannot_spoof_organization
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestApproverIdentity::test_approver_is_derived_from_token_not_body
+12 failed, 1 passed, 1 warning in 4.81s
+----- integration: workflow -----
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+F....                                                                    [100%]
+=================================== FAILURES ===================================
+__________________ test_concurrent_approve_only_one_succeeds ___________________
+
+client = <starlette.testclient.TestClient object at 0x7142c321b140>
+
+    def test_concurrent_approve_only_one_succeeds(client):
+        """2 スレッドから同時に approve し、成功が 1 件に限定されることを検証する。"""
+        statuses: list[int] = []
+        lock = threading.Lock()
+        barrier = threading.Barrier(2)
+    
+        def worker() -> None:
+            try:
+                barrier.wait(timeout=10)
+                r = client.post(
+                    f"{BASE}/instances/{INSTANCE_ID}/approve",
+                    params={"step_order": 1},
+                    json={"comment": "テスト承認"},
+                    headers=headers_org_a(["admin"]),
+                )
+                code = r.status_code
+            except Exception:  # ネットワーク/クライアント例外も証跡として残す
+                code = -1
+            with lock:
+                statuses.append(code)
+    
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=30)
+    
+        assert len(statuses) == 2, f"並行リクエストが完了しなかった: {statuses}"
+        successes = [s for s in statuses if s == 200]
+>       assert len(successes) == 1, (
+            f"同一ステップの並行承認が {len(successes)} 件成功した（二重承認）: {statuses}"
+        )
+E       AssertionError: 同一ステップの並行承認が 2 件成功した（二重承認）: [200, 200]
+E       assert 2 == 1
+E        +  where 2 = len([200, 200])
+
+scripts/quality/integration/workflow/test_quality_concurrent_approval.py:111: AssertionError
+=============================== warnings summary ===============================
+../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED scripts/quality/integration/workflow/test_quality_concurrent_approval.py::test_concurrent_approve_only_one_succeeds
+1 failed, 4 passed, 1 warning in 1.81s
+
+===== サマリ =====
+PASS   services/construction
+PASS   services/erp
+PASS   services/document
+PASS   services/workflow
+FAIL   services/field-dx (exit=1)
+FAIL   services/gis (exit=1)
+FAIL   services/bim (exit=1)
+FAIL   services/ai (exit=1)
+PASS   services/vision
+FAIL   integration/construction (exit=1)
+FAIL   integration/erp (exit=1)
+FAIL   integration/workflow (exit=1)

@@ -1,0 +1,7 @@
+=== WF-1 実DB証跡 (Lead 独立検証) ===
+並行 approve 2 リクエスト → 両方 HTTP 200 ([200, 200])
+workflow.workflow_status_history (to_status='approved') = 2  ← 承認履歴が重複
+auth.audit_logs (event_type='workflow.approval.approve') = 2  ← 監査ログも重複
+workflow.workflow_approvals.status = approved (last-write-wins / approver_id は一方に上書き)
+
+期待: 成功は 1 件のみ、履歴・監査ログは 1 件。
