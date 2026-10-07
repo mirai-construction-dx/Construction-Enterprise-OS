@@ -200,14 +200,12 @@ async def update_progress_record(
 
 
 async def get_progress_summary(
-    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID | None
 ) -> dict:
-    result = await db.execute(
-        select(ProgressRecord).where(
-            ProgressRecord.project_id == project_id,
-            ProgressRecord.organization_id == organization_id,
-        )
-    )
+    query = select(ProgressRecord).where(ProgressRecord.project_id == project_id)
+    if organization_id is not None:
+        query = query.where(ProgressRecord.organization_id == organization_id)
+    result = await db.execute(query)
     records = list(result.scalars().all())
 
     total_activities = len(records)
@@ -302,14 +300,12 @@ async def update_quality_check(
 
 
 async def get_quality_stats(
-    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID | None
 ) -> dict:
-    result = await db.execute(
-        select(QualityCheck).where(
-            QualityCheck.project_id == project_id,
-            QualityCheck.organization_id == organization_id,
-        )
-    )
+    query = select(QualityCheck).where(QualityCheck.project_id == project_id)
+    if organization_id is not None:
+        query = query.where(QualityCheck.organization_id == organization_id)
+    result = await db.execute(query)
     checks = list(result.scalars().all())
 
     total_checks = len(checks)

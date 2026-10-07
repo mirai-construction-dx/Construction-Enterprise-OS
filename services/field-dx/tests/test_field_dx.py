@@ -86,7 +86,7 @@ def app(mock_db):
         yield mock_db
 
     async def mock_get_current_user():
-        return TokenData(sub=str(TEST_USER), type="user", org=str(TEST_ORG), roles=["admin"])
+        return TokenData(sub=str(TEST_USER), type="user", org=str(TEST_ORG), roles=["site_manager"])
 
     _app.dependency_overrides[get_db] = mock_get_db
     _app.dependency_overrides[get_current_user] = mock_get_current_user
