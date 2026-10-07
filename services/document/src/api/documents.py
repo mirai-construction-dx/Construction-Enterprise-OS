@@ -40,6 +40,22 @@ ALLOWED_DOCUMENT_TYPES = frozenset(
     {"pdf", "cad", "bim", "photo", "video", "spreadsheet", "other"}
 )
 
+# 実行形式・スクリプト系の MIME 種別。文書管理として扱わない。
+# 正式な許可リスト（allowlist）の方針は未確定のため、まずは危険種別の拒否から始める。
+DANGEROUS_CONTENT_TYPES = frozenset(
+    {
+        "application/x-msdownload",
+        "application/x-msdos-program",
+        "application/x-dosexec",
+        "application/x-executable",
+        "application/vnd.microsoft.portable-executable",
+        "application/x-msi",
+        "application/java-archive",
+        "application/x-sh",
+        "application/x-shellscript",
+    }
+)
+
 # DB の document_status enum と一致させる（migrations/000_base_schema.sql）。
 ALLOWED_DOCUMENT_STATUSES = frozenset(
     {"draft", "under_review", "approved", "rejected", "obsolete", "deleted"}
@@ -175,6 +191,14 @@ async def upload_document(
         )
 
     content_type = file.content_type or "application/octet-stream"
+    if content_type.split(";")[0].strip().lower() in DANGEROUS_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail={
+                "code": "UNSUPPORTED_MEDIA_TYPE",
+                "message": f"content_type {content_type} は受理できません。",
+            },
+        )
 
     try:
         document = await document_service.create_document(
