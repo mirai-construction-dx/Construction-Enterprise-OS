@@ -1,0 +1,56 @@
+{
+  "server_id": "mcip",
+  "tools": [
+    {
+      "name": "mcip.document.search",
+      "title": "案件資料の検索",
+      "description": "案件IDの範囲で文書を検索し、断片と出典情報を返す。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project_id", "query"],
+        "properties": {
+          "project_id": {"type": "string"},
+          "query": {"type": "string", "maxLength": 500},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+        }
+      },
+      "annotations": {"readOnlyHint": true},
+      "x-mirai": {"effect": "read", "operation": "document.search", "tier": "R0"}
+    },
+    {
+      "name": "mcip.issue.preview",
+      "title": "課題登録の差分プレビュー",
+      "description": "登録予定の課題と既存課題との差分を返す。書込みは行わない。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project_id", "title"],
+        "properties": {
+          "project_id": {"type": "string"},
+          "title": {"type": "string", "maxLength": 200}
+        }
+      },
+      "annotations": {"readOnlyHint": true},
+      "x-mirai": {"effect": "read", "operation": "document.search", "tier": "R0"}
+    },
+    {
+      "name": "mcip.issue.apply",
+      "title": "課題の登録（承認後）",
+      "description": "承認済みの操作案に基づき課題を登録する。approval_id と pending_action_id が必須。",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project_id", "title", "approval_id", "pending_action_id"],
+        "properties": {
+          "project_id": {"type": "string"},
+          "title": {"type": "string", "maxLength": 200},
+          "approval_id": {"type": "string"},
+          "pending_action_id": {"type": "string"}
+        }
+      },
+      "annotations": {"readOnlyHint": false, "destructiveHint": false, "idempotentHint": true},
+      "x-mirai": {"effect": "write", "operation": "ledger.issue.write", "tier": "R2", "preview_tool": "mcip.issue.preview"}
+    }
+  ]
+}

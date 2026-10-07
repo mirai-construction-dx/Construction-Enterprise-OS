@@ -1,0 +1,44 @@
+# approval-tiers/tiers.yaml
+apiVersion: core.mirai/v1
+kind: ApprovalTiers
+tiers:
+  - id: R0
+    title: 閲覧・根拠付き回答
+    approver: {type: none}
+    conditions: [rls_checked, evidence_verified, model_allowed_for_classification]
+    evidence_required: [question, answer, citations, provider, model, deployment, cost]
+  - id: R1
+    title: 下書き生成
+    approver: {type: self}
+    conditions: [ai_draft_label, no_write_to_source_of_truth]
+    evidence_required: [draft, adoption_diff]
+  - id: R2
+    title: 台帳・記録への書込み
+    approver: {type: supervisor}
+    expires_in_days: 7
+    conditions: [write_target_mcip_ledger_only, diff_preview, approval_state_saved]
+    evidence_required: [approver, decided_at, before_after]
+  - id: R3
+    title: 社外・現場・設計・契約に影響する提案
+    approver: {type: dual, roles: [tech_lead, dept_head]}
+    expires_in_days: 14
+    conditions: [deterministic_check_passed, all_citations_human_reviewed]
+    evidence_required: [check_results, approvers, destination, version]
+  - id: R4
+    title: 禁止（AI単独では実行しない）
+    approver: {type: forbidden}
+    evidence_required: [denied_request]
+operations:  # 操作カテゴリ → 階層（ツールの x-mirai.operation から参照）
+  document.search: R0
+  answer.grounded: R0
+  ledger.issue.preview: R0  # 台帳書込み前の差分プレビュー（書込みなし。Issue #30。mcip.issue.preview の付替えは次の MAJOR）
+  draft.create: R1
+  ledger.issue.write: R2
+  ledger.netis_decision.write: R2
+  proposal.construction_plan_change: R3
+  proposal.client_submission: R3
+  db.production.direct_update: R4
+  quantity.finalize: R4
+  contract.finalize: R4
+  self_improvement.unapproved: R4
+  model_send.highly_confidential: R4

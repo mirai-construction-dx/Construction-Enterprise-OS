@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.core.mirai/registry/mcp-allowlist/1",
+  "title": "MCP Allowlist",
+  "type": "object",
+  "required": ["apiVersion", "kind", "servers"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {"const": "core.mirai/v1"},
+    "kind": {"const": "McpAllowlist"},
+    "servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["server_id", "system_id", "trust", "surfaces", "transport", "audience", "tools"],
+        "properties": {
+          "server_id": {"$ref": "https://schemas.core.mirai/common/defs/1#/$defs/systemId"},
+          "system_id": {"$ref": "https://schemas.core.mirai/common/defs/1#/$defs/systemId"},
+          "trust": {"enum": ["T0", "T1", "T2", "T3"]},
+          "surfaces": {"type": "array", "minItems": 1, "items": {"enum": ["mcah_production", "dev_harness", "user_facing"]}},
+          "transport": {"const": "streamable-http"},
+          "audience": {"type": "string", "pattern": "^api://"},
+          "deprecated": {"$ref": "#/$defs/deprecated"},
+          "tools": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "effect", "tier", "definition_sha256"],
+              "properties": {
+                "name": {"$ref": "https://schemas.core.mirai/common/defs/1#/$defs/toolName"},
+                "effect": {"$ref": "https://schemas.core.mirai/common/defs/1#/$defs/effect"},
+                "tier": {"enum": ["R0", "R1", "R2", "R3"]},
+                "definition_sha256": {"$ref": "https://schemas.core.mirai/common/defs/1#/$defs/sha256"},
+                "scopes": {"type": "array", "items": {"type": "string"}},
+                "timeout_s": {"type": "integer", "minimum": 1, "maximum": 600},
+                "max_result_bytes": {"type": "integer", "minimum": 1024, "maximum": 2000000},
+                "verifier_refetch": {"type": "boolean"},
+                "requires": {"type": "array", "items": {"enum": ["approval_id", "pending_action_id", "request_id"]}},
+                "idempotency_arg": {"type": "string"},
+                "deprecated": {"$ref": "#/$defs/deprecated"}
+              },
+              "allOf": [
+                {"if": {"properties": {"effect": {"enum": ["write", "propose"]}}},
+                 "then": {"required": ["requires"], "properties": {"requires": {"contains": {"const": "approval_id"}}, "tier": {"enum": ["R2", "R3"]}}}},
+                {"if": {"properties": {"effect": {"const": "read"}}}, "then": {"properties": {"tier": {"const": "R0"}}}}
+              ]
+            }
+          }
+        },
+        "allOf": [
+          {"if": {"properties": {"surfaces": {"contains": {"const": "mcah_production"}}}},
+           "then": {"properties": {"trust": {"enum": ["T0", "T1"]}}}}
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "deprecated": {
+      "type": "object",
+      "required": ["reason", "remove_in"],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {"type": "string"},
+        "replacement": {"type": "string"},
+        "remove_in": {"$ref": "https://schemas.core.mirai/common/defs/1#/$defs/semver"}
+      }
+    }
+  }
+}

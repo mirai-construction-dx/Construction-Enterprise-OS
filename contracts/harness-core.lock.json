@@ -1,20 +1,20 @@
 {
   "lock_version": 1,
   "kind": "vendored-git-tag",
-  "core_version": "0.6.0",
+  "core_version": "0.7.0",
   "consumer": {
     "system_id": "ceos",
     "mcp_server_id": "ceos"
   },
   "source": {
     "repo": "mirai-construction-dx/Mirai-Harness-Core",
-    "tag": "v0.6.0",
-    "commit": "1fe396a8414a2bca6ffade879f837c69cccaf5cc"
+    "tag": "v0.7.0",
+    "commit": "0e5e3a4e74ceb98e5ee3746ac678fb0f6d8b0b1d"
   },
-  "vendor_dir": "contracts/vendor/harness-core/v0.6.0",
+  "vendor_dir": "contracts/vendor/harness-core/v0.7.0",
   "files": {
-    "VERSION": "97a5d6e540a6120d09c39ddb667e0e8e2bac7fcc2ffef813b82e08fd60365bce",
-    "approval-tiers/tiers.yaml": "e0c313fae5e9c11aa4c805c83efd388302391af605bc39c120992f08f4c6a11f",
+    "VERSION": "967d9afb101346667166f2e76e81910bc190488d7d41d50ca0072e9d92f00e32",
+    "approval-tiers/tiers.yaml": "8b5c95cd055695afe6f22172920f7c45f128fad81675ba4bc73a75504c0a23cb",
     "contracts/mcp-tools/mcip.json": "de92d09fb6a5707124a58428104568a47e599f6ff3e34245b17548e9386a4b59",
     "registries/mcp-allowlist.yaml": "42b513df45d9eaeda57dcd5de2f8a596fb5d85314400b13e248ce67b4cdee7ff",
     "registries/systems.yaml": "73adb51e21f6cca39428d64ad5736f9cf2e5270a9e33b2d030c7e72f6bb101b3",

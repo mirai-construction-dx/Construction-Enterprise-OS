@@ -1,0 +1,7 @@
+apiVersion: core.mirai/v1
+kind: Systems
+systems:
+  - {id: mcip, name: Mirai-Construction-Information-Platform, repo: Mirai-Construction-Information-Platform, audience: "api://mcip-tool-api", mcp_server_id: mcip, db_schema: mcip}
+  - {id: mcah, name: Mirai-Construction-Agent-Harness, repo: Mirai-Construction-Agent-Harness, audience: "api://mcah", mcp_server_id: null, db_schema: mcah}
+  - {id: civil-docs-platform, name: Civil-Docs-Platform, repo: Civil-Docs-Platform, audience: "api://civil-docs-platform/mcp", mcp_server_id: cdocs, db_schema: civil_docs}
+  - {id: ceos, name: Construction-Enterprise-OS, repo: Construction-Enterprise-OS, audience: "api://ceos-mcp", mcp_server_id: ceos, db_schema: ceos}

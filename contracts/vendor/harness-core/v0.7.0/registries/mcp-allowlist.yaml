@@ -1,0 +1,30 @@
+apiVersion: core.mirai/v1
+kind: McpAllowlist
+servers:
+  - server_id: mcip
+    system_id: mcip
+    trust: T0
+    surfaces: [mcah_production, dev_harness]
+    transport: streamable-http
+    audience: "api://mcip-tool-api"
+    tools:
+      - name: mcip.document.search
+        effect: read
+        tier: R0
+        definition_sha256: 69765ede2331f8c6598b30f2489de96d53463be375581e007f83e6c7d4cf4b61
+        scopes: [Documents.Read]
+        timeout_s: 15
+        max_result_bytes: 200000
+        verifier_refetch: false
+      - name: mcip.issue.preview
+        effect: read
+        tier: R0
+        definition_sha256: 04580101b1de6d01ec3a452ba030f29d6f0a7f93ba82df20d61c4219f5121310
+        scopes: [Issues.Read]
+      - name: mcip.issue.apply
+        effect: write
+        tier: R2
+        definition_sha256: 83db14752ccc0df4da668dd9b3ee796c3a9ade43620576de9008a1dd47a8db4f
+        scopes: [Issues.Write]
+        requires: [approval_id, pending_action_id]
+        idempotency_arg: pending_action_id

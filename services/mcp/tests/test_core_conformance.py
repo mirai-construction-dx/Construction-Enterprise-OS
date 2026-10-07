@@ -25,9 +25,9 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 LOCK_PATH = REPO_ROOT / "contracts" / "harness-core.lock.json"
 
 # 固定する Core の版。更新時は lock と本定数の両方を変更する（意図しない差し替えの二重確認）。
-EXPECTED_CORE_VERSION = "0.6.0"
-EXPECTED_CORE_TAG = "v0.6.0"
-EXPECTED_CORE_COMMIT = "1fe396a8414a2bca6ffade879f837c69cccaf5cc"
+EXPECTED_CORE_VERSION = "0.7.0"
+EXPECTED_CORE_TAG = "v0.7.0"
+EXPECTED_CORE_COMMIT = "0e5e3a4e74ceb98e5ee3746ac678fb0f6d8b0b1d"
 
 
 def _lock() -> dict[str, Any]:
