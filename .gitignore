@@ -96,3 +96,8 @@ blob-report/
 
 # CRUDバンドル再生成用ワークスペース(生成物は webui/Construction-Enterprise-OS---CRUD.html)
 .bundle-work/
+
+# ローカル agent / ツールのセッション状態（リポジトリ対象外）
+.omo/
+.playwright-mcp/
+reports/agent-transcripts/

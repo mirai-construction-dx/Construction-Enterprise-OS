@@ -1,0 +1,217 @@
+diff --git a/contracts/harness-core.lock.json b/contracts/harness-core.lock.json
+index 17fadcf..3da1c59 100644
+--- a/contracts/harness-core.lock.json
++++ b/contracts/harness-core.lock.json
+@@ -18,6 +18,7 @@
+     "contracts/mcp-tools/mcip.json": "de92d09fb6a5707124a58428104568a47e599f6ff3e34245b17548e9386a4b59",
+     "registries/mcp-allowlist.yaml": "42b513df45d9eaeda57dcd5de2f8a596fb5d85314400b13e248ce67b4cdee7ff",
+     "registries/systems.yaml": "73adb51e21f6cca39428d64ad5736f9cf2e5270a9e33b2d030c7e72f6bb101b3",
++    "schemas/common/defs.schema.json": "91197dfd07809d0975a4ba1bf5f0e2cdf5ab2eb1c91301323f896f94b2735242",
+     "schemas/registry/mcp-allowlist.schema.json": "616bf5eebd8829a5f8e360c4b16de8d0706165c166d8a3ab05b4ba5708318efb",
+     "tools/tool_def_hash.py": "1f1ac49290454b01b34a9c4002411eaf8c275cfd7a427091c2e31349eded946c"
+   },
+diff --git a/contracts/vendor/harness-core/v0.6.0/VENDORED.md b/contracts/vendor/harness-core/v0.6.0/VENDORED.md
+index 11bcb6b..18c145e 100644
+--- a/contracts/vendor/harness-core/v0.6.0/VENDORED.md
++++ b/contracts/vendor/harness-core/v0.6.0/VENDORED.md
+@@ -11,7 +11,8 @@ Core 規約に照合するために必要なファイルを **無改変で** コ
+ | `registries/mcp-allowlist.yaml` | 上記 golden vector の登録ハッシュ |
+ | `registries/systems.yaml` | システム台帳（`ceos` の `mcp_server_id` / `audience`） |
+ | `approval-tiers/tiers.yaml` | 承認階層（R0〜R4）と操作カテゴリ |
+-| `schemas/registry/mcp-allowlist.schema.json` | Allowlist 登録時の effect/tier 制約 |
++| `schemas/registry/mcp-allowlist.schema.json` | Allowlist 登録時の effect/tier 制約。CEOS 契約から作るツール登録項目をこのスキーマで検証する |
++| `schemas/common/defs.schema.json` | 上記スキーマが `$ref` で参照する共通定義（toolName・effect・sha256 等） |
+ | `VERSION` | Core の版 |
+ 
+ ## 改変禁止
+diff --git a/contracts/vendor/harness-core/v0.6.0/schemas/common/defs.schema.json b/contracts/vendor/harness-core/v0.6.0/schemas/common/defs.schema.json
+new file mode 100644
+index 0000000..987d9b2
+--- /dev/null
++++ b/contracts/vendor/harness-core/v0.6.0/schemas/common/defs.schema.json
+@@ -0,0 +1,26 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "https://schemas.core.mirai/common/defs/1",
++  "title": "共通定義",
++  "$defs": {
++    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
++    "prefixedSha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
++    "tier": {"enum": ["R0", "R1", "R2", "R3", "R4"]},
++    "classification": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "HIGHLY_CONFIDENTIAL"]},
++    "systemId": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,40}$"},
++    "toolName": {
++      "type": "string",
++      "pattern": "^[a-z][a-z0-9]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
++      "description": "<サーバーID>.<領域>.<動作>"
++    },
++    "effect": {"enum": ["read", "draft", "write", "propose", "external_send"]},
++    "semver": {"type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"},
++    "modelVersionId": {
++      "type": "string",
++      "pattern": "^(?!.*(latest|preview$)).*-(19|20)\\d{2}-?\\d{2}-?\\d{2}$",
++      "description": "日付付きの版IDのみ（エイリアス禁止）"
++    },
++    "uuid": {"type": "string", "format": "uuid"},
++    "dateTime": {"type": "string", "format": "date-time"}
++  }
++}
+diff --git a/docs/architecture/ADR-0002-ceos-mcp-readonly-publication.md b/docs/architecture/ADR-0002-ceos-mcp-readonly-publication.md
+index 2ac066a..acf4fbc 100644
+--- a/docs/architecture/ADR-0002-ceos-mcp-readonly-publication.md
++++ b/docs/architecture/ADR-0002-ceos-mcp-readonly-publication.md
+@@ -108,6 +108,22 @@ ADR-0001 は「CEOS は工程・原価・契約の正本を持ち、統合入口
+   Core がカテゴリを追加した後、`operation` を付与してハッシュを更新し、Core の
+   `contracts/mcp-tools/ceos.json` と `registries/mcp-allowlist.yaml`（trust / surfaces / scopes を含む）
+   への登録を Core リポジトリへ提案する。
++- **エラー応答形式の Core 整合（未決・判断待ち）**: CEOS の HTTP エラーは
++  `{"success": false, "error": {"code", "message"}}` 形式で、Core の `core.error.response/1`
++  （RFC 9457 整合。`schema` / `error_code` / `status` / `title` / `occurred_at` 必須）と異なる。
++  選択肢: (a) 現状維持（Core 形式は MCIP / Tool Gateway 側で変換）、(b) Core 形式へ置換
++  （既存クライアントに対する API 契約の破壊的変更。認証ガード `mcp_guard.py` の応答も変わる）、
++  (c) `Accept: application/problem+json` 時のみ Core 形式を返す（加算的だが実装・試験が増える）。
++  消費側（MCIP / Tool Gateway）の要件確定まで (a) とし、推測で形式を変えない。
++- **証跡**: ADR-0001 により承認記録・監査証跡の正本は MCIP。CEOS は `core.evidence.*` を出力しない。
++  将来 CEOS が証跡レコードを出力する場合は、Core `schemas/evidence/*` を vendoring して照合試験を追加する。
++- **Core の版上げ（v0.7.0 公開済み・未適用）**: v0.7.0（2026-09-28 Release）は CEOS が参照する
++  `tool_def_hash.py` / `registries/systems.yaml` / `registries/mcp-allowlist.yaml` /
++  Allowlist スキーマ / `defs.schema.json` に差分が無く、承認階層表の追加（`ledger.issue.preview`）も
++  CEOS 用カテゴリではない。版上げは任意（lock・`EXPECTED_CORE_*`・vendor ディレクトリの同時更新）。
++  v0.7.0 Release には `contracts.tar.gz` / `SHA256SUMS` 等が添付されているが、成果物署名・来歴
++  （attestation）の有無は未確認。確認後に VENDORED.md の置き換え条件（署名付きリリース成果物の公開 →
++  `mhc pull` / `mhc verify` 方式へ移行）を再判定する。
+ - ADR-0001 は引き続き **Proposed** であり、本増分はその境界判断を前提とする。
+ 
+ ## 参照
+diff --git a/services/mcp/README.md b/services/mcp/README.md
+index b1c9f82..0fa076a 100644
+--- a/services/mcp/README.md
++++ b/services/mcp/README.md
+@@ -45,7 +45,12 @@ CEOS が正本を持つ **工程・原価・契約** データを、Model Contex
+   タグ・commit・ファイル SHA-256 を固定し、`tests/test_core_conformance.py` が
+   「CEOS のハッシュ実装＝Core `tool_def_hash.py`」「Core 登録済み mcip ハッシュの再現」
+   「`registries/systems.yaml` の ceos 識別子一致」を検査する。
++- 同テストは、契約から作る Allowlist 登録項目（`name` / `effect` / `tier` / `definition_sha256`）を
++  vendored の Core `schemas/registry/mcp-allowlist.schema.json`（JSON Schema）で検証する。
++  サーバー単位の `trust` / `surfaces` / `scopes` は Core 判断待ちのため検証対象外。
+ - `x-mirai.operation` は Core 承認階層表に CEOS 用カテゴリが無いため未設定（ADR-0002 未決事項）。
++- 証跡（`core.evidence.*`）は ADR-0001 により MCIP が正本で、CEOS は証跡レコードを出力しない
++  （監査ログはテキストのみ）ため照合対象なし。HTTP エラー形式の Core 整合は ADR-0002 未決事項を参照。
+ 
+ > **上流パスの確認結果（deviation）**
+ > 指示上の `ceos.cost.list` は `GET /api/v1/erp/costs` とされていたが、
+diff --git a/services/mcp/requirements-dev.txt b/services/mcp/requirements-dev.txt
+index 0d990cc..5e62624 100644
+--- a/services/mcp/requirements-dev.txt
++++ b/services/mcp/requirements-dev.txt
+@@ -6,3 +6,5 @@ ruff==0.6.9
+ mypy==1.11.2
+ # Core 適合テスト（vendored registries/*.yaml の読込み）
+ PyYAML==6.0.3
++# Core 適合テスト（vendored schemas/*.schema.json による Allowlist 登録項目の検証。mcp の依存と同版）
++jsonschema==4.26.0
+diff --git a/services/mcp/tests/test_core_conformance.py b/services/mcp/tests/test_core_conformance.py
+index 0c78398..287e600 100644
+--- a/services/mcp/tests/test_core_conformance.py
++++ b/services/mcp/tests/test_core_conformance.py
+@@ -4,6 +4,7 @@
+ - CEOS のハッシュ実装が Core の tool_def_hash.py と同一結果を返す（mcip の登録値も再現）
+ - CEOS の識別子（server_id / ツール名接頭辞）が Core のシステム台帳と一致する
+ - effect / tier が Core の承認階層・Allowlist スキーマ制約を満たす
++- CEOS 契約から作る Allowlist 登録項目が Core の mcp-allowlist.schema.json（JSON Schema）に適合する
+ """
+ 
+ import hashlib
+@@ -16,6 +17,8 @@ from typing import Any
+ 
+ import pytest
+ import yaml
++from jsonschema import Draft202012Validator
++from referencing import Registry, Resource
+ 
+ from src.tools import load_registry
+ from src.tools.contract import SERVER_ID, contract_document
+@@ -61,6 +64,41 @@ def _ceos_tools() -> list[dict[str, Any]]:
+     return contract_document(load_registry())["tools"]
+ 
+ 
++ALLOWLIST_SCHEMA_ID = "https://schemas.core.mirai/registry/mcp-allowlist/1"
++# Allowlist の 1 ツール分の登録項目（servers[].tools[]）を指すサブスキーマ
++ALLOWLIST_TOOL_ITEM = f"{ALLOWLIST_SCHEMA_ID}#/properties/servers/items/properties/tools/items"
++
++
++def _core_validator(ref: str) -> Draft202012Validator:
++    """vendored の Core スキーマ群を $id で登録し、ref を検証するバリデータを返す。"""
++    resources = []
++    for path in sorted((_vendor_dir() / "schemas").rglob("*.schema.json")):
++        schema = json.loads(path.read_text(encoding="utf-8"))
++        Draft202012Validator.check_schema(schema)
++        resources.append((schema["$id"], Resource.from_contents(schema)))
++    return Draft202012Validator({"$ref": ref}, registry=Registry().with_resources(resources))
++
++
++def _allowlist_tool_entry(tool: dict[str, Any]) -> dict[str, Any]:
++    """CEOS 契約から Core Allowlist のツール登録項目（必須キーのみ）を作る。
++
++    trust・surfaces・scopes はサーバー単位の Core 判断事項（未決）のため作らない。
++    """
++    return {
++        "name": tool["name"],
++        "effect": tool["x-mirai"]["effect"],
++        "tier": tool["x-mirai"]["tier"],
++        "definition_sha256": tool_contract_sha256(tool),
++    }
++
++
++def _schema_errors(validator: Draft202012Validator, doc: Any) -> list[str]:
++    return [
++        f"{'/'.join(map(str, e.absolute_path))}: {e.message}"
++        for e in validator.iter_errors(doc)
++    ]
++
++
+ def test_lock_pins_core_version_and_source():
+     lock = _lock()
+     assert lock["consumer"] == {"system_id": "ceos", "mcp_server_id": SERVER_ID}
+@@ -134,6 +172,41 @@ def test_effect_and_tier_satisfy_core_constraints(tool):
+     assert tool["annotations"]["readOnlyHint"] is True
+ 
+ 
++def test_vendored_core_allowlist_validates_against_its_schema():
++    """検証器の構成確認: Core 自身の Allowlist（mcip 登録済み）が同スキーマで 0 件になる。"""
++    validator = _core_validator(ALLOWLIST_SCHEMA_ID)
++    assert _schema_errors(validator, _load_yaml("registries/mcp-allowlist.yaml")) == []
++
++
++@pytest.mark.parametrize("tool", _ceos_tools(), ids=lambda t: t["name"])
++def test_ceos_tool_entry_satisfies_core_allowlist_schema(tool):
++    validator = _core_validator(ALLOWLIST_TOOL_ITEM)
++    assert _schema_errors(validator, _allowlist_tool_entry(tool)) == []
++
++
++def test_ceos_server_id_satisfies_core_system_id_rule():
++    validator = _core_validator("https://schemas.core.mirai/common/defs/1#/$defs/systemId")
++    assert _schema_errors(validator, SERVER_ID) == []
++
++
++@pytest.mark.parametrize(
++    ("mutation", "field"),
++    [
++        ({"tier": "R1"}, "tier"),  # effect=read は R0 のみ
++        ({"effect": "delete"}, "effect"),  # Core の effect 列挙に無い
++        ({"definition_sha256": "sha256:" + "0" * 64}, "definition_sha256"),  # 接頭辞付きは不可
++        ({"name": "CEOS.cost.list"}, "name"),  # <サーバーID>.<領域>.<動作> の小文字規則
++        ({"unexpected": True}, ""),  # additionalProperties=false
++    ],
++)
++def test_core_allowlist_schema_rejects_contract_violations(mutation, field):
++    """検証が形骸化していないこと（違反を注入すると該当箇所でエラーになる）。"""
++    entry = {**_allowlist_tool_entry(_ceos_tools()[0]), **mutation}
++    errors = _schema_errors(_core_validator(ALLOWLIST_TOOL_ITEM), entry)
++    assert errors
++    assert any(e.split(":", 1)[0] == field for e in errors), errors
++
++
+ def test_operation_is_not_guessed_until_core_defines_a_category():
+     """x-mirai.operation は Core 承認階層表に CEOS 用カテゴリが定義されるまで付与しない。
+ 
