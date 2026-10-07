@@ -434,6 +434,7 @@ make test
 | [🏛️ 全体アーキテクチャ設計](docs/architecture/00-overview.md)         | 5レイヤ構造、開発計画、ADR                    |
 | [🏛️ ADR-0001: CEOS の責任範囲](docs/architecture/ADR-0001-ceos-responsibility-boundary.md) | 工程・原価・契約の正本と MCIP/CDE/ArcSphere/MCAH の境界（V3.5準拠） |
 | [🔌 ADR-0002: MCP 読み取り専用公開](docs/architecture/ADR-0002-ceos-mcp-readonly-publication.md) | 5ツール/hash-pinning/キルスイッチ、Core 契約整合 |
+| [🔑 ADR-0003: MCP audience 分離とトークン交換](docs/architecture/ADR-0003-mcp-audience-token-exchange.md) | RFC 8693 交換・段階導入（Phase 0〜3）・fail-closed |
 | [📜 Harness-Core 契約固定参照](contracts/vendor/harness-core/v0.6.0/VENDORED.md) | Core v0.6.0 固定（lock/sha256）と `contracts/mcp-tools/ceos.json` |
 | [🔐 統合認証基盤 詳細設計](docs/architecture/01-auth-platform.md)     | データモデル/API/トークン/セキュリティ        |
 | [🗄️ 統合データ基盤 詳細設計](docs/architecture/02-data-platform.md)   | PostgreSQL+PostGIS+TimescaleDB/マルチスキーマ |

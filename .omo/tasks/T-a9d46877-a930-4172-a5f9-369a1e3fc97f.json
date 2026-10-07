@@ -1,0 +1,10 @@
+{
+  "id": "T-a9d46877-a930-4172-a5f9-369a1e3fc97f",
+  "subject": "Verify: pnpm lint/typecheck/test/build",
+  "description": "Run pnpm lint, pnpm typecheck, pnpm test, pnpm build in apps/web; fix any issues; confirm MOCK_ removal and no remaining silent catches in migrated files.",
+  "status": "completed",
+  "activeForm": "Running lint/typecheck/test/build",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f42f53a93ffewcprMA2KUxXYZb"
+}

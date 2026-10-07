@@ -1,0 +1,10 @@
+{
+  "id": "T-944aa7d6-dfed-446c-a65a-1b2c8db3bf6a",
+  "subject": "Migrate iot/robotics/partner/settings pages",
+  "description": "iot/page, iot/environment, iot/machines, robotics/page, robotics/autonomous, robotics/drone, robotics/rpa, robotics/twin, partner/portal, settings/integrations.",
+  "status": "completed",
+  "activeForm": "Migrating iot/robotics/partner/settings pages",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f42f53a93ffewcprMA2KUxXYZb"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "T-26afcd73-76b8-4990-a685-b7ea2bdda517",
+  "subject": "バッチ2: 文書APIの組織スコープ(BOLA)修正",
+  "description": "document の ID 指定 API（get/download/update/delete/versions）に organization_id 照合を追加し、他組織の文書を拒否する。テスト追加。feature ブランチ→PR。",
+  "status": "pending",
+  "activeForm": "文書APIの組織照合を実装中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "T-2be98088-142c-4b53-a588-434721fe53f2",
+  "subject": "#71: MFA の MEDIUM 指摘対応",
+  "description": "/mfa/setup にパスワード再認証、MFA失敗のアカウントロック、MFAセッショントークンの単回使用、入力検証を追加。feature ブランチ→PR。",
+  "status": "pending",
+  "activeForm": "#71 MFA MEDIUM を対応中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

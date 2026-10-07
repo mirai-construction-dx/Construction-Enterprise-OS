@@ -29,6 +29,7 @@ from .api import (
     health,
     organizations,
     internal,
+    token_exchange,
 )
 from .models.base import engine, get_db
 
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
 
     # ルーター登録
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+    app.include_router(token_exchange.router, prefix="/api/v1/auth", tags=["auth"])
     app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
     app.include_router(roles.router, prefix="/api/v1/roles", tags=["roles"])
     app.include_router(

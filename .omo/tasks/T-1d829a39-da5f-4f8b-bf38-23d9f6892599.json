@@ -1,0 +1,10 @@
+{
+  "id": "T-1d829a39-da5f-4f8b-bf38-23d9f6892599",
+  "subject": "Recon: design tokens, test setup, fetch patterns",
+  "description": "Check tailwind tokens (danger colors), existing empty/error patterns, package.json scripts, existing tests touching pages, and the exact per-file patterns for the 36 MOCK+API pages.",
+  "status": "completed",
+  "activeForm": "Reconnoitering design tokens and fetch patterns",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f42f53a93ffewcprMA2KUxXYZb"
+}

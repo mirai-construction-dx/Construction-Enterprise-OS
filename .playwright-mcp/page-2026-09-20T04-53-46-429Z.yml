@@ -1,0 +1,23 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - heading "Construction-Enterprise-OS" [level=1] [ref=e12]
+      - paragraph [ref=e13]: 建設業統合オペレーティングシステム
+    - generic [ref=e14]:
+      - heading "ログイン" [level=2] [ref=e15]
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]: メールアドレス
+          - textbox "メールアドレス" [ref=e19]:
+            - /placeholder: your@company.co.jp
+        - generic [ref=e20]:
+          - generic [ref=e21]: パスワード
+          - textbox "パスワード" [ref=e22]:
+            - /placeholder: ••••••••
+        - button "ログイン" [ref=e23] [cursor=pointer]
+      - link "パスワードをお忘れの方" [ref=e25] [cursor=pointer]:
+        - /url: "#"
+    - paragraph [ref=e26]:
+      - link "← トップページに戻る" [ref=e27] [cursor=pointer]:
+        - /url: /

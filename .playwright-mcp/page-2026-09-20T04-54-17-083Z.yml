@@ -1,0 +1,108 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e2]:
+    - complementary [ref=f2e3]:
+      - generic [ref=f2e4]:
+        - generic [ref=f2e5]: CE
+        - generic [ref=f2e7]:
+          - paragraph [ref=f2e8]: Construction-OS
+          - paragraph [ref=f2e9]: Enterprise Platform
+        - button [ref=f2e10] [cursor=pointer]
+      - navigation [ref=f2e14]:
+        - generic [ref=f2e15]:
+          - button "ダッシュボード" [ref=f2e16] [cursor=pointer]
+          - generic [ref=f2e26]:
+            - button "統合ダッシュボード" [ref=f2e27] [cursor=pointer]
+            - list [ref=f2e31]:
+              - listitem [ref=f2e32]:
+                - link "全社統合" [ref=f2e33] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f2e35]:
+                - link "現場ダッシュボード" [ref=f2e36] [cursor=pointer]:
+                  - /url: /dashboard/field
+              - listitem [ref=f2e38]:
+                - link "経営ダッシュボード" [ref=f2e39] [cursor=pointer]:
+                  - /url: /dashboard/exec
+              - listitem [ref=f2e41]:
+                - link "AI分析" [ref=f2e42] [cursor=pointer]:
+                  - /url: /dashboard/ai
+              - listitem [ref=f2e44]:
+                - link "KPI/アラート 3" [ref=f2e45] [cursor=pointer]:
+                  - /url: /dashboard/kpi
+                  - generic [ref=f2e46]: KPI/アラート
+                  - generic [ref=f2e47]: "3"
+        - generic [ref=f2e48]:
+          - button "共通基盤" [ref=f2e49] [cursor=pointer]
+          - generic [ref=f2e57]:
+            - button "認証管理" [ref=f2e59] [cursor=pointer]
+            - generic [ref=f2e63]:
+              - button "ユーザー管理" [ref=f2e64] [cursor=pointer]
+              - list [ref=f2e68]:
+                - listitem [ref=f2e69]:
+                  - link "ユーザー一覧" [ref=f2e70] [cursor=pointer]:
+                    - /url: /common/users
+                - listitem [ref=f2e72]:
+                  - link "ロール管理" [ref=f2e73] [cursor=pointer]:
+                    - /url: /common/roles
+                - listitem [ref=f2e75]:
+                  - link "組織管理" [ref=f2e76] [cursor=pointer]:
+                    - /url: /common/org
+            - button "API管理" [ref=f2e79] [cursor=pointer]
+            - button "マスタ管理" [ref=f2e84] [cursor=pointer]
+        - button "文書・図面管理" [ref=f2e89] [cursor=pointer]
+        - button "現場DX" [ref=f2e97] [cursor=pointer]
+        - button "協力会社連携" [ref=f2e107] [cursor=pointer]
+        - button "GIS/地図" [ref=f2e117] [cursor=pointer]
+        - button "AI・分析基盤" [ref=f2e124] [cursor=pointer]
+        - button "IoT・リアルタイム監視" [ref=f2e139] [cursor=pointer]
+        - button "ERP・経営管理" [ref=f2e147] [cursor=pointer]
+        - button "セキュリティ・監査" [ref=f2e154] [cursor=pointer]
+        - button "ワークフロー" [ref=f2e161] [cursor=pointer]
+        - button "自動化・ロボティクス" [ref=f2e170] [cursor=pointer]
+        - button "システム管理" [ref=f2e178] [cursor=pointer]
+      - generic [ref=f2e186]:
+        - generic [ref=f2e187]: 田健
+        - generic [ref=f2e188]:
+          - paragraph [ref=f2e189]: 田中 健一
+          - paragraph [ref=f2e190]: 現場監督
+    - generic [ref=f2e191]:
+      - banner [ref=f2e192]:
+        - button [ref=f2e193] [cursor=pointer]
+        - button "全表示（管理者）" [ref=f2e196] [cursor=pointer]
+        - button "ダークモード" [ref=f2e204] [cursor=pointer]
+        - button "3" [ref=f2e207] [cursor=pointer]
+        - generic [ref=f2e212]:
+          - generic [ref=f2e213]: 田健
+          - generic [ref=f2e214]: 田中 健一
+        - button "ログアウト" [ref=f2e215] [cursor=pointer]
+      - main [ref=f2e219]:
+        - generic [ref=f2e220]:
+          - generic [ref=f2e221]:
+            - generic [ref=f2e222]:
+              - heading "ユーザー管理" [level=1] [ref=f2e223]
+              - paragraph [ref=f2e224]: システム利用者の管理
+            - button "ユーザー招待" [ref=f2e225] [cursor=pointer]
+          - generic [ref=f2e229]:
+            - generic [ref=f2e237]:
+              - paragraph [ref=f2e238]: 総ユーザー数
+              - paragraph [ref=f2e239]: "0"
+            - generic [ref=f2e246]:
+              - paragraph [ref=f2e247]: アクティブ
+              - paragraph [ref=f2e248]: "0"
+            - generic [ref=f2e256]:
+              - paragraph [ref=f2e257]: 非アクティブ
+              - paragraph [ref=f2e258]: "0"
+            - generic [ref=f2e263]:
+              - paragraph [ref=f2e264]: ロック
+              - paragraph [ref=f2e265]: "0"
+          - generic [ref=f2e266]: データを取得できませんでした。
+          - table [ref=f2e269]:
+            - rowgroup [ref=f2e270]:
+              - row [ref=f2e271]:
+                - columnheader "氏名" [ref=f2e272]
+                - columnheader "メール" [ref=f2e273]
+                - columnheader "役職" [ref=f2e274]
+                - columnheader "権限" [ref=f2e275]
+                - columnheader "最終ログイン" [ref=f2e276]
+                - columnheader "ステータス" [ref=f2e277]
+            - rowgroup
+  - alert [ref=f2e278]

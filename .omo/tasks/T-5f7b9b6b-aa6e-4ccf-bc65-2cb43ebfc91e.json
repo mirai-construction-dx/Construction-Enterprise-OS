@@ -1,0 +1,10 @@
+{
+  "id": "T-5f7b9b6b-aa6e-4ccf-bc65-2cb43ebfc91e",
+  "subject": "GIS: LeafletMap の名称埋込 XSS 修正",
+  "description": "apps/web/src/components/gis/LeafletMap.tsx で pin.name 等をテキストとして安全に描画し、HTML 注入経路を除去。回帰テスト追加。feature ブランチ→PR。",
+  "status": "completed",
+  "activeForm": "GISのXSS経路を修正中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

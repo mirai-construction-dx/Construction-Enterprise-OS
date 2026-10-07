@@ -1,0 +1,10 @@
+{
+  "id": "T-15d3caf5-d402-433b-8b39-ee40e26bf557",
+  "subject": "バッチ1: GitHub Issue 5件を作成（P1）",
+  "description": "評価で確認した P1 5件（WBSルート順序422 / 204 JSON解析 / GIS XSS / CI脆弱性検査 / MFA有効化不能）を Issue 化する。Completion: 5 Issue の番号を取得。",
+  "status": "completed",
+  "activeForm": "バッチ1のIssueを作成中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

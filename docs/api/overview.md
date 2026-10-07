@@ -38,6 +38,7 @@
 
 ### auth(認証・認可・監査)— Neon DB 接続・検証済み
 - `POST /api/v1/auth/login` / `POST /api/v1/auth/refresh` / `POST /api/v1/auth/logout` / `POST /api/v1/auth/logout-all`
+- `POST /api/v1/auth/token` — トークン交換（RFC 8693、form-encoded。既定無効 `TOKEN_EXCHANGE_ENABLED=false`、gateway は 404 で遮断（`INTERNAL_ONLY_PATHS`）・内部利用のみ。[ADR-0003](../architecture/ADR-0003-mcp-audience-token-exchange.md)）
 - `POST /api/v1/auth/mfa/setup|verify|disable`
 - `GET /api/v1/users` / `GET/POST /api/v1/users/{user_id}`
 - `GET /api/v1/roles` / `POST /api/v1/roles` / `GET /api/v1/roles/{role_id}` / `POST /api/v1/roles/{role_id}/permissions`
