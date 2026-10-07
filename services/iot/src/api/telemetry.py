@@ -3,10 +3,14 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_client, get_current_user
+from ..middleware.auth import (
+    get_current_client,
+    get_current_user,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -19,6 +23,7 @@ from ..services.telemetry_service import (
     get_latest_telemetry,
 )
 from ..services.alert_service import check_alert_rules
+from ..services.device_service import get_device_by_id
 
 router = APIRouter()
 
@@ -32,6 +37,18 @@ async def ingest(
     db: AsyncSession = Depends(get_db),
     _current_client=Depends(get_current_client),
 ):
+    org_id = require_organization_id(_current_client)
+
+    # 投入先デバイスの所有組織を検証する（他テナントへの書込み防止）。
+    device_ids = {point.device_id for point in body.data}
+    for device_id in device_ids:
+        device = await get_device_by_id(db, device_id, org_id)
+        if not device:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
+            )
+
     count = await ingest_telemetry(db, body.data)
 
     for point in body.data:
@@ -41,6 +58,7 @@ async def ingest(
             metric_name=point.metric_name,
             value=point.value,
             sensor_id=point.sensor_id,
+            organization_id=org_id,
         )
 
     return APIResponse(
@@ -62,6 +80,20 @@ async def query_device_telemetry(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
+    if start_time > end_time:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_TIME_RANGE", "message": "start_time は end_time 以前である必要があります。"},
+        )
+
+    org_id = require_organization_id(_current_user)
+    device = await get_device_by_id(db, device_id, org_id)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
+        )
+
     rows = await query_telemetry(
         db,
         device_id=device_id,
@@ -95,5 +127,13 @@ async def latest_telemetry(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
+    org_id = require_organization_id(_current_user)
+    device = await get_device_by_id(db, device_id, org_id)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
+        )
+
     rows = await get_latest_telemetry(db, device_id)
     return APIResponse(data=[LatestTelemetryValue(**r) for r in rows])

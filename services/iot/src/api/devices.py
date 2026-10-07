@@ -74,7 +74,9 @@ async def create_device(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    device = await register_device(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = require_organization_id(_current_user)
+    device = await register_device(db, data)
     return APIResponse(data=_device_to_response(device))
 
 
@@ -140,7 +142,10 @@ async def update_device(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    device = await update_device_svc(db, device_id, body.model_dump(exclude_unset=True))
+    org_id = require_organization_id(_current_user)
+    device = await update_device_svc(
+        db, device_id, org_id, body.model_dump(exclude_unset=True)
+    )
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -156,7 +161,8 @@ async def delete_device(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    deleted = await delete_device_svc(db, device_id)
+    org_id = require_organization_id(_current_user)
+    deleted = await delete_device_svc(db, device_id, org_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -173,7 +179,10 @@ async def device_heartbeat(
     db: AsyncSession = Depends(get_db),
     _current_client=Depends(get_current_client),
 ):
-    device = await device_heartbeat_svc(db, device_id, body.model_dump(exclude_unset=True))
+    org_id = require_organization_id(_current_client)
+    device = await device_heartbeat_svc(
+        db, device_id, org_id, body.model_dump(exclude_unset=True)
+    )
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

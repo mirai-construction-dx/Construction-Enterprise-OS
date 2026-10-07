@@ -80,10 +80,12 @@ async def get_devices_paginated(
     return devices, total
 
 
-async def update_device(db: AsyncSession, device_id: UUID, data: dict) -> DeviceModel | None:
+async def update_device(
+    db: AsyncSession, device_id: UUID, organization_id: UUID, data: dict
+) -> DeviceModel | None:
     result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
     device = result.scalar_one_or_none()
-    if not device:
+    if not device or device.organization_id != organization_id:
         return None
 
     for key, value in data.items():
@@ -97,10 +99,12 @@ async def update_device(db: AsyncSession, device_id: UUID, data: dict) -> Device
     return device
 
 
-async def delete_device(db: AsyncSession, device_id: UUID) -> bool:
+async def delete_device(
+    db: AsyncSession, device_id: UUID, organization_id: UUID
+) -> bool:
     result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
     device = result.scalar_one_or_none()
-    if not device:
+    if not device or device.organization_id != organization_id:
         return False
     await db.delete(device)
     await db.flush()
@@ -108,16 +112,18 @@ async def delete_device(db: AsyncSession, device_id: UUID) -> bool:
 
 
 async def device_heartbeat(
-    db: AsyncSession, device_id: UUID, data: dict
+    db: AsyncSession, device_id: UUID, organization_id: UUID, data: dict
 ) -> DeviceModel | None:
     result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
     device = result.scalar_one_or_none()
-    if not device:
+    if not device or device.organization_id != organization_id:
         return None
 
     now = datetime.now(timezone.utc)
     device.last_seen_at = now
-    device.status = "online"
+    # retired のデバイスは heartbeat で復帰させない（DEF-10a）。
+    if device.status != "retired":
+        device.status = "online"
 
     if data.get("battery_level") is not None:
         device.battery_level = data["battery_level"]
@@ -130,10 +136,12 @@ async def device_heartbeat(
     return device
 
 
-async def add_sensor(db: AsyncSession, device_id: UUID, data: dict) -> SensorModel | None:
+async def add_sensor(
+    db: AsyncSession, device_id: UUID, organization_id: UUID, data: dict
+) -> SensorModel | None:
     result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
     device = result.scalar_one_or_none()
-    if not device:
+    if not device or device.organization_id != organization_id:
         return None
 
     sensor = SensorModel(
@@ -150,8 +158,15 @@ async def add_sensor(db: AsyncSession, device_id: UUID, data: dict) -> SensorMod
     return sensor
 
 
-async def get_sensors_by_device(db: AsyncSession, device_id: UUID) -> list[SensorModel]:
-    result = await db.execute(
+async def get_sensors_by_device(
+    db: AsyncSession, device_id: UUID, organization_id: UUID
+) -> list[SensorModel] | None:
+    result = await db.execute(select(DeviceModel).where(DeviceModel.id == device_id))
+    device = result.scalar_one_or_none()
+    if not device or device.organization_id != organization_id:
+        return None
+
+    sensor_result = await db.execute(
         select(SensorModel).where(SensorModel.device_id == device_id)
     )
-    return list(result.scalars().all())
+    return list(sensor_result.scalars().all())

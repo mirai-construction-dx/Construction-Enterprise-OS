@@ -265,6 +265,7 @@ def test_telemetry_ingest_batch(client, m2m_headers):
     import src.api.telemetry as telemetry_module
     telemetry_module.ingest_telemetry = AsyncMock(return_value=2)
     telemetry_module.check_alert_rules = AsyncMock(return_value=[])
+    telemetry_module.get_device_by_id = AsyncMock(return_value=_make_mock_device())
 
     response = client.post(
         "/api/v1/iot/telemetry/ingest",

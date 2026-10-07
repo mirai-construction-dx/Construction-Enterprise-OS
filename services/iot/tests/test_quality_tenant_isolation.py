@@ -85,9 +85,6 @@ class TestDeviceDetailTenantBoundary:
             f"他テナント {ORG_B} のデバイスを {response.status_code} で返した"
         )
 
-    @pytest.mark.xfail(
-        strict=True, reason="DEF-02b: PUT /devices/{id} に組織検査がなく他テナントを更新する"
-    )
     def test_update_device_other_tenant_rejected(self, client, mock_db):
         record_execute(mock_db, [MockResult(scalar=make_device(organization_id=ORG_B))])
         response = client.put(
@@ -97,10 +94,6 @@ class TestDeviceDetailTenantBoundary:
             f"他テナント {ORG_B} のデバイスを {response.status_code} で更新した"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-02c: DELETE /devices/{id} に組織検査がなく他テナントを削除する",
-    )
     def test_delete_device_other_tenant_rejected(self, client, mock_db):
         record_execute(mock_db, [MockResult(scalar=make_device(organization_id=ORG_B))])
         response = client.delete(f"{DEVICES}/{DEVICE_B}", headers=AUTH_HEADERS)
@@ -109,10 +102,6 @@ class TestDeviceDetailTenantBoundary:
         )
         assert mock_db.delete.await_count == 0
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-03a: POST /devices がボディの organization_id をそのまま保存する",
-    )
     def test_create_device_uses_token_org(self, client, mock_db):
         response = client.post(
             DEVICES,
@@ -134,10 +123,6 @@ class TestDeviceDetailTenantBoundary:
 # ①-c 子リソース（sensors）の org 境界
 # ============================================
 class TestDeviceChildTenantBoundary:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-04a: GET /devices/{id}/sensors に組織検査がなく他テナントのセンサーを返す",
-    )
     def test_list_sensors_other_tenant_rejected(self, client, mock_db):
         foreign = make_sensor(device_id=DEVICE_B, name="他テナントセンサー")
         record_execute(mock_db, [MockResult(items=[foreign])])
@@ -146,10 +131,6 @@ class TestDeviceChildTenantBoundary:
             f"他テナント {ORG_B} のセンサーを {response.status_code} で返した"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-04b: POST /devices/{id}/sensors に組織検査がなく他テナントへ追加できる",
-    )
     def test_add_sensor_other_tenant_rejected(self, client, mock_db):
         record_execute(mock_db, [MockResult(scalar=make_device(organization_id=ORG_B))])
         response = client.post(
@@ -185,10 +166,6 @@ class TestAlertRuleTenantSource:
         assert str(ORG_B) not in sql, f"クエリ指定の {ORG_B} で絞られた: {sql!r}"
         assert str(ORG_A) in sql
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-05c: POST /alert-rules がボディの organization_id をそのまま保存する",
-    )
     def test_create_alert_rule_uses_token_org(self, client, mock_db):
         response = client.post(
             f"{API}/alert-rules",
@@ -220,10 +197,6 @@ class TestAlertHistoryStructuralGap:
         assert "organization_id" not in AlertHistory.__table__.columns
         assert "resolved_by" not in AlertHistory.__table__.columns
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-06a: GET /alerts が organization_id を受け取らず全テナントを返す（構造的に分離不能）",
-    )
     def test_alert_list_is_tenant_scoped(self, client, mock_db):
         captured = record_execute(mock_db, [MockResult(total=0), MockResult(items=[])])
         response = client.get(
@@ -235,10 +208,6 @@ class TestAlertHistoryStructuralGap:
             f"アラート履歴がテナントで絞られていない: {sql!r}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-06b: device_id が NULL のグローバルルールが他テナントのデバイスにも適用される",
-    )
     async def test_global_rule_from_other_org_not_applied(self, mock_db):
         from src.services.alert_service import check_alert_rules
 
@@ -248,23 +217,27 @@ class TestAlertHistoryStructuralGap:
         record_execute(mock_db, [MockResult(items=[foreign_rule]), MockResult(scalar=None)])
 
         created = await check_alert_rules(
-            mock_db, device_id=DEVICE_A, metric_name="temperature", value=35.0
+            mock_db,
+            device_id=DEVICE_A,
+            metric_name="temperature",
+            value=35.0,
+            organization_id=ORG_A,
         )
         assert created == [], (
             f"他テナント {ORG_B} のグローバルルールでアラートが生成された: {created}"
         )
         assert not mock_db.add.called
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-06c: アラートルール評価クエリが organization_id で絞られていない",
-    )
     async def test_alert_rule_evaluation_query_is_tenant_scoped(self, mock_db):
         from src.services.alert_service import check_alert_rules
 
         record_execute(mock_db, [MockResult(items=[]), MockResult(scalar=None)])
         await check_alert_rules(
-            mock_db, device_id=DEVICE_A, metric_name="temperature", value=35.0
+            mock_db,
+            device_id=DEVICE_A,
+            metric_name="temperature",
+            value=35.0,
+            organization_id=ORG_A,
         )
         sql = where_clause(sql_text(mock_db.execute.call_args_list[0][0][0]))
         assert "organization_id" in sql, (
@@ -276,10 +249,6 @@ class TestAlertHistoryStructuralGap:
 # ①-e テレメトリの org 境界
 # ============================================
 class TestTelemetryTenantBoundary:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-07a: GET /telemetry/{device_id} に組織検査がなく他テナントの計測値を返す",
-    )
     def test_query_telemetry_other_tenant_rejected(self, client, mock_db):
         foreign = make_telemetry(device_id=DEVICE_B, value=99.9)
         record_execute(mock_db, [MockResult(items=[foreign])])
@@ -291,10 +260,6 @@ class TestTelemetryTenantBoundary:
             f"他テナント {ORG_B} のテレメトリを {response.status_code} で返した"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-07b: GET /telemetry/{device_id}/latest に組織検査がない",
-    )
     def test_latest_telemetry_other_tenant_rejected(self, client, mock_db):
         row = MockFetchRow(
             sensor_id=SENSOR_A,
@@ -309,10 +274,6 @@ class TestTelemetryTenantBoundary:
             f"他テナント {ORG_B} の最新値を {response.status_code} で返した"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-07c: POST /telemetry/ingest がデバイス所有組織を検証せず他テナントへ書込める",
-    )
     def test_ingest_rejects_foreign_device(self, client, mock_db):
         response = client.post(
             f"{TELEMETRY}/ingest",
@@ -334,6 +295,7 @@ class TestTelemetryTenantBoundary:
 
     def test_ingest_accepts_own_device(self, client, mock_db):
         """正の対照: 自テナントのデバイスへの投入は 202。"""
+        record_execute(mock_db, [MockResult(scalar=make_device())])
         response = client.post(
             f"{TELEMETRY}/ingest",
             json={

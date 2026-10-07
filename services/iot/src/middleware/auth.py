@@ -121,3 +121,17 @@ def require_organization_id(token_data: TokenData) -> UUID:
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "ORG_INVALID", "message": "Organization claim is invalid."},
         ) from exc
+
+
+def require_actor_id(token_data: TokenData) -> UUID:
+    """トークンの sub を操作者として同定する（ボディ・クエリの値は信用しない）。"""
+    try:
+        return UUID(token_data.sub)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "INVALID_IDENTITY",
+                "message": "Authenticated user id is invalid.",
+            },
+        ) from exc

@@ -65,10 +65,6 @@ class TestAlertLifecycle:
         response = client.post(f"{ALERTS}/999/acknowledge", headers=AUTH_HEADERS)
         assert response.status_code == 404
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-08a: 未確認(未acknowledge)のアラートを resolve できてしまう（状態遷移順序の欠落）",
-    )
     def test_resolve_requires_acknowledge(self, client, mock_db):
         alert = make_alert(acknowledged_at=None, resolved_at=None)
         record_execute(mock_db, [MockResult(scalar=alert)])
@@ -78,10 +74,6 @@ class TestAlertLifecycle:
         )
         assert alert.resolved_at is None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-08b: 二重 acknowledge で先の確認者が上書きされる（証跡破壊）",
-    )
     def test_second_acknowledge_does_not_overwrite_first_actor(self, client, mock_db):
         alert = make_alert(acknowledged_by=USER_B, acknowledged_at=OLD)
         record_execute(mock_db, [MockResult(scalar=alert)])
@@ -92,10 +84,6 @@ class TestAlertLifecycle:
         )
         assert alert.acknowledged_at == OLD
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-08c: 解決済みアラートの再 resolve で resolved_at が上書きされる（非冪等）",
-    )
     def test_resolve_is_idempotent(self, client, mock_db):
         alert = make_alert(acknowledged_at=OLD, resolved_at=OLD)
         record_execute(mock_db, [MockResult(scalar=alert)])
@@ -105,10 +93,6 @@ class TestAlertLifecycle:
             f"解決済みの resolved_at が {alert.resolved_at} に上書きされた"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-08d: 解決済みアラートを後から acknowledge できる（状態遷移の逆行）",
-    )
     def test_acknowledge_after_resolve_rejected(self, client, mock_db):
         alert = make_alert(acknowledged_at=None, resolved_at=OLD)
         record_execute(mock_db, [MockResult(scalar=alert)])
@@ -117,10 +101,6 @@ class TestAlertLifecycle:
             f"解決済みアラートを {response.status_code} で確認できた"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-08e: トークン sub が UUID でない場合に 500（未処理 ValueError）",
-    )
     def test_acknowledge_with_invalid_identity_returns_4xx(self, mock_db):
         alert = make_alert()
         record_execute(mock_db, [MockResult(scalar=alert)])
@@ -148,10 +128,6 @@ class TestAlertLifecycle:
 # ④ テレメトリの時刻範囲・単位・欠測
 # ============================================
 class TestTelemetryBoundaries:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-09a: start_time > end_time を検証せず 200 を返す（境界値の誤り）",
-    )
     def test_start_after_end_is_rejected(self, client, mock_db):
         record_execute(mock_db, [MockResult(items=[])])
         response = client.get(
@@ -165,7 +141,9 @@ class TestTelemetryBoundaries:
 
     def test_time_range_is_inclusive_bounds(self, client, mock_db):
         """正の対照: 範囲は両端を含む（>= start AND <= end）。"""
-        captured = record_execute(mock_db, [MockResult(items=[])])
+        captured = record_execute(
+            mock_db, [MockResult(scalar=make_device()), MockResult(items=[])]
+        )
         response = client.get(
             f"{TELEMETRY}/{DEVICE_A}?start_time={START}&end_time={END}",
             headers=AUTH_HEADERS,
@@ -190,7 +168,9 @@ class TestTelemetryBoundaries:
 
     def test_huge_time_range_is_accepted(self, client, mock_db):
         """現状記録（要判断）: 期間上限の検証がなく 1970→2999 も受理される。"""
-        record_execute(mock_db, [MockResult(items=[])])
+        record_execute(
+            mock_db, [MockResult(scalar=make_device()), MockResult(items=[])]
+        )
         response = client.get(
             f"{TELEMETRY}/{DEVICE_A}"
             "?start_time=1970-01-01T00:00:00Z&end_time=2999-12-31T00:00:00Z",
@@ -200,7 +180,9 @@ class TestTelemetryBoundaries:
 
     def test_naive_datetime_is_accepted(self, client, mock_db):
         """現状記録（要判断）: タイムゾーン無しの時刻がそのまま受理される。"""
-        record_execute(mock_db, [MockResult(items=[])])
+        record_execute(
+            mock_db, [MockResult(scalar=make_device()), MockResult(items=[])]
+        )
         response = client.get(
             f"{TELEMETRY}/{DEVICE_A}"
             "?start_time=2026-05-01T00:00:00&end_time=2026-05-02T00:00:00",
@@ -210,6 +192,7 @@ class TestTelemetryBoundaries:
 
     def test_ingest_accepts_missing_unit(self, client, mock_db):
         """現状記録（要判断）: 単位なしの計測値が受理される（Q4 単位表記）。"""
+        record_execute(mock_db, [MockResult(scalar=make_device())])
         response = client.post(
             f"{TELEMETRY}/ingest",
             json={"data": [{"device_id": str(DEVICE_A), "metric_name": "temperature", "value": 25.5}]},
@@ -220,6 +203,7 @@ class TestTelemetryBoundaries:
 
     def test_ingest_accepts_future_timestamp(self, client, mock_db):
         """現状記録（要判断）: 未来時刻の計測値がそのまま受理される。"""
+        record_execute(mock_db, [MockResult(scalar=make_device())])
         response = client.post(
             f"{TELEMETRY}/ingest",
             json={
@@ -273,10 +257,6 @@ class TestHeartbeatIdempotency:
         assert device.status == "online"
         assert device.last_seen_at is not None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-10a: heartbeat が retired のデバイスを無条件で online に復帰させる",
-    )
     def test_heartbeat_does_not_resurrect_retired_device(self, client, mock_db):
         device = make_device(status="retired")
         record_execute(mock_db, [MockResult(scalar=device)])
@@ -287,10 +267,6 @@ class TestHeartbeatIdempotency:
             f"retired が {device.status} に変わった（{response.status_code}）"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-10b: battery_level の範囲検証がなく 150% 等が受理される（境界値）",
-    )
     def test_heartbeat_rejects_out_of_range_battery(self, client, mock_db):
         device = make_device()
         record_execute(mock_db, [MockResult(scalar=device)])
@@ -303,10 +279,6 @@ class TestHeartbeatIdempotency:
             f"範囲外の battery_level が {response.status_code} で受理された"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-10c: heartbeat がデバイス所有組織を検証しない（他テナント機の状態を変更）",
-    )
     def test_heartbeat_other_tenant_device_rejected(self, client, mock_db):
         device = make_device(organization_id=ORG_B)
         record_execute(mock_db, [MockResult(scalar=device)])

@@ -63,6 +63,7 @@ _REAL_BINDINGS = {
         ("query_telemetry", telemetry_service.query_telemetry),
         ("get_latest_telemetry", telemetry_service.get_latest_telemetry),
         ("check_alert_rules", alert_service.check_alert_rules),
+        ("get_device_by_id", device_service.get_device_by_id),
     ),
     alerts_api: (
         ("get_alert_rules", alert_service.get_alert_rules),

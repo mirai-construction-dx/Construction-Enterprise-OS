@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user, require_organization_id
+from ..middleware.auth import (
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -17,6 +21,7 @@ from ..schemas import (
 )
 from ..models import AlertRule as AlertRuleModel
 from ..services.alert_service import (
+    AlertStateError,
     get_alert_rules,
     get_alert_history,
     acknowledge_alert,
@@ -34,7 +39,7 @@ async def create_alert_rule(
     _current_user=Depends(get_current_user),
 ):
     rule = AlertRuleModel(
-        organization_id=body.organization_id,
+        organization_id=require_organization_id(_current_user),
         device_id=body.device_id,
         sensor_id=body.sensor_id,
         name=body.name,
@@ -85,6 +90,7 @@ async def list_alerts(
         severity=severity,
         device_id=device_id,
         acknowledged=acknowledged,
+        organization_id=require_organization_id(_current_user),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -109,9 +115,14 @@ async def acknowledge(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    from uuid import UUID as UUIDType
-    user_id = UUIDType(current_user.sub)
-    alert = await acknowledge_alert(db, alert_id, user_id)
+    user_id = require_actor_id(current_user)
+    try:
+        alert = await acknowledge_alert(db, alert_id, user_id)
+    except AlertStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not alert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -127,7 +138,13 @@ async def resolve(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    alert = await resolve_alert(db, alert_id)
+    try:
+        alert = await resolve_alert(db, alert_id)
+    except AlertStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not alert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

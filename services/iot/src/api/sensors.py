@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import get_current_user, require_organization_id
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -25,7 +25,8 @@ async def create_sensor(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    sensor = await add_sensor(db, device_id, body.model_dump())
+    org_id = require_organization_id(_current_user)
+    sensor = await add_sensor(db, device_id, org_id, body.model_dump())
     if not sensor:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -41,5 +42,11 @@ async def list_sensors(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    sensors = await get_sensors_by_device(db, device_id)
+    org_id = require_organization_id(_current_user)
+    sensors = await get_sensors_by_device(db, device_id, org_id)
+    if sensors is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
+        )
     return APIResponse(data=[SensorResponse.model_validate(s) for s in sensors])
