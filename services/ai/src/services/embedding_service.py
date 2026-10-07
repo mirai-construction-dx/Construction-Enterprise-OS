@@ -179,10 +179,12 @@ class EmbeddingService:
     async def delete_embeddings(
         self,
         db: AsyncSession,
+        organization_id: UUID,
         source_type: str,
         source_id: UUID,
     ) -> int:
         stmt = delete(Embedding).where(
+            Embedding.organization_id == organization_id,
             Embedding.source_type == source_type,
             Embedding.source_id == source_id,
         )

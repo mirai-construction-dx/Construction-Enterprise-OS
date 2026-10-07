@@ -111,9 +111,10 @@ async def delete_embeddings(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
     service = _get_embedding_service()
     try:
-        count = await service.delete_embeddings(db, source_type, source_id)
+        count = await service.delete_embeddings(db, org_id, source_type, source_id)
     finally:
         await service.close()
 
