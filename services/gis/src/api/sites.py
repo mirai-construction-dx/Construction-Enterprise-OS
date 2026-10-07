@@ -8,7 +8,12 @@ from geoalchemy2 import Geography
 from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models import ConstructionSite
 from ..models.base import get_db
@@ -297,6 +302,7 @@ async def delete_site(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "工事現場が見つかりません。"},
         )
+    require_any_role(token_data, MANAGEMENT_ROLES)
     await db.delete(site)
     await db.flush()
     return _api_response(data={"deleted": True})
