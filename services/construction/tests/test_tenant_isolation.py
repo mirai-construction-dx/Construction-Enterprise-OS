@@ -528,3 +528,15 @@ def test_approve_reject_requires_approval_role(mock_db, suffix):
     resp = _client(mock_db, SITE_WORKER).post(f"{BASE}/methods/{method.id}/{suffix}")
     _assert_error(resp, 403, "FORBIDDEN")
     _assert_no_write(mock_db)
+
+
+# ============================================
+# RBAC: delete requires a management role
+# ============================================
+@pytest.mark.parametrize("kind", KINDS)
+def test_delete_requires_management_role(mock_db, kind):
+    record = FACTORIES[kind](ORG_A)
+    mock_db.get = AsyncMock(return_value=record)
+    resp = _client(mock_db, SITE_WORKER).delete(f"{BASE}/{kind}/{record.id}")
+    _assert_error(resp, 403, "FORBIDDEN")
+    _assert_no_write(mock_db)

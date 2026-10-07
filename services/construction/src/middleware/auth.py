@@ -75,6 +75,8 @@ async def get_current_user(
 
 # 承認・否認に必要なロール（auth サービスの既定ロール seed と一致）
 APPROVAL_ROLES = frozenset({"admin", "site_manager", "site_supervisor"})
+# 削除に必要なロール（auth サービスの既定ロール seed と一致）
+MANAGEMENT_ROLES = frozenset({"admin", "site_manager"})
 
 
 def require_any_role(token_data: TokenData, allowed_roles: frozenset[str]) -> None:
