@@ -71,7 +71,9 @@ class _FakeResult:
 
 @pytest.fixture
 def make_client():
-    def _factory(*, items=None, total=0, raise_server_exceptions: bool = True):
+    def _factory(
+        *, items=None, total=0, results=None, raise_server_exceptions: bool = True
+    ):
         statements: list = []
         db = AsyncMock()
         db.add = MagicMock()
@@ -84,6 +86,12 @@ def make_client():
 
         async def _execute(statement, *args, **kwargs):
             statements.append(statement)
+            if results:
+                index = min(len(statements) - 1, len(results) - 1)
+                spec = results[index]
+                return _FakeResult(
+                    items=spec.get("items"), total=spec.get("total", 0)
+                )
             return _FakeResult(items=items, total=total)
 
         db.execute = _execute
@@ -227,10 +235,43 @@ class TestCoordinateAndUnitDefects:
         期待: severity 順（critical → high → medium → low）。
         未確認: 並び順を規定したリポジトリ内資料は無いため、順序そのものは仕様未確認。
               ただしコードの意図（``.desc()`` = 危険度の高い順）とは矛盾する。
+
+        検証方法: 実装が ``risk_level.desc()``（文字列降順）ではなく、severity を
+        数値化する CASE 式で ORDER BY していることを SQL で確認する。
         """
-        lexical_desc = sorted(["critical", "high", "medium", "low"], reverse=True)
-        assert lexical_desc == ["critical", "high", "medium", "low"], (
-            f"文字列降順の並びは {lexical_desc} であり severity 順にならない"
+        from datetime import datetime, timezone
+
+        from src.models import ConstructionSite
+
+        site = ConstructionSite(
+            id=uuid.uuid4(),
+            organization_id=ORG_A,
+            name="ダミー現場",
+            location=f"SRID=4326;POINT({DUMMY_LON} {DUMMY_LAT})",
+            work_area=(
+                "SRID=4326;POLYGON((139.0 35.0, 139.01 35.0, "
+                "139.01 35.01, 139.0 35.01, 139.0 35.0))"
+            ),
+            status="active",
+            metadata_={},
+            created_at=datetime(2026, 5, 24, tzinfo=timezone.utc),
+            updated_at=datetime(2026, 5, 24, tzinfo=timezone.utc),
+        )
+        client, statements, _ = make_client(
+            results=[{"items": [site]}, {"items": []}]
+        )
+        response = client.get(f"/api/v1/gis/hazard-zones/intersecting/{site.id}")
+        assert response.status_code == 200
+        assert len(statements) == 2, "現場取得と危険区域検索の2クエリを想定"
+        order_sql = _sql(statements[1]).lower()
+        assert "order by" in order_sql, f"ORDER BY が無い / {_sql(statements[1])}"
+        order_clause = order_sql.split("order by", 1)[1]
+        assert "case" in order_clause, (
+            "risk_level が severity 順ではなく文字列順で並んでいる "
+            f"(CASE 式で severity を数値化すべき) / ORDER BY = {_sql(statements[1])}"
+        )
+        assert "risk_level" in order_clause, (
+            f"ORDER BY が risk_level を参照していない / {_sql(statements[1])}"
         )
 
 
