@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import TokenData, get_current_user, require_organization_id
 from ..models.base import get_db
 from ..schemas.schemas import (
     InvoiceCreateRequest,
@@ -27,25 +27,26 @@ router = APIRouter()
 async def create_invoice(
     body: InvoiceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    return await invoice_service.create_invoice(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = require_organization_id(current_user)
+    return await invoice_service.create_invoice(db, data)
 
 
 @router.get("/invoices", response_model=InvoiceListResponse)
 async def list_invoices(
-    organization_id: UUID | None = Query(None),
     ledger_id: UUID | None = Query(None),
     invoice_type: str | None = Query(None),
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     items, total = await invoice_service.list_invoices(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(current_user),
         ledger_id=ledger_id,
         invoice_type=invoice_type,
         status=status,
@@ -59,10 +60,11 @@ async def list_invoices(
 async def get_invoice(
     invoice_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     invoice = await invoice_service.get_invoice(db, invoice_id)
-    if not invoice:
+    if not invoice or invoice.organization_id != org_id:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
     return invoice
 
@@ -72,10 +74,11 @@ async def update_invoice(
     invoice_id: UUID,
     body: InvoiceUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     invoice = await invoice_service.get_invoice(db, invoice_id)
-    if not invoice:
+    if not invoice or invoice.organization_id != org_id:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
     return await invoice_service.update_invoice(
         db, invoice, body.model_dump(exclude_none=True)
@@ -87,10 +90,11 @@ async def pay_invoice(
     invoice_id: UUID,
     body: InvoicePayRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     invoice = await invoice_service.get_invoice(db, invoice_id)
-    if not invoice:
+    if not invoice or invoice.organization_id != org_id:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
     try:
         return await invoice_service.pay_invoice(

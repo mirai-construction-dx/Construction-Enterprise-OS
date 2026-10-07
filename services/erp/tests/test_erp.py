@@ -11,6 +11,11 @@ from src.main import create_app
 from src.middleware.auth import TokenData, get_current_user
 from src.models.base import get_db
 
+# テナント境界を検査するため、トークンの org/sub は有効な UUID で固定する。
+# 各テストのエンティティもこの ORG を使うことで、org スコープ検査を通過させる。
+ORG = uuid.UUID("00000000-0000-0000-0000-0000000000aa")
+USER = uuid.UUID("00000000-0000-0000-0000-0000000000a1")
+
 
 class MockScalarResult:
     def __init__(self, value=None, items=None, total=0):
@@ -83,7 +88,7 @@ def app(mock_db):
         yield mock_db
 
     async def mock_get_current_user():
-        return TokenData(sub="test-user-id", type="user", org="test-org", roles=["admin"])
+        return TokenData(sub=str(USER), type="user", org=str(ORG), roles=["admin"])
 
     _app.dependency_overrides[get_db] = mock_get_db
     _app.dependency_overrides[get_current_user] = mock_get_current_user
@@ -155,7 +160,7 @@ class TestAuthRequired:
 class TestLedgerCRUD:
     def test_create_ledger(self, client, mock_db):
 
-        org_id = uuid.uuid4()
+        org_id = ORG
         project_id = uuid.uuid4()
 
         response = client.post(
@@ -186,7 +191,7 @@ class TestLedgerCRUD:
     def test_list_ledgers(self, client, mock_db):
         from src.models.models import ProjectLedger
 
-        org_id = uuid.uuid4()
+        org_id = ORG
         ledger = ProjectLedger(
             id=uuid.uuid4(),
             organization_id=org_id,
@@ -222,7 +227,7 @@ class TestLedgerCRUD:
         from src.models.models import ProjectLedger
 
         ledger_id = uuid.uuid4()
-        org_id = uuid.uuid4()
+        org_id = ORG
         ledger = ProjectLedger(
             id=ledger_id,
             organization_id=org_id,
@@ -270,7 +275,7 @@ class TestLedgerCRUD:
         ledger_id = uuid.uuid4()
         ledger = ProjectLedger(
             id=ledger_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             project_id=uuid.uuid4(),
             project_code="PJ-001",
             project_name="テスト工事",
@@ -311,7 +316,7 @@ class TestBudgetCRUD:
         ledger_id = uuid.uuid4()
         ledger = ProjectLedger(
             id=ledger_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             project_id=uuid.uuid4(),
             project_code="PJ-001",
             project_name="テスト工事",
@@ -359,7 +364,7 @@ class TestBudgetCRUD:
         from src.models.models import Budget, ProjectLedger
 
         ledger_id = uuid.uuid4()
-        org_id = uuid.uuid4()
+        org_id = ORG
         ledger = ProjectLedger(
             id=ledger_id,
             organization_id=org_id,
@@ -405,7 +410,7 @@ class TestBudgetCRUD:
         from src.models.models import Budget, ProjectLedger
 
         ledger_id = uuid.uuid4()
-        org_id = uuid.uuid4()
+        org_id = ORG
         ledger = ProjectLedger(
             id=ledger_id,
             organization_id=org_id,
@@ -468,7 +473,7 @@ class TestCostFlow:
         ledger_id = uuid.uuid4()
         ledger = ProjectLedger(
             id=ledger_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             project_id=uuid.uuid4(),
             project_code="PJ-001",
             project_name="テスト工事",
@@ -505,7 +510,7 @@ class TestCostFlow:
     def test_approve_cost_updates_budget_and_ledger(self, client, mock_db):
         from src.models.models import Budget, CostItem, ProjectLedger
 
-        org_id = uuid.uuid4()
+        org_id = ORG
         ledger_id = uuid.uuid4()
         budget_id = uuid.uuid4()
         cost_id = uuid.uuid4()
@@ -565,7 +570,7 @@ class TestCostFlow:
 
         mock_db.get = mock_get
 
-        approver_id = uuid.uuid4()
+        approver_id = USER
         response = client.post(
             f"/api/v1/erp/costs/{cost_id}/approve",
             json={"approved_by": str(approver_id)},
@@ -574,7 +579,7 @@ class TestCostFlow:
         assert response.status_code == 200
 
         assert cost_item.status == "approved"
-        assert cost_item.approved_by == approver_id
+        assert cost_item.approved_by == USER
         assert cost_item.approved_at is not None
         assert float(budget.actual_amount) == 150000
         assert float(ledger.actual_cost) == 150000
@@ -586,7 +591,7 @@ class TestCostFlow:
         cost_id = uuid.uuid4()
         cost_item = CostItem(
             id=cost_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             ledger_id=uuid.uuid4(),
             category="materials",
             description="鋼材購入",
@@ -610,7 +615,7 @@ class TestCostFlow:
         cost_id = uuid.uuid4()
         cost_item = CostItem(
             id=cost_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             ledger_id=uuid.uuid4(),
             category="materials",
             description="削除予定",
@@ -634,7 +639,7 @@ class TestCostFlow:
         cost_id = uuid.uuid4()
         cost_item = CostItem(
             id=cost_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             ledger_id=uuid.uuid4(),
             category="materials",
             description="承認済み",
@@ -657,7 +662,7 @@ class TestCostFlow:
 # ============================================
 class TestInvoiceManagement:
     def test_create_invoice(self, client, mock_db):
-        org_id = uuid.uuid4()
+        org_id = ORG
 
         response = client.post(
             "/api/v1/erp/invoices",
@@ -682,7 +687,7 @@ class TestInvoiceManagement:
     def test_list_invoices(self, client, mock_db):
         from src.models.models import Invoice
 
-        org_id = uuid.uuid4()
+        org_id = ORG
         inv = Invoice(
             id=uuid.uuid4(),
             organization_id=org_id,
@@ -717,7 +722,7 @@ class TestInvoiceManagement:
         inv_id = uuid.uuid4()
         inv = Invoice(
             id=inv_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             invoice_number="INV-001",
             invoice_type="payable",
             vendor_name="建材商事",
@@ -746,7 +751,7 @@ class TestInvoiceManagement:
         inv_id = uuid.uuid4()
         inv = Invoice(
             id=inv_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             invoice_number="INV-001",
             invoice_type="payable",
             vendor_name="建材商事",
@@ -777,7 +782,7 @@ class TestInvoiceManagement:
         inv_id = uuid.uuid4()
         inv = Invoice(
             id=inv_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             invoice_number="INV-001",
             invoice_type="payable",
             vendor_name="建材商事",
@@ -804,7 +809,7 @@ class TestInvoiceManagement:
         inv_id = uuid.uuid4()
         inv = Invoice(
             id=inv_id,
-            organization_id=uuid.uuid4(),
+            organization_id=ORG,
             invoice_number="INV-001",
             invoice_type="payable",
             vendor_name="建材商事",

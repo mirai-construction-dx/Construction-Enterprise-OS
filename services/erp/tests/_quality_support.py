@@ -134,7 +134,11 @@ class CaptureDB:
 
     async def execute(self, statement, *args, **kwargs):
         self.statements.append(statement)
-        return Result(items=self.items, total=len(self.items))
+        # put() されたエンティティを WHERE 句で絞らず返す（テナント境界は
+        # statements の WHERE 句で別途検査する）。実データ集計系（/ledger/summary 等）が
+        # 永続化済みエンティティを観測できるようにするため。
+        entities = list(self.entities.values())
+        return Result(items=entities, total=len(entities))
 
 
 def make_client(db, org=ORG_A, sub=USER_A, roles=None, scopes=None):
@@ -149,7 +153,7 @@ def make_client(db, org=ORG_A, sub=USER_A, roles=None, scopes=None):
             sub=str(sub),
             type="user",
             org=str(org) if org is not None else None,
-            roles=list(roles or []),
+            roles=list(roles) if roles is not None else ["admin"],
             scopes=list(scopes or []),
         )
 

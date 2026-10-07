@@ -88,3 +88,28 @@ def require_organization_id(token_data: TokenData) -> UUID:
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "ORG_INVALID", "message": "Organization claim is invalid."},
         ) from exc
+
+
+def require_actor_id(token_data: TokenData) -> UUID:
+    """トークンの sub を操作者として同定する（ボディ・クエリの値は信用しない）。"""
+    try:
+        return UUID(token_data.sub)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "INVALID_IDENTITY", "message": "Authenticated user id is invalid."},
+        ) from exc
+
+
+# 承認など財務書込に必要なロール（auth サービスの既定ロール seed と一致）
+FINANCE_ROLES = frozenset({"admin", "accountant"})
+
+
+def require_finance_role(token_data: TokenData) -> None:
+    """財務書込（原価承認）に経理ロールを要求する（fail-closed）。"""
+    roles = set(token_data.roles or [])
+    if not (roles & FINANCE_ROLES):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "この操作には経理ロールが必要です。"},
+        )

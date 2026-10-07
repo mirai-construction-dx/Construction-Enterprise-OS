@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 # 工事台帳 (ProjectLedger)
 # ============================================
 class LedgerCreateRequest(BaseModel):
-    organization_id: UUID
+    # organization_id はトークンの org クレームから導出する（ボディは信用しない）
     project_id: UUID
     project_code: str = Field(max_length=50)
     project_name: str = Field(max_length=500)
@@ -31,9 +31,9 @@ class LedgerUpdateRequest(BaseModel):
     project_name: str | None = None
     project_type: str | None = None
     client_name: str | None = None
-    contract_amount: Decimal | None = None
+    contract_amount: Decimal | None = Field(default=None, gt=0)
     budget_amount: Decimal | None = None
-    progress_rate: Decimal | None = None
+    progress_rate: Decimal | None = Field(default=None, ge=0, le=100)
     status: str | None = None
     start_date: date | None = None
     planned_end_date: date | None = None
@@ -102,7 +102,7 @@ class LedgerListResponse(BaseModel):
 # 予算 (Budget)
 # ============================================
 class BudgetCreateRequest(BaseModel):
-    organization_id: UUID
+    # organization_id はトークンの org クレームから導出する（ボディは信用しない）
     category: str = Field(max_length=100)
     planned_amount: Decimal = Field(gt=0)
     note: str | None = None
@@ -140,7 +140,7 @@ class BudgetSummaryResponse(BaseModel):
 # 原価 (CostItem)
 # ============================================
 class CostCreateRequest(BaseModel):
-    organization_id: UUID
+    # organization_id / created_by はトークン（org / sub）から導出する
     budget_id: UUID | None = None
     category: str = Field(max_length=100)
     description: str
@@ -149,13 +149,12 @@ class CostCreateRequest(BaseModel):
     vendor_name: str | None = None
     invoice_number: str | None = None
     receipt_file_key: str | None = None
-    created_by: UUID | None = None
 
 
 class CostUpdateRequest(BaseModel):
     category: str | None = None
     description: str | None = None
-    amount: Decimal | None = None
+    amount: Decimal | None = Field(default=None, gt=0)
     cost_date: date | None = None
     vendor_name: str | None = None
     invoice_number: str | None = None
@@ -163,7 +162,8 @@ class CostUpdateRequest(BaseModel):
 
 
 class CostApproveRequest(BaseModel):
-    approved_by: UUID
+    # approved_by はトークンの sub クレームから導出する（ボディは信用しない）
+    pass
 
 
 class CostItemResponse(BaseModel):
@@ -198,7 +198,7 @@ class CostListResponse(BaseModel):
 # 請求書 (Invoice)
 # ============================================
 class InvoiceCreateRequest(BaseModel):
-    organization_id: UUID
+    # organization_id はトークンの org クレームから導出する（ボディは信用しない）
     ledger_id: UUID | None = None
     invoice_number: str = Field(max_length=100)
     invoice_type: str = Field(max_length=20)

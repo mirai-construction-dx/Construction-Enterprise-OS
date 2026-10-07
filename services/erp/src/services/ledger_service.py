@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,18 +24,19 @@ async def get_ledger(db: AsyncSession, ledger_id: uuid.UUID) -> ProjectLedger | 
 
 async def list_ledgers(
     db: AsyncSession,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
     status: str | None = None,
     project_type: str | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> tuple[list[ProjectLedger], int]:
-    query = select(ProjectLedger)
-    count_query = select(func.count(ProjectLedger.id))
+    query = select(ProjectLedger).where(
+        ProjectLedger.organization_id == organization_id
+    )
+    count_query = select(func.count(ProjectLedger.id)).where(
+        ProjectLedger.organization_id == organization_id
+    )
 
-    if organization_id:
-        query = query.where(ProjectLedger.organization_id == organization_id)
-        count_query = count_query.where(ProjectLedger.organization_id == organization_id)
     if status:
         query = query.where(ProjectLedger.status == status)
         count_query = count_query.where(ProjectLedger.status == status)
@@ -95,23 +97,40 @@ async def get_financial_summary(
     ledger: ProjectLedger,
 ) -> dict:
     _recalculate_profit(ledger)
-    contract = float(ledger.contract_amount)
-    actual = float(ledger.actual_cost)
-    budget = float(ledger.budget_amount)
+    contract = Decimal(str(ledger.contract_amount))
+    actual = Decimal(str(ledger.actual_cost))
+    budget = Decimal(str(ledger.budget_amount))
+    estimated = contract - actual
+    profit_margin = (
+        ((estimated / contract) * Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        if contract > 0
+        else Decimal("0")
+    )
+    budget_utilization = (
+        ((actual / budget) * Decimal("100")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        if budget > 0
+        else Decimal("0")
+    )
 
     return {
         "contract_amount": contract,
         "budget_amount": budget,
         "actual_cost": actual,
-        "estimated_profit": contract - actual,
-        "profit_margin": ((contract - actual) / contract * 100) if contract > 0 else 0,
-        "progress_rate": float(ledger.progress_rate),
-        "budget_utilization": (actual / budget * 100) if budget > 0 else 0,
+        "estimated_profit": estimated,
+        "profit_margin": profit_margin,
+        "progress_rate": Decimal(str(ledger.progress_rate)),
+        "budget_utilization": budget_utilization,
     }
 
 
 def _recalculate_profit(ledger: ProjectLedger) -> None:
-    ledger.estimated_profit = float(ledger.contract_amount) - float(ledger.actual_cost)
+    ledger.estimated_profit = Decimal(str(ledger.contract_amount)) - Decimal(
+        str(ledger.actual_cost)
+    )
 
 
 async def get_overall_summary(db: AsyncSession, organization_id: uuid.UUID) -> dict:
@@ -127,8 +146,8 @@ async def get_overall_summary(db: AsyncSession, organization_id: uuid.UUID) -> d
     )
     ledgers = list(result.scalars().all())
 
-    total_revenue = sum(float(ledger.contract_amount or 0) for ledger in ledgers)
-    total_cost = sum(float(ledger.actual_cost or 0) for ledger in ledgers)
+    total_revenue = sum(Decimal(str(ledger.contract_amount or 0)) for ledger in ledgers)
+    total_cost = sum(Decimal(str(ledger.actual_cost or 0)) for ledger in ledgers)
     gross_profit = total_revenue - total_cost
     projects_count = len(ledgers)
 
@@ -138,6 +157,8 @@ async def get_overall_summary(db: AsyncSession, organization_id: uuid.UUID) -> d
         "gross_profit": gross_profit,
         "operating_profit": None,
         "projects_count": projects_count,
-        "gross_margin": (gross_profit / total_revenue) if total_revenue > 0 else 0.0,
+        "gross_margin": (
+            float(gross_profit / total_revenue) if total_revenue > 0 else 0.0
+        ),
         "operating_margin": None,
     }

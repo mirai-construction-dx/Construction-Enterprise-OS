@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     Date,
@@ -37,11 +38,11 @@ class ProjectLedger(Base):
     project_name: Mapped[str] = mapped_column(String(500), nullable=False)
     project_type: Mapped[str] = mapped_column(String(50), nullable=False)
     client_name: Mapped[str | None] = mapped_column(String(255))
-    contract_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
-    budget_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
-    actual_cost: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
-    estimated_profit: Mapped[float | None] = mapped_column(Numeric(15, 2))
-    progress_rate: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
+    contract_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    budget_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    actual_cost: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    estimated_profit: Mapped[Decimal | None] = mapped_column(Numeric(15, 2))
+    progress_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
     status: Mapped[str] = mapped_column(String(20), default="planning")
     start_date: Mapped[date | None] = mapped_column(Date)
     planned_end_date: Mapped[date | None] = mapped_column(Date)
@@ -77,8 +78,8 @@ class Budget(Base):
         UUID(as_uuid=True), ForeignKey("erp.project_ledger.id")
     )
     category: Mapped[str] = mapped_column(String(100), nullable=False)
-    planned_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
-    actual_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    planned_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    actual_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -91,7 +92,7 @@ class Budget(Base):
     cost_items: Mapped[list["CostItem"]] = relationship("CostItem", back_populates="budget")
 
     @property
-    def variance(self) -> float:
+    def variance(self) -> Decimal:
         return self.planned_amount - self.actual_amount
 
 
@@ -117,7 +118,7 @@ class CostItem(Base):
     )
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     cost_date: Mapped[date] = mapped_column(Date, nullable=False)
     vendor_name: Mapped[str | None] = mapped_column(String(255))
     invoice_number: Mapped[str | None] = mapped_column(String(100))
@@ -153,9 +154,9 @@ class Invoice(Base):
     invoice_number: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     invoice_type: Mapped[str] = mapped_column(String(20), nullable=False)
     vendor_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
-    tax_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
-    total_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), default=0)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     issue_date: Mapped[date] = mapped_column(Date, nullable=False)
     due_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(20), default="draft")
@@ -190,9 +191,9 @@ class LaborCost(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     worker_name: Mapped[str] = mapped_column(String(255), nullable=False)
     work_date: Mapped[date] = mapped_column(Date, nullable=False)
-    work_hours: Mapped[float] = mapped_column(Numeric(5, 2), nullable=False)
-    hourly_rate: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    total_cost: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
+    work_hours: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    hourly_rate: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     work_type: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

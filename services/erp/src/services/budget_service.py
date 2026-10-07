@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,11 +23,14 @@ async def get_budget(db: AsyncSession, budget_id: uuid.UUID) -> Budget | None:
 
 
 async def list_budgets(
-    db: AsyncSession, ledger_id: uuid.UUID
+    db: AsyncSession, ledger_id: uuid.UUID, organization_id: uuid.UUID
 ) -> list[Budget]:
     result = await db.execute(
         select(Budget)
-        .where(Budget.ledger_id == ledger_id)
+        .where(
+            Budget.ledger_id == ledger_id,
+            Budget.organization_id == organization_id,
+        )
         .order_by(Budget.category)
     )
     return list(result.scalars().all())
@@ -45,11 +49,11 @@ async def update_budget(
 
 
 async def get_budget_summary(
-    db: AsyncSession, ledger_id: uuid.UUID
+    db: AsyncSession, ledger_id: uuid.UUID, organization_id: uuid.UUID
 ) -> dict:
-    budgets = await list_budgets(db, ledger_id)
-    total_planned = sum(float(b.planned_amount) for b in budgets)
-    total_actual = sum(float(b.actual_amount) for b in budgets)
+    budgets = await list_budgets(db, ledger_id, organization_id)
+    total_planned = sum(Decimal(str(b.planned_amount)) for b in budgets)
+    total_actual = sum(Decimal(str(b.actual_amount)) for b in budgets)
     return {
         "ledger_id": ledger_id,
         "budget_items": budgets,

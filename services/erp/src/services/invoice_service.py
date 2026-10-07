@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,9 +11,8 @@ from ..models.models import Invoice
 
 
 async def create_invoice(db: AsyncSession, data: dict) -> Invoice:
-    amount = float(data.get("amount", 0))
-    tax = float(data.get("tax_amount", 0))
-    total = amount + tax
+    # 金額は Decimal で加算し、float 起因の丸め誤差を防ぐ
+    total = data["amount"] + data["tax_amount"]
 
     invoice = Invoice(
         total_amount=total,
@@ -30,19 +30,18 @@ async def get_invoice(db: AsyncSession, invoice_id: uuid.UUID) -> Invoice | None
 
 async def list_invoices(
     db: AsyncSession,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
     ledger_id: uuid.UUID | None = None,
     invoice_type: str | None = None,
     status: str | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> tuple[list[Invoice], int]:
-    query = select(Invoice)
-    count_query = select(func.count(Invoice.id))
+    query = select(Invoice).where(Invoice.organization_id == organization_id)
+    count_query = select(func.count(Invoice.id)).where(
+        Invoice.organization_id == organization_id
+    )
 
-    if organization_id:
-        query = query.where(Invoice.organization_id == organization_id)
-        count_query = count_query.where(Invoice.organization_id == organization_id)
     if ledger_id:
         query = query.where(Invoice.ledger_id == ledger_id)
         count_query = count_query.where(Invoice.ledger_id == ledger_id)
@@ -71,9 +70,11 @@ async def update_invoice(
         if value is not None:
             setattr(invoice, key, value)
 
-    # Recalculate total from amount + tax
+    # Recalculate total from amount + tax (Decimal で丸め誤差を防ぐ)
     if "amount" in data or "tax_amount" in data:
-        invoice.total_amount = float(invoice.amount) + float(invoice.tax_amount)
+        invoice.total_amount = Decimal(str(invoice.amount)) + Decimal(
+            str(invoice.tax_amount)
+        )
 
     invoice.updated_at = datetime.now(timezone.utc)
     await db.flush()
