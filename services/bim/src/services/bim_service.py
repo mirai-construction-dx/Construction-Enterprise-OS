@@ -38,10 +38,10 @@ def geojson_to_wkt_element(geometry: dict) -> WKTElement | None:
 
 
 async def create_bim_model(
-    db: AsyncSession, body: BIMModelCreate, uploaded_by: UUID
+    db: AsyncSession, organization_id: UUID, uploaded_by: UUID, body: BIMModelCreate
 ) -> BIMModel:
     model = BIMModel(
-        organization_id=body.organization_id,
+        organization_id=organization_id,
         project_id=body.project_id,
         name=body.name,
         description=body.description,
@@ -49,7 +49,7 @@ async def create_bim_model(
         file_format=body.file_format,
         file_size=body.file_size,
         file_key=body.file_key,
-        version=body.version,
+        version=body.version or "v1",
         status=body.status,
         author=body.author,
         software=body.software,
@@ -70,6 +70,7 @@ async def create_bim_model(
 async def list_bim_models(
     db: AsyncSession,
     *,
+    organization_id: UUID,
     page: int = 1,
     per_page: int = 20,
     model_type: str | None = None,
@@ -78,6 +79,10 @@ async def list_bim_models(
 ) -> tuple[list[BIMModel], int]:
     query = select(BIMModel)
     count_query = select(func.count(BIMModel.id))
+
+    # テナント絞り込みは count と本体の両方に必ず適用する。
+    query = query.where(BIMModel.organization_id == organization_id)
+    count_query = count_query.where(BIMModel.organization_id == organization_id)
 
     if model_type:
         query = query.where(BIMModel.model_type == model_type)
@@ -99,15 +104,28 @@ async def list_bim_models(
     return list(models), total
 
 
-async def get_bim_model(db: AsyncSession, model_id: UUID) -> BIMModel | None:
-    result = await db.execute(select(BIMModel).where(BIMModel.id == model_id))
-    return result.scalar_one_or_none()
+async def get_bim_model(
+    db: AsyncSession, model_id: UUID, organization_id: UUID
+) -> BIMModel | None:
+    result = await db.execute(
+        select(BIMModel).where(
+            BIMModel.id == model_id,
+            BIMModel.organization_id == organization_id,
+        )
+    )
+    model = result.scalar_one_or_none()
+    if model is None:
+        return None
+    # WHERE 句に加えて明示比較（mock 経由や将来の変更で組織境界が外れないための防御）。
+    if getattr(model, "organization_id", None) != organization_id:
+        return None
+    return model
 
 
 async def update_bim_model(
-    db: AsyncSession, model_id: UUID, body: BIMModelUpdate
+    db: AsyncSession, model_id: UUID, body: BIMModelUpdate, organization_id: UUID
 ) -> BIMModel | None:
-    model = await get_bim_model(db, model_id)
+    model = await get_bim_model(db, model_id, organization_id)
     if not model:
         return None
 
@@ -123,8 +141,10 @@ async def update_bim_model(
     return model
 
 
-async def delete_bim_model(db: AsyncSession, model_id: UUID) -> bool:
-    model = await get_bim_model(db, model_id)
+async def delete_bim_model(
+    db: AsyncSession, model_id: UUID, organization_id: UUID
+) -> bool:
+    model = await get_bim_model(db, model_id, organization_id)
     if not model:
         return False
     await db.delete(model)

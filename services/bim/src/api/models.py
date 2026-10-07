@@ -6,7 +6,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -34,13 +39,27 @@ def _model_to_response(m) -> dict:
     return BIMModelResponse.model_validate(m).model_dump(mode="json")
 
 
+def _reject_foreign_org(body_org: UUID | None, org_id: UUID) -> None:
+    """ボディ由来の organization_id を採用せず、トークン org と一致しない場合は拒否。"""
+    if body_org is not None and body_org != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "トークンの組織と一致しない organization_id は指定できません。",
+            },
+        )
+
+
 @router.post("")
 async def create_model(
     body: BIMModelCreate,
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    model = await create_bim_model(db, body, UUID(token_data.sub))
+    org_id = require_organization_id(token_data)
+    _reject_foreign_org(body.organization_id, org_id)
+    model = await create_bim_model(db, org_id, require_actor_id(token_data), body)
     return _api_response(data=_model_to_response(model))
 
 
@@ -56,6 +75,7 @@ async def list_models(
 ):
     models, total = await list_bim_models(
         db,
+        organization_id=require_organization_id(token_data),
         page=page,
         per_page=per_page,
         model_type=model_type,
@@ -73,7 +93,7 @@ async def get_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    model = await get_bim_model(db, model_id)
+    model = await get_bim_model(db, model_id, require_organization_id(token_data))
     if not model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -89,7 +109,9 @@ async def update_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    model = await update_bim_model(db, model_id, body)
+    model = await update_bim_model(
+        db, model_id, body, require_organization_id(token_data)
+    )
     if not model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -104,7 +126,9 @@ async def delete_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    deleted = await delete_bim_model(db, model_id)
+    deleted = await delete_bim_model(
+        db, model_id, require_organization_id(token_data)
+    )
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -390,17 +390,18 @@ class TestTenantIsolationVerified:
         ):
             assert client.get(path).status_code in (401, 403), path
 
-    def test_ok_elements_search_is_unreachable_so_tenant_scope_unverified(
-        self, make_client
-    ):
-        """未確認の記録: /elements/search はルーティング衝突で到達不能（DEF-BIM-13）。
+    def test_ok_elements_search_is_tenant_scoped(self, make_client):
+        """DEF-BIM-13 修正後: /elements/search は到達可能かつテナント絞り込み済み。
 
-        到達不能のため **テナント絞り込みの有無は検証不能**。欠陥の有無を断定しない。
+        ルーティング衝突（/elements/{element_id} に先に一致して 422）を解消したため、
+        ここで search のテナント絞り込みを検証する（旧「未確認の記録」を更新）。
         """
-        client, statements, _ = make_client()
+        client, statements, _ = make_client(items=[])
         response = client.get("/api/v1/bim/elements/search?q=wall")
-        assert response.status_code == 422, (
-            "前提が変化した（ルーティング衝突が解消された可能性）。"
-            "この場合は search のテナント絞り込みを検証し直すこと。"
+        assert response.status_code == 200, (
+            f"要素検索が到達不能（ルーティング衝突）: status={response.status_code}"
         )
-        assert statements == []
+        where_sql = _org_where_all(statements)
+        assert "organization_id" in where_sql, (
+            f"search にテナント絞り込みがない / actual WHERE = {where_sql!r}"
+        )

@@ -39,7 +39,10 @@ class MetaInfo(BaseModel):
 class BIMModelCreate(BaseModel):
     model_config = {"protected_namespaces": ()}
 
-    organization_id: UUID
+    # organization_id はトークンの org クレームから導出するため、
+    # ボディでは任意（不一致はエンドポイントで拒否する）。必須にすると
+    # ボディ由来のテナント指定を許容してしまう。
+    organization_id: UUID | None = None
     project_id: UUID | None = None
     name: str = Field(max_length=500)
     description: str | None = None
@@ -163,7 +166,8 @@ class BIMElementLevelGroup(BaseModel):
 # Point Cloud
 # ============================================
 class PointCloudCreate(BaseModel):
-    organization_id: UUID
+    # organization_id はトークンの org クレームから導出するため任意。
+    organization_id: UUID | None = None
     project_id: UUID | None = None
     name: str = Field(max_length=500)
     description: str | None = None
@@ -179,6 +183,9 @@ class PointCloudCreate(BaseModel):
     accuracy_mm: float | None = None
     is_colorized: bool = False
     is_classified: bool = False
+    version: str | None = Field(default=None, max_length=50)
+    source_model_id: UUID | None = None
+    source_video_id: str | None = Field(default=None, max_length=255)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -218,6 +225,9 @@ class PointCloudResponse(BaseModel):
     accuracy_mm: float | None = None
     is_colorized: bool = False
     is_classified: bool = False
+    version: str | None = None
+    source_model_id: UUID | None = None
+    source_video_id: str | None = None
     # SQLAlchemy の宣言的Baseでは `metadata` が MetaData 予約属性になるため、
     # ORM の実属性名 `metadata_` から読み取る(直すと読み取りAPIが500になる)。
     metadata: dict[str, Any] | None = Field(default=None, validation_alias="metadata_")

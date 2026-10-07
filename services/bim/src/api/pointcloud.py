@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models import PointCloud
 from ..models.base import get_db
 from ..schemas import (
@@ -29,14 +34,45 @@ def _pc_to_response(pc: PointCloud) -> dict:
     return PointCloudResponse.model_validate(pc).model_dump(mode="json")
 
 
+def _reject_foreign_org(body_org: UUID | None, org_id: UUID) -> None:
+    """ボディ由来の organization_id を採用せず、トークン org と一致しない場合は拒否。"""
+    if body_org is not None and body_org != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "トークンの組織と一致しない organization_id は指定できません。",
+            },
+        )
+
+
+async def _get_owned_pointcloud(
+    db: AsyncSession, pointcloud_id: UUID, org_id: UUID
+) -> PointCloud | None:
+    result = await db.execute(
+        select(PointCloud).where(
+            PointCloud.id == pointcloud_id,
+            PointCloud.organization_id == org_id,
+        )
+    )
+    pc = result.scalar_one_or_none()
+    if pc is None:
+        return None
+    if getattr(pc, "organization_id", None) != org_id:
+        return None
+    return pc
+
+
 @router.post("")
 async def create_pointcloud(
     body: PointCloudCreate,
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
+    _reject_foreign_org(body.organization_id, org_id)
     pc = PointCloud(
-        organization_id=body.organization_id,
+        organization_id=org_id,
         project_id=body.project_id,
         name=body.name,
         description=body.description,
@@ -52,8 +88,11 @@ async def create_pointcloud(
         accuracy_mm=body.accuracy_mm,
         is_colorized=body.is_colorized,
         is_classified=body.is_classified,
+        version=body.version or "v1",
+        source_model_id=body.source_model_id,
+        source_video_id=body.source_video_id,
         metadata_=body.metadata,
-        uploaded_by=UUID(token_data.sub),
+        uploaded_by=require_actor_id(token_data),
     )
     db.add(pc)
     await db.flush()
@@ -70,8 +109,11 @@ async def list_pointclouds(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(PointCloud)
-    count_query = select(func.count(PointCloud.id))
+    org_id = require_organization_id(token_data)
+    query = select(PointCloud).where(PointCloud.organization_id == org_id)
+    count_query = select(func.count(PointCloud.id)).where(
+        PointCloud.organization_id == org_id
+    )
 
     if project_id:
         query = query.where(PointCloud.project_id == project_id)
@@ -101,10 +143,9 @@ async def get_pointcloud(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(PointCloud).where(PointCloud.id == pointcloud_id)
+    pc = await _get_owned_pointcloud(
+        db, pointcloud_id, require_organization_id(token_data)
     )
-    pc = result.scalar_one_or_none()
     if not pc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -120,10 +161,9 @@ async def update_pointcloud(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(PointCloud).where(PointCloud.id == pointcloud_id)
+    pc = await _get_owned_pointcloud(
+        db, pointcloud_id, require_organization_id(token_data)
     )
-    pc = result.scalar_one_or_none()
     if not pc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -148,10 +188,9 @@ async def delete_pointcloud(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(PointCloud).where(PointCloud.id == pointcloud_id)
+    pc = await _get_owned_pointcloud(
+        db, pointcloud_id, require_organization_id(token_data)
     )
-    pc = result.scalar_one_or_none()
     if not pc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
