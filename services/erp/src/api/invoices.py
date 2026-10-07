@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    FINANCE_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
@@ -36,6 +41,7 @@ async def create_invoice(
         ledger = await ledger_service.get_ledger(db, body.ledger_id, org)
         if not ledger:
             raise HTTPException(status_code=404, detail="工事台帳が見つかりません")
+    require_any_role(current_user, FINANCE_ROLES)
     data = body.model_dump()
     data["organization_id"] = org
     return await invoice_service.create_invoice(db, data)
@@ -86,6 +92,7 @@ async def update_invoice(
     invoice = await invoice_service.get_invoice(db, invoice_id, scope_org(current_user))
     if not invoice:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
+    require_any_role(current_user, FINANCE_ROLES)
     return await invoice_service.update_invoice(
         db, invoice, body.model_dump(exclude_none=True)
     )
@@ -101,6 +108,7 @@ async def pay_invoice(
     invoice = await invoice_service.get_invoice(db, invoice_id, scope_org(current_user))
     if not invoice:
         raise HTTPException(status_code=404, detail="請求書が見つかりません")
+    require_any_role(current_user, FINANCE_ROLES)
     try:
         return await invoice_service.pay_invoice(
             db,
