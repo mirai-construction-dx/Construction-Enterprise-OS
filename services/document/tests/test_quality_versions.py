@@ -277,10 +277,6 @@ class TestStorageKeyPredictability:
             assert storage_service.upload_file(b"data", "org/doc/v1/a.pdf", "application/pdf")
         assert fake_s3.put_object.call_args.kwargs["Key"] == "org/doc/v1/a.pdf"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-DOC-7: S3キー生成が file_name を無害化せず path traversal を混入できる",
-    )
     def test_defect_storage_key_does_not_sanitize_traversal_filename(self):
         """[欠陥] 生ストレージキーが file_name を無害化していない。
 
