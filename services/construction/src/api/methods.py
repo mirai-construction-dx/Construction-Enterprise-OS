@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    APPROVAL_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -130,9 +135,11 @@ async def approve_method(
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id, scope_org(user))
+    org_id = scope_org(user)  # 組織検証を先に（fail-closed）
+    method = await construction_service.get_method(db, method_id, org_id)
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
+    require_any_role(user, APPROVAL_ROLES)  # 承認には承認ロールを要求する
     try:
         # 承認者同定はトークン由来（body.approved_by は受理のみで信用しない）。
         return await construction_service.approve_method(db, method, _actor_id(user))
@@ -146,9 +153,11 @@ async def reject_method(
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id, scope_org(user))
+    org_id = scope_org(user)  # 組織検証を先に（fail-closed）
+    method = await construction_service.get_method(db, method_id, org_id)
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
+    require_any_role(user, APPROVAL_ROLES)  # 否認には承認ロールを要求する
     try:
         return await construction_service.reject_method(db, method)
     except ValueError as e:

@@ -24,7 +24,7 @@ USER_A = TokenData(
     sub=str(uuid.UUID("00000000-0000-0000-0000-0000000000c1")),
     type="user",
     org=str(ORG_A),
-    roles=["user"],
+    roles=["site_manager"],
 )
 USER_A_NO_ROLES = TokenData(
     sub=str(uuid.UUID("00000000-0000-0000-0000-0000000000c1")),
@@ -37,6 +37,12 @@ ADMIN_A = TokenData(
     type="user",
     org=str(ORG_A),
     roles=["admin"],
+)
+SITE_WORKER = TokenData(
+    sub=str(uuid.UUID("00000000-0000-0000-0000-0000000000c3")),
+    type="user",
+    org=str(ORG_A),
+    roles=["site_worker"],
 )
 NO_ORG = TokenData(sub="no-org", type="user", org=None, roles=["user"])
 BAD_ORG = TokenData(sub="bad-org", type="user", org="not-a-uuid", roles=["user"])
@@ -509,4 +515,16 @@ def test_admin_create_with_missing_wbs_not_found(as_admin, mock_db, kind):
         f"{BASE}/{kind}", json=_create_body(kind, ORG_B, wbs_item_id=str(uuid.uuid4()))
     )
     _assert_error(resp, 404, "WBS_NOT_FOUND")
+    _assert_no_write(mock_db)
+
+
+# ============================================
+# RBAC: approval/reject requires an approval role
+# ============================================
+@pytest.mark.parametrize("suffix", ["approve", "reject"])
+def test_approve_reject_requires_approval_role(mock_db, suffix):
+    method = _method(ORG_A, status="review")
+    mock_db.get = AsyncMock(return_value=method)
+    resp = _client(mock_db, SITE_WORKER).post(f"{BASE}/methods/{method.id}/{suffix}")
+    _assert_error(resp, 403, "FORBIDDEN")
     _assert_no_write(mock_db)
