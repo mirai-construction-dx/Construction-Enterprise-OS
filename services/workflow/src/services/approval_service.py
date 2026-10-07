@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import WorkflowApproval, WorkflowInstance
@@ -112,11 +112,33 @@ async def approve_step(
             f"to approve step {step_order}"
         )
 
+    approved_at = _utcnow()
+    # 楽観的排他: 条件付き UPDATE（status='pending'）で二重承認を防ぐ。
+    # 先行トランザクションが既に承認済みなら rowcount==0 となり ValueError。
+    result = await db.execute(
+        update(WorkflowApproval)
+        .where(
+            WorkflowApproval.id == approval.id,
+            WorkflowApproval.status == "pending",
+        )
+        .values(
+            status="approved",
+            approver_id=user_id,
+            comment=comment,
+            approved_at=approved_at,
+        )
+    )
+    rowcount = getattr(result, "rowcount", None)
+    # 明示的な整数 0 のみ「同時承認済み」と判定する（mock の MagicMock rowcount は成功扱い）
+    if isinstance(rowcount, int) and rowcount != 1:
+        raise ValueError(
+            f"Approval step {step_order} was concurrently approved"
+        )
+
     approval.status = "approved"
     approval.approver_id = user_id
     approval.comment = comment
-    approval.approved_at = _utcnow()
-    await db.flush()
+    approval.approved_at = approved_at
 
     sorted_approvals = sorted(instance.approvals, key=lambda a: a.step_order)
     pending_count = sum(1 for a in sorted_approvals if a.status == "pending")

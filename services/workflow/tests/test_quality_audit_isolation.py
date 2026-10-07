@@ -101,6 +101,12 @@ def _result_scalars_first(obj):
     return result
 
 
+def _result_rowcount(rowcount: int):
+    result = MagicMock()
+    result.rowcount = rowcount
+    return result
+
+
 @pytest.fixture
 def app():
     _app = create_app()
@@ -229,7 +235,11 @@ class TestAuditTrail:
         step1 = MockApproval(step_order=1, approver_role="management")
         instance = MockInstance(approvals=[step1])
         app.state.mock_db.execute = AsyncMock(
-            side_effect=[_result_one(instance), _result_scalars_first(step1)]
+            side_effect=[
+                _result_one(instance),
+                _result_scalars_first(step1),
+                _result_rowcount(1),
+            ]
         )
 
         response = TestClient(app).post(

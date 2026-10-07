@@ -107,13 +107,23 @@ def _result_scalars_first(obj):
     return result
 
 
-def _db_for_approval(instance, approval):
-    """approve_step/reject_step の execute 2 回 (instance, approval) を模す。"""
+def _result_rowcount(rowcount: int):
+    result = MagicMock()
+    result.rowcount = rowcount
+    return result
+
+
+def _db_for_approval(instance, approval, rowcount: int = 1):
+    """approve_step/reject_step の execute 3 回 (instance, approval, 条件付きUPDATE) を模す。"""
     db = AsyncMock()
     db.add = MagicMock()
     db.flush = AsyncMock()
     db.execute = AsyncMock(
-        side_effect=[_result_one(instance), _result_scalars_first(approval)]
+        side_effect=[
+            _result_one(instance),
+            _result_scalars_first(approval),
+            _result_rowcount(rowcount),
+        ]
     )
     return db
 
@@ -401,10 +411,6 @@ class TestConcurrencyGap:
         )
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-WF-1: 行ロック/楽観的排他が無く同時 approve が双方成功しうる",
-    )
     async def test_defect_concurrent_approve_both_succeed(self):
         """[欠陥] 先行トランザクションが未コミットの間、同一 step を二重承認できる。
 
@@ -414,8 +420,8 @@ class TestConcurrencyGap:
         """
         snapshot_a = MockApproval(step_order=1, approver_role="department_head")
         snapshot_b = MockApproval(step_order=1, approver_role="department_head")
-        db_a = _db_for_approval(MockInstance(approvals=[snapshot_a]), snapshot_a)
-        db_b = _db_for_approval(MockInstance(approvals=[snapshot_b]), snapshot_b)
+        db_a = _db_for_approval(MockInstance(approvals=[snapshot_a]), snapshot_a, rowcount=1)
+        db_b = _db_for_approval(MockInstance(approvals=[snapshot_b]), snapshot_b, rowcount=0)
 
         first = await approval_service.approve_step(
             db_a,
@@ -529,7 +535,11 @@ class TestApprovalApi:
         step1 = MockApproval(step_order=1, approver_role="department_head")
         instance = MockInstance(approvals=[step1])
         app.state.mock_db.execute = AsyncMock(
-            side_effect=[_result_one(instance), _result_scalars_first(step1)]
+            side_effect=[
+                _result_one(instance),
+                _result_scalars_first(step1),
+                _result_rowcount(1),
+            ]
         )
         response = TestClient(app).post(
             f"/api/v1/workflow/instances/{INST_ID}/approve?step_order=1",
