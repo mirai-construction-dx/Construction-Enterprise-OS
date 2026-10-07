@@ -139,6 +139,13 @@ def test_alert_action_with_empty_roles_is_forbidden(path):
     assert resp.json()["detail"]["code"] == "FORBIDDEN"
 
 
+def test_device_delete_with_non_management_role_is_forbidden():
+    client = _client(_user(roles=["site_worker"]))
+    resp = client.delete(f"/api/v1/iot/devices/{uuid.uuid4()}", headers=AUTH)
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
+
+
 def test_telemetry_start_after_end_is_rejected():
     client = _client(_user())
     resp = client.get(
