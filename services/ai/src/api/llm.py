@@ -3,7 +3,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ from ..schemas import (
     CompletionRequest,
 )
 from ..services.llm_service import MockLLMProvider, OpenAICompatibleProvider
-from ..services.prompt_service import PromptService
+from ..services.prompt_service import PromptService, render_user_template
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -45,11 +45,9 @@ async def chat(
                 db, body.prompt_template_id, org_id
             )
             if template:
-                from jinja2 import Template
-
                 variables = body.variables or {}
-                user_content = Template(template.user_prompt_template).render(
-                    **variables
+                user_content = render_user_template(
+                    template.user_prompt_template, variables
                 )
                 messages = [
                     {"role": "system", "content": template.system_prompt},
@@ -99,11 +97,9 @@ async def chat_stream(
                 db, body.prompt_template_id, org_id
             )
             if template:
-                from jinja2 import Template
-
                 variables = body.variables or {}
-                user_content = Template(template.user_prompt_template).render(
-                    **variables
+                user_content = render_user_template(
+                    template.user_prompt_template, variables
                 )
                 messages = [
                     {"role": "system", "content": template.system_prompt},
@@ -150,8 +146,6 @@ async def complete(
     org_id = UUID(token_data.org) if token_data.org else UUID(int=0)
     template = await PromptService.get_template(db, body.prompt_template_id, org_id)
     if not template:
-        from fastapi import HTTPException, status
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
@@ -160,11 +154,16 @@ async def complete(
             },
         )
 
-    from jinja2 import Template
-
-    user_content = Template(template.user_prompt_template).render(
-        **(body.variables or {})
-    )
+    try:
+        user_content = render_user_template(
+            template.user_prompt_template, body.variables or {}
+        )
+    except ValueError as exc:
+        # 利用者が保存したテンプレートがサンドボックスで評価できない場合（属性アクセス等）
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_TEMPLATE", "message": str(exc)},
+        ) from exc
 
     messages = [
         {"role": "system", "content": template.system_prompt},

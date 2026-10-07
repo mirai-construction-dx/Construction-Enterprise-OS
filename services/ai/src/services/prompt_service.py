@@ -3,12 +3,30 @@
 import logging
 from uuid import UUID
 
+from jinja2 import TemplateError
+from jinja2.sandbox import SandboxedEnvironment
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import PromptTemplate
 
 logger = logging.getLogger(__name__)
+
+# 利用者が保存したテンプレート本文を描画するための環境。
+# 非サンドボックスの jinja2.Template は任意の Python 式（属性・クラス階層の走査）を
+# 評価でき、SSTI 経由の RCE に至るため使用しない（Jinja2 公式の推奨に従う）。
+_TEMPLATE_ENV = SandboxedEnvironment(autoescape=False)
+
+
+def render_user_template(template_text: str, variables: dict | None = None) -> str:
+    """テンプレート本文をサンドボックス内で描画する。
+
+    禁止された式（属性アクセス等）は ValueError として返し、呼び出し側が 4xx に変換する。
+    """
+    try:
+        return _TEMPLATE_ENV.from_string(template_text).render(**(variables or {}))
+    except TemplateError as exc:  # SecurityError を含む
+        raise ValueError(f"プロンプトテンプレートを評価できません: {exc}") from exc
 
 DEFAULT_TEMPLATES = [
     {
