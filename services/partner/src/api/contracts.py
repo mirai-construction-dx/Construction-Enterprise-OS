@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import APPROVAL_ROLES, get_current_user, require_any_role
 from ..middleware.tenant import create_org, is_cross_org_admin, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -187,6 +187,8 @@ async def sign_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    # 契約署名は承認クラスの操作（RBAC ロールモデル）。
+    require_any_role(current_user, APPROVAL_ROLES)
     try:
         contract = await contract_service.sign_contract(
             db,

@@ -253,7 +253,10 @@ def test_by_id_lookup_is_org_scoped_and_other_org_is_404(
     mock_jwt, method, path, body, code
 ):
     """A record of another organization is not found (404) because the lookup is org-scoped."""
-    mock_jwt.decode.return_value = _payload()
+    # 契約署名は承認ロール必須（RBAC）。site_manager は承認ロールかつ非 admin のため、
+    # scope_org によるテナント境界（token org への束縛）を維持したまま署名フローを検証できる。
+    roles = ["site_manager"] if path.endswith("/sign") else None
+    mock_jwt.decode.return_value = _payload(roles=roles)
     client, db = _client(None)
 
     resp = client.request(method, path, json=body, headers=_auth_header())
