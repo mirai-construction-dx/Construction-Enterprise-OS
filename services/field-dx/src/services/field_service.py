@@ -1,5 +1,6 @@
 """現場DX サービス — 日報・進捗・品質管理ロジック"""
 
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -7,6 +8,35 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import DailyReport, ProgressRecord, QualityCheck
+
+
+def _derive_progress_percent(data: dict) -> None:
+    """進捗率が未指定の場合、出来形数量（actual / planned）から算出する。"""
+    if data.get("progress_percent") is not None:
+        return
+    planned = data.get("planned_quantity")
+    actual = data.get("actual_quantity")
+    if planned is not None and actual is not None and planned != 0:
+        data["progress_percent"] = (actual / planned) * 100.0
+
+
+def _parse_number(value: str | None) -> float | None:
+    """自由文字列（例: "21.5 N/mm2"）から先頭の数値を取り出す。"""
+    if value is None:
+        return None
+    match = re.search(r"[-+]?\d+(?:\.\d+)?", value)
+    if not match:
+        return None
+    return float(match.group())
+
+
+def _derive_conformance(data: dict) -> bool | None:
+    """合否はクライアント申告ではなく、測定値と規格値の突合から導出する。"""
+    measured = _parse_number(data.get("measured_value"))
+    standard = _parse_number(data.get("standard_value"))
+    if measured is None or standard is None:
+        return None
+    return measured >= standard
 
 
 # ============================================
@@ -111,6 +141,7 @@ async def approve_daily_report(
 async def create_progress_record(
     db: AsyncSession, data: dict
 ) -> ProgressRecord:
+    _derive_progress_percent(data)
     record = ProgressRecord(**data)
     db.add(record)
     await db.flush()
@@ -169,10 +200,13 @@ async def update_progress_record(
 
 
 async def get_progress_summary(
-    db: AsyncSession, project_id: uuid.UUID
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
 ) -> dict:
     result = await db.execute(
-        select(ProgressRecord).where(ProgressRecord.project_id == project_id)
+        select(ProgressRecord).where(
+            ProgressRecord.project_id == project_id,
+            ProgressRecord.organization_id == organization_id,
+        )
     )
     records = list(result.scalars().all())
 
@@ -205,6 +239,7 @@ async def get_progress_summary(
 async def create_quality_check(
     db: AsyncSession, data: dict
 ) -> QualityCheck:
+    data["is_conforming"] = _derive_conformance(data)
     check = QualityCheck(**data)
     db.add(check)
     await db.flush()
@@ -267,25 +302,31 @@ async def update_quality_check(
 
 
 async def get_quality_stats(
-    db: AsyncSession, project_id: uuid.UUID
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
 ) -> dict:
     result = await db.execute(
-        select(QualityCheck).where(QualityCheck.project_id == project_id)
+        select(QualityCheck).where(
+            QualityCheck.project_id == project_id,
+            QualityCheck.organization_id == organization_id,
+        )
     )
     checks = list(result.scalars().all())
 
     total_checks = len(checks)
     status_counts = {"passed": 0, "failed": 0, "pending": 0, "action_required": 0}
     conforming_count = 0
+    determined_count = 0
 
     for c in checks:
         if c.status in status_counts:
             status_counts[c.status] += 1
-        if c.is_conforming:
-            conforming_count += 1
+        if c.is_conforming is not None:
+            determined_count += 1
+            if c.is_conforming:
+                conforming_count += 1
 
     conformance_rate = (
-        (conforming_count / total_checks) * 100 if total_checks > 0 else 0.0
+        (conforming_count / determined_count) * 100 if determined_count > 0 else 0.0
     )
 
     return {
