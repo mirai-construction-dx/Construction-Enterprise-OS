@@ -1,0 +1,313 @@
+From 2d7d1f058aa8f139ab146f5facdbf3a7982e6d6c Mon Sep 17 00:00:00 2001
+From: Kensan196948G <kensan1969@gmail.com>
+Date: Wed, 23 Sep 2026 15:14:08 +0900
+Subject: [PATCH] =?UTF-8?q?feat:=20CEOS=20=E3=81=AE=20MCP=20=E3=83=84?=
+ =?UTF-8?q?=E3=83=BC=E3=83=AB=E5=A5=91=E7=B4=84=E3=81=A8=20Allowlist=20?=
+ =?UTF-8?q?=E7=99=BB=E9=8C=B2=E3=80=81=E6=93=8D=E4=BD=9C=E3=82=AB=E3=83=86?=
+ =?UTF-8?q?=E3=82=B4=E3=83=AA=20record.read=20=E3=82=92=E8=BF=BD=E5=8A=A0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+CEOS（Construction-Enterprise-OS）は ADR-0001/0002 に基づき、工程・原価・契約の
+読み取り専用 MCP ツール 5 件を公開している（CEOS PR #94 で Core 規約のハッシュへ整合済み）。
+Core 側に契約・Allowlist・操作カテゴリが無く、MCAH/Tool Gateway から参照できないため追加する。
+
+- approval-tiers/tiers.yaml: operations に record.read: R0 を追加
+- contracts/mcp-tools/ceos.json: CEOS の Core 形式契約（x-mirai.operation=record.read）
+- registries/mcp-allowlist.yaml: ceos サーバー（trust T0 / surfaces [dev_harness] /
+  audience api://ceos-mcp / 5 ツール R0 / timeout_s 15）
+- tools/tests/test_tool_def_hash.py: ceos 契約ハッシュと Allowlist 登録値の一致
+- CHANGELOG: Unreleased/Added
+
+本番 MCAH（mcah_production）は CEOS 側の audience 検証確定後に別 PR で追加する。
+compat 判定: minor（追加のみ）。
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ CHANGELOG.md                      |   2 +
+ approval-tiers/tiers.yaml         |   1 +
+ contracts/mcp-tools/ceos.json     | 186 ++++++++++++++++++++++++++++++
+ registries/mcp-allowlist.yaml     |  32 +++++
+ tools/tests/test_tool_def_hash.py |  10 ++
+ 5 files changed, 231 insertions(+)
+ create mode 100644 contracts/mcp-tools/ceos.json
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c2366fd..41dca70 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -5,6 +5,8 @@
+ ## [Unreleased]
+ 
+ ### Added
++- CEOS（Construction-Enterprise-OS）の MCP ツール契約 `contracts/mcp-tools/ceos.json`（読み取り専用 5 ツール、R0）と `registries/mcp-allowlist.yaml` の `ceos` サーバー登録（`trust: T0`、`surfaces: [dev_harness]`、`audience: api://ceos-mcp`）。本番 MCAH（`mcah_production`）は CEOS 側の audience 検証確定後に別 PR で追加する。
++- 承認階層表 `approval-tiers/tiers.yaml` に操作カテゴリ `record.read`（R0：業務記録の参照）を追加（追加のみ、MINOR 相当）。
+ - `tools/sign_policy_bundle.py`: ポリシーバンドル署名の実装（鍵ソース `env:`／`file:`／パス。クラウド/HSM URI は O-16 確定後に実装）。署名で変わる `dist/SHA256SUMS` を更新。`make sign-bundle`。テスト4件。
+ - 外部 Action を**コミット SHA に固定**（`verify.yml`／`release.yml`／`scheduled.yml`。checkout v4 / setup-python v5 / setup-node v4 / upload-artifact v4 / gitleaks-action v2 / attest-build-provenance v2）。
+ - `tools/check_semver_label.py`: PR の semver ラベル検査（`major`/`minor` に `semver:*` を要求）＋ CI 連携。テスト3件。
+diff --git a/approval-tiers/tiers.yaml b/approval-tiers/tiers.yaml
+index 80ec319..6129a18 100644
+--- a/approval-tiers/tiers.yaml
++++ b/approval-tiers/tiers.yaml
+@@ -31,6 +31,7 @@ tiers:
+ operations:  # 操作カテゴリ → 階層（ツールの x-mirai.operation から参照）
+   document.search: R0
+   answer.grounded: R0
++  record.read: R0              # 業務記録（工程・原価・契約等）の参照。書込み・確定を伴わない（CEOS 等）
+   draft.create: R1
+   ledger.issue.write: R2
+   ledger.netis_decision.write: R2
+diff --git a/contracts/mcp-tools/ceos.json b/contracts/mcp-tools/ceos.json
+new file mode 100644
+index 0000000..ab6c6c0
+--- /dev/null
++++ b/contracts/mcp-tools/ceos.json
+@@ -0,0 +1,186 @@
++{
++  "server_id": "ceos",
++  "tools": [
++    {
++      "name": "ceos.contract.list",
++      "title": "契約・請求の一覧",
++      "description": "契約・請求（invoice）の一覧を取得する（読み取り専用）。支払・更新は行わない。",
++      "inputSchema": {
++        "type": "object",
++        "properties": {
++          "organization_id": {
++            "type": "string",
++            "format": "uuid",
++            "description": "組織 ID で絞り込む（任意）"
++          },
++          "ledger_id": {
++            "type": "string",
++            "format": "uuid",
++            "description": "工事台帳 ID で絞り込む（任意）"
++          },
++          "invoice_type": {
++            "type": "string",
++            "description": "請求種別で絞り込む（任意）"
++          },
++          "status": {
++            "type": "string",
++            "description": "ステータスで絞り込む（任意）"
++          },
++          "page": {
++            "type": "integer",
++            "minimum": 1,
++            "default": 1,
++            "description": "ページ番号（任意）"
++          },
++          "per_page": {
++            "type": "integer",
++            "minimum": 1,
++            "maximum": 100,
++            "default": 20,
++            "description": "1 ページあたりの件数（任意）"
++          }
++        },
++        "additionalProperties": false
++      },
++      "annotations": {
++        "readOnlyHint": true,
++        "destructiveHint": false,
++        "idempotentHint": true,
++        "openWorldHint": false
++      },
++      "x-mirai": {
++        "effect": "read",
++        "operation": "record.read",
++        "tier": "R0"
++      }
++    },
++    {
++      "name": "ceos.cost.list",
++      "title": "原価明細の一覧",
++      "description": "工事台帳に紐づく原価明細の一覧を取得する（読み取り専用）。原価の参照のみを行い、承認・更新・削除は行わない。",
++      "inputSchema": {
++        "type": "object",
++        "properties": {
++          "ledger_id": {
++            "type": "string",
++            "format": "uuid",
++            "description": "対象の工事台帳 ID"
++          },
++          "status": {
++            "type": "string",
++            "description": "原価明細ステータスで絞り込む（任意）"
++          },
++          "page": {
++            "type": "integer",
++            "minimum": 1,
++            "default": 1,
++            "description": "ページ番号（任意）"
++          },
++          "per_page": {
++            "type": "integer",
++            "minimum": 1,
++            "maximum": 100,
++            "default": 20,
++            "description": "1 ページあたりの件数（任意）"
++          }
++        },
++        "required": [
++          "ledger_id"
++        ],
++        "additionalProperties": false
++      },
++      "annotations": {
++        "readOnlyHint": true,
++        "destructiveHint": false,
++        "idempotentHint": true,
++        "openWorldHint": false
++      },
++      "x-mirai": {
++        "effect": "read",
++        "operation": "record.read",
++        "tier": "R0"
++      }
++    },
++    {
++      "name": "ceos.ledger.get_summary",
++      "title": "工事台帳 財務サマリーの取得",
++      "description": "全社の工事台帳 財務サマリー（売上・原価・利益）を取得する（読み取り専用）。",
++      "inputSchema": {
++        "type": "object",
++        "properties": {},
++        "additionalProperties": false
++      },
++      "annotations": {
++        "readOnlyHint": true,
++        "destructiveHint": false,
++        "idempotentHint": true,
++        "openWorldHint": false
++      },
++      "x-mirai": {
++        "effect": "read",
++        "operation": "record.read",
++        "tier": "R0"
++      }
++    },
++    {
++      "name": "ceos.schedule.get_gantt",
++      "title": "工程ガントの取得",
++      "description": "案件の工程ガントデータを取得する（読み取り専用）。工程の期間・依存関係の参照に用いる。",
++      "inputSchema": {
++        "type": "object",
++        "properties": {
++          "project_id": {
++            "type": "string",
++            "format": "uuid",
++            "description": "対象案件 ID"
++          }
++        },
++        "required": [
++          "project_id"
++        ],
++        "additionalProperties": false
++      },
++      "annotations": {
++        "readOnlyHint": true,
++        "destructiveHint": false,
++        "idempotentHint": true,
++        "openWorldHint": false
++      },
++      "x-mirai": {
++        "effect": "read",
++        "operation": "record.read",
++        "tier": "R0"
++      }
++    },
++    {
++      "name": "ceos.wbs.get_tree",
++      "title": "WBSツリーの取得",
++      "description": "案件の WBS（Work Breakdown Structure）ツリーを取得する（読み取り専用）。工程の階層構造と進捗の参照に用いる。",
++      "inputSchema": {
++        "type": "object",
++        "properties": {
++          "project_id": {
++            "type": "string",
++            "format": "uuid",
++            "description": "対象案件 ID（MCIP が発番）"
++          }
++        },
++        "required": [
++          "project_id"
++        ],
++        "additionalProperties": false
++      },
++      "annotations": {
++        "readOnlyHint": true,
++        "destructiveHint": false,
++        "idempotentHint": true,
++        "openWorldHint": false
++      },
++      "x-mirai": {
++        "effect": "read",
++        "operation": "record.read",
++        "tier": "R0"
++      }
++    }
++  ]
++}
+diff --git a/registries/mcp-allowlist.yaml b/registries/mcp-allowlist.yaml
+index ef8b5a6..f9bd6a0 100644
+--- a/registries/mcp-allowlist.yaml
++++ b/registries/mcp-allowlist.yaml
+@@ -28,3 +28,35 @@ servers:
+         scopes: [Issues.Write]
+         requires: [approval_id, pending_action_id]
+         idempotency_arg: pending_action_id
++  - server_id: ceos
++    system_id: ceos
++    trust: T0
++    surfaces: [dev_harness]   # 本番 MCAH（mcah_production）は CEOS 側の audience 検証確定後に別 PR で追加
++    transport: streamable-http
++    audience: "api://ceos-mcp"
++    tools:
++      - name: ceos.contract.list
++        effect: read
++        tier: R0
++        definition_sha256: 8901744c8d0208262001dece18b2db66059d45a30f8e7803c2ce9e220c1684e9
++        timeout_s: 15
++      - name: ceos.cost.list
++        effect: read
++        tier: R0
++        definition_sha256: 5fd08ae996a0e471ef37467bfbf61cb38fe464558424cfd8ae1462f3c419b076
++        timeout_s: 15
++      - name: ceos.ledger.get_summary
++        effect: read
++        tier: R0
++        definition_sha256: 11918419cf2230b44b6c0cbfe71c8ba2100a34edda90c09e011bcd0bbfaec98e
++        timeout_s: 15
++      - name: ceos.schedule.get_gantt
++        effect: read
++        tier: R0
++        definition_sha256: 60b945075f2bb76f90724595ff3ef48a7dff122a166b5e398d8d731e3283cb1a
++        timeout_s: 15
++      - name: ceos.wbs.get_tree
++        effect: read
++        tier: R0
++        definition_sha256: 83bb88cb6b6375bbd57c16e42739ada7d8076432507b77602b83855613c61843
++        timeout_s: 15
+diff --git a/tools/tests/test_tool_def_hash.py b/tools/tests/test_tool_def_hash.py
+index 129895e..f464477 100644
+--- a/tools/tests/test_tool_def_hash.py
++++ b/tools/tests/test_tool_def_hash.py
+@@ -12,3 +12,13 @@ def test_mcip_document_search_hash_matches_allowlist():
+     doc = json.loads((ROOT / "contracts/mcp-tools/mcip.json").read_text(encoding="utf-8"))
+     tool = next(t for t in doc["tools"] if t["name"] == "mcip.document.search")
+     assert tool_definition_sha256(tool) == "69765ede2331f8c6598b30f2489de96d53463be375581e007f83e6c7d4cf4b61"
++
++
++def test_ceos_contract_hashes_match_allowlist():
++    import yaml
++
++    doc = json.loads((ROOT / "contracts/mcp-tools/ceos.json").read_text(encoding="utf-8"))
++    allow = yaml.safe_load((ROOT / "registries/mcp-allowlist.yaml").read_text(encoding="utf-8"))
++    registered = {t["name"]: t["definition_sha256"] for s in allow["servers"] if s["server_id"] == "ceos" for t in s["tools"]}
++    computed = {t["name"]: tool_definition_sha256(t) for t in doc["tools"]}
++    assert registered and computed == registered
+-- 
+2.43.0
+
