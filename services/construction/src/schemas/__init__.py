@@ -269,7 +269,8 @@ class MethodUpdateRequest(BaseModel):
 
 
 class MethodApprovalRequest(BaseModel):
-    approved_by: UUID
+    # 後方互換のため受理するが、承認者同定には使用しない（トークン由来に変更）。
+    approved_by: UUID | None = None
 
 
 class MethodResponse(BaseModel):
