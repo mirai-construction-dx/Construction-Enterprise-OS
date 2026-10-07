@@ -32,6 +32,7 @@ from src.models import Evaluation
 from src.models.base import get_db
 from src.schemas import EvaluationCreate
 from src.services import contract_service, evaluation_service, partner_service
+from src.services.contract_service import ContractStateError
 
 pytestmark = pytest.mark.anyio
 
@@ -202,10 +203,6 @@ class TestSignatureStateTransition:
         assert result.signed_by_partner == "テスト商事株式会社"
         assert result.signed_at is not None
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-P-3: 署名済み契約へ再署名でき、先行署名を上書きする",
-    )
     async def test_defect_resign_overwrites_previous_signature(self):
         """一度署名した契約は再署名できず、先行する署名証跡が保持されること。"""
         previous_signer = USER_B
@@ -219,26 +216,24 @@ class TestSignatureStateTransition:
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_result_one(contract))
 
-        result = await contract_service.sign_contract(
-            db, CONTRACT_ID, USER_A, "後行商事"
-        )
+        with pytest.raises(ContractStateError):
+            await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "後行商事")
 
-        assert result.signed_by_our == previous_signer, "先行署名者が上書きされた"
-        assert result.signed_at == previous_signed_at, "先行署名時刻が上書きされた"
+        # 先行署名の証跡は保持される（否認不能性）
+        assert contract.signed_by_our == previous_signer, "先行署名者が上書きされた"
+        assert contract.signed_at == previous_signed_at, "先行署名時刻が上書きされた"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-P-4: terminated 等から sign で active へ状態遷移できてしまう",
-    )
     async def test_defect_terminated_contract_can_be_signed(self):
         """終了済み(terminated)契約が署名で active に戻ってはならない。"""
         contract = _contract(status="terminated", signed_at=datetime(2026, 1, 1, tzinfo=UTC))
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_result_one(contract))
 
-        result = await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "テスト商事")
+        with pytest.raises(ContractStateError):
+            await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "テスト商事")
 
-        assert result.status != "active", "terminated 契約が active へ遷移した"
+        # 拒否された契約は変更されない（終端状態のまま）
+        assert contract.status == "terminated", "terminated 契約が active へ遷移した"
 
     async def test_defect_update_status_bypasses_signing(self, api):
         """署名を経ずに PUT で status=active にできないこと。"""
