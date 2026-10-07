@@ -60,8 +60,17 @@ def _client(user: TokenData) -> TestClient:
     return TestClient(app)
 
 
-def _user(sub: str = str(uuid.uuid4()), org: str = str(uuid.uuid4())) -> TokenData:
-    return TokenData(sub=sub, type="user", org=org, roles=["site_manager"])
+def _user(
+    sub: str = str(uuid.uuid4()),
+    org: str = str(uuid.uuid4()),
+    roles: list[str] | None = None,
+) -> TokenData:
+    return TokenData(
+        sub=sub,
+        type="user",
+        org=org,
+        roles=roles if roles is not None else ["site_manager"],
+    )
 
 
 # ── alert state machine ──────────────────────────────────────
@@ -118,6 +127,16 @@ def test_acknowledge_with_invalid_sub_returns_403():
     client = _client(_user(sub="not-a-uuid"))
     resp = client.post("/api/v1/iot/alerts/1/acknowledge", headers=AUTH)
     assert resp.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/v1/iot/alerts/1/acknowledge", "/api/v1/iot/alerts/1/resolve"]
+)
+def test_alert_action_with_empty_roles_is_forbidden(path):
+    client = _client(_user(roles=[]))
+    resp = client.post(path, headers=AUTH)
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
 
 
 def test_telemetry_start_after_end_is_rejected():

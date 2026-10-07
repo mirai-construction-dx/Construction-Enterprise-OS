@@ -80,7 +80,13 @@ class _FakeResult:
 
 @pytest.fixture
 def make_client():
-    def _factory(*, items=None, results=None, raise_server_exceptions: bool = True):
+    def _factory(
+        *,
+        items=None,
+        results=None,
+        raise_server_exceptions: bool = True,
+        roles: tuple[str, ...] = ("safety_admin", "inspector"),
+    ):
         statements: list = []
         db = AsyncMock()
         db.add = MagicMock()
@@ -112,7 +118,8 @@ def make_client():
 
         async def _current_user():
             return TokenData(
-                sub=USER_SUB, type="user", org=str(ORG_A), roles=["safety_admin"]
+                sub=USER_SUB, type="user", org=str(ORG_A),
+                roles=list(roles),
             )
 
         app.dependency_overrides[get_db] = _get_db
@@ -449,6 +456,18 @@ class TestPersistenceDefects:
 # 検証済み（現状で仕様を満たす）テスト
 # =============================================================================
 class TestWorkflowVerified:
+    def test_ok_complete_requires_inspection_role(self, make_client):
+        """検査（合否確定）は admin/inspector ロールを要求する（fail-closed）。"""
+        inspection = _inspection(status="in_progress")
+        client, _, _ = make_client(items=[inspection], roles=["site_worker"])
+        response = client.post(
+            f"/api/v1/safety/inspections/{INSPECTION_A}/complete",
+            json={"is_safe": True, "score": 95},
+        )
+        assert response.status_code == 403, (
+            f"検査ロール無しで合否確定できた: {response.status_code}"
+        )
+
     def test_ok_complete_sets_status_from_is_safe(self, make_client):
         """正常系: complete の is_safe が status(passed/failed) へ反映される。"""
         passed = _inspection(status="in_progress")

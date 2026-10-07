@@ -104,3 +104,15 @@ async def get_current_client(
         )
 
     return token_data
+
+
+def require_any_role(token_data: TokenData) -> None:
+    """操作（write）には任意の有効ロールが 1 つ以上必要（空ロールは fail-closed）。"""
+    if not (token_data.roles or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "FORBIDDEN",
+                "message": "この操作にはロールが必要です。",
+            },
+        )
