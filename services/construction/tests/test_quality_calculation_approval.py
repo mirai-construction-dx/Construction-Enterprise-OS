@@ -12,7 +12,6 @@
 from decimal import Decimal
 
 import pytest
-from fastapi.testclient import TestClient
 
 from src.services.construction_service import _calculate_resource_total_cost
 from tests.quality_helpers import (
@@ -21,12 +20,9 @@ from tests.quality_helpers import (
     ORG_A,
     USER_A,
     USER_B,
-    client,  # noqa: F401  (pytest fixture)
-    client_no_auth,  # noqa: F401  (pytest fixture)
     make_method,
     make_resource,
     make_wbs,
-    mock_db,  # noqa: F401  (pytest fixture)
 )
 
 

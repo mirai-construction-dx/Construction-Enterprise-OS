@@ -472,38 +472,39 @@ class TestTenantIsolationDefects:
         )
 
     def test_defect_jwt_key_resolution_differs_from_other_services(self):
-        """DEF-FLD-17: field-dx だけ JWT 検証鍵が空文字になり、他サービスと非互換。
+        """DEF-FLD-17（是正済み回帰）: 3サービスで同一の鍵解決を使う。
 
-        根拠: services/field-dx/src/middleware/auth.py:29 は ``settings.JWT_PUBLIC_KEY``
-              （生の環境変数値。既定は "" / src/config.py:25）を検証鍵に使う。
-              一方 services/gis/src/middleware/auth.py:29 と
-              services/bim/src/middleware/auth.py:29 は ``settings.jwt_public_key``
-              （プロパティ。既定 "dev-only-do-not-use-in-production" / config.py:27-31）を使う。
-        症状: (a) auth サービスが dev 既定鍵で署名した正規トークンを field-dx は 401 で拒否。
-              (b) 逆に field-dx は「空鍵で署名された任意のトークン」を受理する
-                  （PyJWT は InsecureKeyLengthWarning を出すが例外にはしない）。
-        期待: 3サービスで同一の鍵解決（プロパティ経由）を使う。
+        根拠: services/field-dx/src/middleware/auth.py は ``settings.jwt_public_key``
+              （プロパティ）を検証鍵に使う（gis/bim と同一）。
+        期待: 正規鍵で署名したトークンを検証でき、空鍵トークンは受理しない。
+        注: PyJWT 2.14+ は空鍵での署名自体を拒否するため、生成できた場合のみ後段を検証する。
         """
         import warnings
 
         import jwt as pyjwt
 
         from src.config import get_settings
+        from src.middleware.auth import decode_token
 
         settings = get_settings()
         canonical_key = settings.jwt_public_key  # 3サービス共通で使うべき鍵
         payload = {"sub": USER_SUB, "type": "user", "org": str(ORG_A), "exp": 9999999999}
 
         canonical_token = pyjwt.encode(payload, canonical_key, algorithm="HS256")
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            empty_key_token = pyjwt.encode(payload, "", algorithm="HS256")
-            from src.middleware.auth import decode_token
+        assert decode_token(canonical_token) is not None, (
+            "正規鍵(dev-only-do-not-use-in-production)で署名したトークンを "
+            "field-dx が検証できない（他サービス gis/bim は検証できる）"
+        )
 
-            assert decode_token(canonical_token) is not None, (
-                "正規鍵(dev-only-do-not-use-in-production)で署名したトークンを "
-                "field-dx が検証できない（他サービス gis/bim は検証できる）"
-            )
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                empty_key_token = pyjwt.encode(payload, "", algorithm="HS256")
+        except Exception:
+            # PyJWT 2.14+ は空鍵署名を拒否する（それ自体が偽造防止になる）
+            empty_key_token = None
+
+        if empty_key_token is not None:
             assert decode_token(empty_key_token) is None, (
                 "空鍵で署名されたトークンを field-dx が受理した（鍵未設定時の偽造可能）"
             )

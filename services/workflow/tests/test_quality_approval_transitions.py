@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from src.main import create_app
 from src.models.base import get_db
-from src.models import WorkflowAuditLog, WorkflowStatusHistory
+from src.models import WorkflowStatusHistory
 from src.services import approval_service, workflow_service
 
 UTC = timezone.utc
