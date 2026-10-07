@@ -31,7 +31,7 @@ async def register_device(db: AsyncSession, data: dict) -> DeviceModel:
 async def get_device_by_id(
     db: AsyncSession,
     device_id: UUID,
-    organization_id: UUID | None = None,
+    organization_id: UUID,
 ) -> DeviceModel | None:
     stmt = (
         select(DeviceModel)
@@ -46,12 +46,12 @@ async def get_device_by_id(
 
 async def get_devices_paginated(
     db: AsyncSession,
+    organization_id: UUID,
     page: int = 1,
     per_page: int = 20,
     device_type: str | None = None,
     status: str | None = None,
     project_id: UUID | None = None,
-    organization_id: UUID | None = None,
 ) -> tuple[list[DeviceModel], int]:
     query = select(DeviceModel).options(selectinload(DeviceModel.sensors))
     count_query = select(func.count(DeviceModel.id))

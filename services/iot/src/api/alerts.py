@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import get_current_user, require_organization_id
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -60,7 +60,9 @@ async def list_alert_rules(
     _current_user=Depends(get_current_user),
 ):
     rules = await get_alert_rules(
-        db, organization_id=organization_id, device_id=device_id
+        db,
+        organization_id=require_organization_id(_current_user),
+        device_id=device_id,
     )
     return APIResponse(data=[AlertRuleResponse.model_validate(r) for r in rules])
 

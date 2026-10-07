@@ -166,10 +166,6 @@ class TestDeviceChildTenantBoundary:
 # ①-d アラートルールの org 境界
 # ============================================
 class TestAlertRuleTenantSource:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-05a: GET /alert-rules が organization_id 省略時に全テナントを返す",
-    )
     def test_alert_rule_list_without_org_is_tenant_scoped(self, client, mock_db):
         captured = record_execute(mock_db, [MockResult(items=[])])
         response = client.get(f"{API}/alert-rules", headers=AUTH_HEADERS)
@@ -179,10 +175,6 @@ class TestAlertRuleTenantSource:
             f"アラートルール一覧がテナントで絞られていない: {sql!r}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-05b: GET /alert-rules がクエリ指定の他テナント組織を信頼する",
-    )
     def test_alert_rule_list_honors_token_org(self, client, mock_db):
         captured = record_execute(mock_db, [MockResult(items=[])])
         response = client.get(

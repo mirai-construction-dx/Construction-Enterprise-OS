@@ -126,7 +126,7 @@ async def resolve_alert(db: AsyncSession, alert_id: int) -> AlertHistoryModel | 
 
 async def get_alert_rules(
     db: AsyncSession,
-    organization_id: UUID | None = None,
+    organization_id: UUID,
     device_id: UUID | None = None,
 ) -> list[AlertRuleModel]:
     query = select(AlertRuleModel)
