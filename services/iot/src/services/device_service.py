@@ -28,12 +28,19 @@ async def register_device(db: AsyncSession, data: dict) -> DeviceModel:
     return device
 
 
-async def get_device_by_id(db: AsyncSession, device_id: UUID) -> DeviceModel | None:
-    result = await db.execute(
+async def get_device_by_id(
+    db: AsyncSession,
+    device_id: UUID,
+    organization_id: UUID | None = None,
+) -> DeviceModel | None:
+    stmt = (
         select(DeviceModel)
         .options(selectinload(DeviceModel.sensors))
         .where(DeviceModel.id == device_id)
     )
+    if organization_id is not None:
+        stmt = stmt.where(DeviceModel.organization_id == organization_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 

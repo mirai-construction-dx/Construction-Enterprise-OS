@@ -1,6 +1,7 @@
 """認証ミドルウェア - JWTトークン検証"""
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -104,3 +105,19 @@ async def get_current_client(
         )
 
     return token_data
+
+
+def require_organization_id(token_data: TokenData) -> UUID:
+    """トークンの org を必須化して UUID で返す（fail-closed）。"""
+    if not token_data.org:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "ORG_REQUIRED", "message": "Organization claim is required."},
+        )
+    try:
+        return UUID(token_data.org)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "ORG_INVALID", "message": "Organization claim is invalid."},
+        ) from exc

@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_client, get_current_user
+from ..middleware.auth import (
+    get_current_client,
+    get_current_user,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -93,7 +97,7 @@ async def list_devices(
         device_type=device_type,
         status=status,
         project_id=project_id,
-        organization_id=organization_id,
+        organization_id=require_organization_id(_current_user),
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
 
@@ -118,8 +122,9 @@ async def get_device(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
-    device = await get_device_by_id(db, device_id)
-    if not device:
+    org_id = require_organization_id(_current_user)
+    device = await get_device_by_id(db, device_id, org_id)
+    if not device or device.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "DEVICE_NOT_FOUND", "message": "デバイスが見つかりません。"},
