@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    INSPECTION_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -162,6 +167,7 @@ async def update_quality_check(
     current_user: TokenData = Depends(get_current_user),
 ):
     org_id = scope_org(current_user)
+    require_any_role(current_user, INSPECTION_ROLES)
     check = await field_service.get_quality_check(db, check_id)
     if not check or (org_id is not None and check.organization_id != org_id):
         raise HTTPException(status_code=404, detail="品質チェックが見つかりません")

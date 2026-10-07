@@ -128,6 +128,7 @@ def make_client():
         get_value=None,
         token_org: str = str(ORG_A),
         token_sub: str = USER_SUB,
+        token_roles: list[str] | None = None,
         raise_server_exceptions: bool = True,
     ):
         statements: list = []
@@ -157,9 +158,11 @@ def make_client():
         async def _get_db():
             yield db
 
+        roles = ["site_manager"] if token_roles is None else token_roles
+
         async def _current_user():
             return TokenData(
-                sub=token_sub, type="user", org=token_org, roles=["site_manager"]
+                sub=token_sub, type="user", org=token_org, roles=roles
             )
 
         app.dependency_overrides[get_db] = _get_db
@@ -461,15 +464,43 @@ class TestTenantIsolationDefects:
         """DEF-FLD-16: 他テナントの品質チェックを更新できる。
 
         根拠: src/api/quality.py:153-165
+        注: 検査ロール(inspector)で発行し、ロール検査(403)ではなく組織境界(404)を検証する。
         """
         other = _quality(ORG_B)
-        client, _, _ = make_client(get_value=other)
+        client, _, _ = make_client(get_value=other, token_roles=["inspector"])
         response = client.put(
             f"/api/v1/field/quality/{other.id}", json={"status": "passed"}
         )
         assert response.status_code in (403, 404), (
             f"他テナントの品質チェックを更新できた: {response.status_code}"
         )
+
+    def test_quality_update_requires_inspection_role(self, make_client):
+        """非検査ロール(site_manager)は品質合否確定（PUT /quality/{id}）を実行できない。
+
+        根拠: RBAC ロールモデル「検査（inspect）」カテゴリ = admin / inspector。
+        期待: 同一組織であっても 403。
+        """
+        check = _quality(ORG_A)
+        client, _, _ = make_client(get_value=check)  # 既定ロール = site_manager
+        response = client.put(
+            f"/api/v1/field/quality/{check.id}", json={"status": "failed"}
+        )
+        assert response.status_code == 403, (
+            f"非検査ロール(site_manager)が合否確定できた: {response.status_code}"
+        )
+
+    def test_quality_update_inspector_can_determine(self, make_client):
+        """検査ロール(inspector)は同一組織の合否確定を実行できる。"""
+        check = _quality(ORG_A)
+        client, _, _ = make_client(get_value=check, token_roles=["inspector"])
+        response = client.put(
+            f"/api/v1/field/quality/{check.id}", json={"status": "failed"}
+        )
+        assert response.status_code == 200, (
+            f"検査ロール(inspector)が合否確定できなかった: {response.status_code}"
+        )
+        assert check.status == "failed"
 
     def test_defect_jwt_key_resolution_differs_from_other_services(self):
         """DEF-FLD-17（是正済み回帰）: 3サービスで同一の鍵解決を使う。

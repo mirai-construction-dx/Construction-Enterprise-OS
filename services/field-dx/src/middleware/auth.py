@@ -81,3 +81,20 @@ async def get_current_user(
         )
 
     return token_data
+
+
+# 検査（品質・安全の合否確定）に必要なロール（RBAC ロールモデル: admin / inspector）
+INSPECTION_ROLES = frozenset({"admin", "inspector"})
+
+
+def require_any_role(token_data: TokenData, allowed_roles: frozenset[str]) -> None:
+    """トークンが allowed_roles のいずれかを保持することを要求する（fail-closed）。"""
+    roles = set(token_data.roles or [])
+    if not (roles & allowed_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "FORBIDDEN",
+                "message": "この操作に必要なロールがありません。",
+            },
+        )
