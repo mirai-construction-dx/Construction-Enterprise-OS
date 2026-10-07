@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     DailyReportCreateRequest,
@@ -26,15 +31,23 @@ router = APIRouter()
 async def create_report(
     body: DailyReportCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    report = await field_service.create_daily_report(db, body.model_dump())
+    org_id = require_organization_id(current_user)
+    if body.organization_id != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="組織が異なるため作成できません",
+        )
+    data = body.model_dump()
+    data["organization_id"] = org_id
+    data["created_by"] = require_actor_id(current_user)
+    report = await field_service.create_daily_report(db, data)
     return report
 
 
 @router.get("/reports", response_model=DailyReportListResponse)
 async def list_reports(
-    organization_id: UUID | None = Query(None),
     project_id: UUID | None = Query(None),
     status: str | None = Query(None),
     date_from: str | None = Query(None),
@@ -42,11 +55,11 @@ async def list_reports(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
     items, total = await field_service.list_daily_reports(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(current_user),
         project_id=project_id,
         status=status,
         date_from=date_from,
@@ -63,10 +76,11 @@ async def list_reports(
 async def get_report(
     report_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report:
+    if not report or report.organization_id != org_id:
         raise HTTPException(status_code=404, detail="日報が見つかりません")
     return report
 
@@ -76,10 +90,11 @@ async def update_report(
     report_id: UUID,
     body: DailyReportUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report:
+    if not report or report.organization_id != org_id:
         raise HTTPException(status_code=404, detail="日報が見つかりません")
     return await field_service.update_daily_report(
         db, report, body.model_dump(exclude_none=True)
@@ -93,10 +108,11 @@ async def update_report(
 async def submit_report(
     report_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report:
+    if not report or report.organization_id != org_id:
         raise HTTPException(status_code=404, detail="日報が見つかりません")
     try:
         return await field_service.submit_daily_report(db, report)
@@ -110,13 +126,14 @@ async def submit_report(
 )
 async def approve_report(
     report_id: UUID,
-    approved_by: UUID = Query(...),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report:
+    if not report or report.organization_id != org_id:
         raise HTTPException(status_code=404, detail="日報が見つかりません")
+    approved_by = require_actor_id(current_user)
     try:
         return await field_service.approve_daily_report(db, report, approved_by)
     except ValueError as e:

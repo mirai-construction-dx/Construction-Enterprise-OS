@@ -538,7 +538,7 @@ class TestTenantIsolationVerified:
             warnings.simplefilter("ignore")
             token = pyjwt.encode(
                 {"sub": USER_SUB, "type": "service", "exp": 9999999999},
-                get_settings().JWT_PUBLIC_KEY,
+                get_settings().jwt_public_key,
                 algorithm="HS256",
             )
         client = TestClient(create_app(), raise_server_exceptions=False)
