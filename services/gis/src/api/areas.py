@@ -4,10 +4,14 @@ from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_organization_id,
+)
 from ..models import ConstructionSite, HazardZone
 from ..models.base import get_db
 from ..schemas import (
@@ -69,10 +73,19 @@ async def create_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
+    if body.organization_id != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "トークンの組織とボディの組織が一致しません。",
+            },
+        )
     area_wkt = geojson_to_wkt(body.zone_area)
 
     zone = HazardZone(
-        organization_id=body.organization_id,
+        organization_id=org_id,
         name=body.name,
         hazard_type=body.hazard_type,
         zone_area=area_wkt,
@@ -97,8 +110,11 @@ async def list_hazard_zones(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(HazardZone)
-    count_query = select(func.count(HazardZone.id))
+    org_id = require_organization_id(token_data)
+    query = select(HazardZone).where(HazardZone.organization_id == org_id)
+    count_query = select(func.count(HazardZone.id)).where(
+        HazardZone.organization_id == org_id
+    )
 
     if hazard_type:
         query = query.where(HazardZone.hazard_type == hazard_type)
@@ -130,8 +146,12 @@ async def hazard_zones_intersecting_site(
     db: AsyncSession = Depends(get_db),
 ):
     """指定工事現場と重複する危険区域を検索 (ST_Intersects)"""
+    org_id = require_organization_id(token_data)
     site_result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
+        select(ConstructionSite).where(
+            ConstructionSite.id == site_id,
+            ConstructionSite.organization_id == org_id,
+        )
     )
     site = site_result.scalar_one_or_none()
     if not site:
@@ -147,13 +167,23 @@ async def hazard_zones_intersecting_site(
             ).model_dump()
         )
 
+    # 危険度の高い順（critical → high → medium → low）に並べる。
+    # 文字列降順では severity 順にならないため、CASE で数値化してソートする。
+    severity_order = case(
+        (HazardZone.risk_level == "critical", 0),
+        (HazardZone.risk_level == "high", 1),
+        (HazardZone.risk_level == "medium", 2),
+        (HazardZone.risk_level == "low", 3),
+        else_=4,
+    )
     query = select(HazardZone).where(
+        HazardZone.organization_id == org_id,
         func.ST_Intersects(
             HazardZone.zone_area,
             site.work_area,
-        )
+        ),
     )
-    query = query.order_by(HazardZone.risk_level.desc())
+    query = query.order_by(severity_order)
     result = await db.execute(query)
     zones = result.scalars().all()
 
@@ -168,11 +198,15 @@ async def get_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(HazardZone).where(HazardZone.id == zone_id)
+        select(HazardZone).where(
+            HazardZone.id == zone_id,
+            HazardZone.organization_id == org_id,
+        )
     )
     zone = result.scalar_one_or_none()
-    if not zone:
+    if not zone or zone.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "危険区域が見つかりません。"},
@@ -187,11 +221,15 @@ async def update_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(HazardZone).where(HazardZone.id == zone_id)
+        select(HazardZone).where(
+            HazardZone.id == zone_id,
+            HazardZone.organization_id == org_id,
+        )
     )
     zone = result.scalar_one_or_none()
-    if not zone:
+    if not zone or zone.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "危険区域が見つかりません。"},
@@ -217,11 +255,15 @@ async def delete_hazard_zone(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(HazardZone).where(HazardZone.id == zone_id)
+        select(HazardZone).where(
+            HazardZone.id == zone_id,
+            HazardZone.organization_id == org_id,
+        )
     )
     zone = result.scalar_one_or_none()
-    if not zone:
+    if not zone or zone.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "危険区域が見つかりません。"},

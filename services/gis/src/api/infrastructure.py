@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_organization_id,
+)
 from ..models import ConstructionSite, Infrastructure
 from ..models.base import get_db
 from ..schemas import (
@@ -72,11 +76,20 @@ async def create_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
+    if body.organization_id != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "トークンの組織とボディの組織が一致しません。",
+            },
+        )
     location_wkt = geojson_to_wkt(body.location)
     line_wkt = geojson_to_wkt(body.line_geom) if body.line_geom else None
 
     infra = Infrastructure(
-        organization_id=body.organization_id,
+        organization_id=org_id,
         name=body.name,
         infra_type=body.infra_type,
         location=location_wkt,
@@ -103,8 +116,11 @@ async def list_infrastructure(
 
     from ..schemas import MetaInfo
 
-    query = select(Infrastructure)
-    count_query = select(func.count(Infrastructure.id))
+    org_id = require_organization_id(token_data)
+    query = select(Infrastructure).where(Infrastructure.organization_id == org_id)
+    count_query = select(func.count(Infrastructure.id)).where(
+        Infrastructure.organization_id == org_id
+    )
 
     if infra_type:
         query = query.where(Infrastructure.infra_type == infra_type)
@@ -137,8 +153,12 @@ async def infrastructure_near_site(
     db: AsyncSession = Depends(get_db),
 ):
     """指定工事現場の近くにあるインフラ設備を検索"""
+    org_id = require_organization_id(token_data)
     site_result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
+        select(ConstructionSite).where(
+            ConstructionSite.id == site_id,
+            ConstructionSite.organization_id == org_id,
+        )
     )
     site = site_result.scalar_one_or_none()
     if not site:
@@ -148,11 +168,12 @@ async def infrastructure_near_site(
         )
 
     query = select(Infrastructure).where(
+        Infrastructure.organization_id == org_id,
         func.ST_DWithin(
             Infrastructure.location,
             site.location,
             radius_m,
-        )
+        ),
     )
     query = query.order_by(Infrastructure.created_at.desc())
     result = await db.execute(query)
@@ -169,11 +190,15 @@ async def get_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(Infrastructure).where(Infrastructure.id == infra_id)
+        select(Infrastructure).where(
+            Infrastructure.id == infra_id,
+            Infrastructure.organization_id == org_id,
+        )
     )
     infra = result.scalar_one_or_none()
-    if not infra:
+    if not infra or infra.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "インフラ設備が見つかりません。"},
@@ -188,11 +213,15 @@ async def update_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(Infrastructure).where(Infrastructure.id == infra_id)
+        select(Infrastructure).where(
+            Infrastructure.id == infra_id,
+            Infrastructure.organization_id == org_id,
+        )
     )
     infra = result.scalar_one_or_none()
-    if not infra:
+    if not infra or infra.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "インフラ設備が見つかりません。"},
@@ -220,11 +249,15 @@ async def delete_infrastructure(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(Infrastructure).where(Infrastructure.id == infra_id)
+        select(Infrastructure).where(
+            Infrastructure.id == infra_id,
+            Infrastructure.organization_id == org_id,
+        )
     )
     infra = result.scalar_one_or_none()
-    if not infra:
+    if not infra or infra.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "インフラ設備が見つかりません。"},

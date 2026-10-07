@@ -4,10 +4,16 @@ from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from geoalchemy2 import Geography
+from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models import ConstructionSite
 from ..models.base import get_db
 from ..schemas import (
@@ -82,11 +88,21 @@ async def create_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
+    if body.organization_id != org_id:
+        # ボディ由来の organization_id は信用しない。他テナント宛の作成は拒否。
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "トークンの組織とボディの組織が一致しません。",
+            },
+        )
     location_wkt = geojson_to_wkt(body.location)
     work_area_wkt = geojson_to_wkt(body.work_area) if body.work_area else None
 
     site = ConstructionSite(
-        organization_id=body.organization_id,
+        organization_id=org_id,
         project_id=body.project_id,
         name=body.name,
         site_code=body.site_code,
@@ -100,7 +116,7 @@ async def create_site(
         start_date=body.start_date,
         end_date=body.end_date,
         metadata_=body.metadata,
-        created_by=UUID(token_data.sub),
+        created_by=require_actor_id(token_data),
     )
     db.add(site)
     await db.flush()
@@ -117,8 +133,11 @@ async def list_sites(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(ConstructionSite)
-    count_query = select(func.count(ConstructionSite.id))
+    org_id = require_organization_id(token_data)
+    query = select(ConstructionSite).where(ConstructionSite.organization_id == org_id)
+    count_query = select(func.count(ConstructionSite.id)).where(
+        ConstructionSite.organization_id == org_id
+    )
 
     if site_type:
         query = query.where(ConstructionSite.site_type == site_type)
@@ -151,14 +170,16 @@ async def find_nearby_sites(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """指定座標から半径radius_m以内の現場を検索 (ST_DWithin)"""
+    """指定座標から半径radius_m以内の現場を検索 (ST_DWithin / geography)"""
+    org_id = require_organization_id(token_data)
     point_wkt = f"SRID=4326;POINT({lng} {lat})"
     query = select(ConstructionSite).where(
+        ConstructionSite.organization_id == org_id,
         func.ST_DWithin(
-            ConstructionSite.location,
-            func.ST_GeomFromText(point_wkt),
+            cast(ConstructionSite.location, Geography(srid=4326)),
+            cast(func.ST_GeomFromText(point_wkt), Geography(srid=4326)),
             radius_m,
-        )
+        ),
     )
     query = query.order_by(ConstructionSite.created_at.desc())
     result = await db.execute(query)
@@ -179,15 +200,26 @@ async def find_sites_in_area(
     db: AsyncSession = Depends(get_db),
 ):
     """バウンディングボックス内の現場を検索 (ST_Intersects)"""
+    if min_lat > max_lat or min_lng > max_lng:
+        # 逆転した bbox は自己交差 POLYGON となり検索結果が不定になるため拒否する。
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "INVALID_BBOX",
+                "message": "min は max 以下である必要があります。",
+            },
+        )
+    org_id = require_organization_id(token_data)
     bbox_wkt = (
         f"SRID=4326;POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, "
         f"{max_lng} {max_lat}, {min_lng} {max_lat}, {min_lng} {min_lat}))"
     )
     query = select(ConstructionSite).where(
+        ConstructionSite.organization_id == org_id,
         func.ST_Intersects(
             ConstructionSite.location,
             func.ST_GeomFromText(bbox_wkt),
-        )
+        ),
     )
     query = query.order_by(ConstructionSite.created_at.desc())
     result = await db.execute(query)
@@ -204,11 +236,15 @@ async def get_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
+        select(ConstructionSite).where(
+            ConstructionSite.id == site_id,
+            ConstructionSite.organization_id == org_id,
+        )
     )
     site = result.scalar_one_or_none()
-    if not site:
+    if not site or site.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "工事現場が見つかりません。"},
@@ -223,11 +259,15 @@ async def update_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
+        select(ConstructionSite).where(
+            ConstructionSite.id == site_id,
+            ConstructionSite.organization_id == org_id,
+        )
     )
     site = result.scalar_one_or_none()
-    if not site:
+    if not site or site.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "工事現場が見つかりません。"},
@@ -257,11 +297,15 @@ async def delete_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    org_id = require_organization_id(token_data)
     result = await db.execute(
-        select(ConstructionSite).where(ConstructionSite.id == site_id)
+        select(ConstructionSite).where(
+            ConstructionSite.id == site_id,
+            ConstructionSite.organization_id == org_id,
+        )
     )
     site = result.scalar_one_or_none()
-    if not site:
+    if not site or site.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "工事現場が見つかりません。"},
