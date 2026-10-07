@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    FINANCE_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
@@ -18,9 +23,6 @@ from ..schemas.schemas import (
 from ..services import budget_service, cost_service, ledger_service
 
 router = APIRouter()
-
-# 原価承認などの財務書込に必要なロール（auth サービスの既定ロール seed と一致）
-FINANCE_ROLES = frozenset({"admin", "accountant"})
 
 
 @router.post(
@@ -102,11 +104,7 @@ async def approve_cost(
     cost = await cost_service.get_cost(db, cost_id, scope_org(current_user))
     if not cost:
         raise HTTPException(status_code=404, detail="原価明細が見つかりません")
-    if not (set(current_user.roles or []) & FINANCE_ROLES):
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "FORBIDDEN", "message": "この操作には経理ロールが必要です。"},
-        )
+    require_any_role(current_user, FINANCE_ROLES)
     try:
         return await cost_service.approve_cost(db, cost, UUID(current_user.sub))
     except ValueError as e:

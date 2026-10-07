@@ -248,3 +248,79 @@ class TestD9BudgetLedgerConsistency:
             },
         )
         assert response.status_code in (400, 404, 422)
+
+
+# ============================================================
+# Finance RBAC: 予算・請求の財務書込は admin / accountant のみ
+# ============================================================
+class TestFinanceWriteRoleRequired:
+    def test_create_budget_requires_finance_role(self):
+        ledger_id = uuid.uuid4()
+        db = CaptureDB()
+        db.put(make_ledger(ORG_A, lid=ledger_id))
+        client = make_client(db, org=ORG_A, roles=["site_worker"])
+
+        response = client.post(
+            f"/api/v1/erp/ledger/{ledger_id}/budgets",
+            json={
+                "organization_id": str(ORG_A),
+                "category": "materials",
+                "planned_amount": "300000",
+            },
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "FORBIDDEN"
+
+    def test_update_budget_requires_finance_role(self):
+        budget = make_budget(ORG_A)
+        db = CaptureDB()
+        db.put(budget)
+        client = make_client(db, org=ORG_A, roles=["site_worker"])
+
+        response = client.put(
+            f"/api/v1/erp/budgets/{budget.id}", json={"planned_amount": "1"}
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "FORBIDDEN"
+
+    def test_create_invoice_requires_finance_role(self):
+        db = CaptureDB()
+        client = make_client(db, org=ORG_A, roles=["site_worker"])
+
+        response = client.post(
+            "/api/v1/erp/invoices",
+            json={
+                "organization_id": str(ORG_A),
+                "invoice_number": "INV-QA-F",
+                "invoice_type": "payable",
+                "vendor_name": "テスト商事",
+                "amount": "100",
+                "issue_date": "2026-05-20",
+            },
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "FORBIDDEN"
+
+    def test_update_invoice_requires_finance_role(self):
+        invoice = make_invoice(ORG_A, status="draft")
+        db = CaptureDB()
+        db.put(invoice)
+        client = make_client(db, org=ORG_A, roles=["site_worker"])
+
+        response = client.put(
+            f"/api/v1/erp/invoices/{invoice.id}", json={"notes": "x"}
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "FORBIDDEN"
+
+    def test_pay_invoice_requires_finance_role(self):
+        invoice = make_invoice(ORG_A, status="issued")
+        db = CaptureDB()
+        db.put(invoice)
+        client = make_client(db, org=ORG_A, roles=["site_worker"])
+
+        response = client.post(
+            f"/api/v1/erp/invoices/{invoice.id}/pay", json={}
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"]["code"] == "FORBIDDEN"
