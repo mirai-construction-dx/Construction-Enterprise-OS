@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import (
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -16,6 +20,7 @@ from ..schemas import (
     TokenData,
 )
 from ..services import contract_service
+from ..services.contract_service import ContractStateError
 
 router = APIRouter()
 
@@ -50,7 +55,7 @@ async def create_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = UUID(current_user.org) if current_user.org else UUID("00000000-0000-0000-0000-000000000001")
+    org_id = require_organization_id(current_user)
     contract = await contract_service.create_contract(db, org_id, body.model_dump())
     await db.flush()
     await db.refresh(contract)
@@ -71,6 +76,7 @@ async def list_contracts(
 ):
     contracts, total = await contract_service.list_contracts(
         db,
+        organization_id=require_organization_id(current_user),
         page=page,
         per_page=per_page,
         partner_id=partner_id,
@@ -97,8 +103,9 @@ async def get_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    contract = await contract_service.get_contract_by_id(db, contract_id)
-    if not contract:
+    org_id = require_organization_id(current_user)
+    contract = await contract_service.get_contract_by_id(db, contract_id, org_id)
+    if not contract or contract.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "CONTRACT_NOT_FOUND", "message": "契約が見つかりません。"},
@@ -114,7 +121,24 @@ async def update_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    contract = await contract_service.update_contract(db, contract_id, body.model_dump(exclude_unset=True))
+    org_id = require_organization_id(current_user)
+    existing = await contract_service.get_contract_by_id(db, contract_id, org_id)
+    if not existing or existing.organization_id != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "CONTRACT_NOT_FOUND", "message": "契約が見つかりません。"},
+        )
+    payload = body.model_dump(exclude_unset=True)
+    if payload.get("status") == "active" and existing.signed_at is None:
+        # 署名を経由せずに active へ遷移させることを禁じる（署名の迂回防止）
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SIGNATURE_REQUIRED",
+                "message": "active への変更は署名 API を使用してください。",
+            },
+        )
+    contract = await contract_service.update_contract(db, contract_id, payload)
     if not contract:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,9 +155,19 @@ async def sign_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    contract = await contract_service.sign_contract(
-        db, contract_id, body.signed_by_our, body.signed_by_partner
-    )
+    try:
+        contract = await contract_service.sign_contract(
+            db,
+            contract_id,
+            require_actor_id(current_user),
+            body.signed_by_partner,
+            organization_id=require_organization_id(current_user),
+        )
+    except ContractStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not contract:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

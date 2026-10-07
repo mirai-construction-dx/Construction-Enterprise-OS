@@ -22,17 +22,21 @@ async def create_contract(
 
 
 async def get_contract_by_id(
-    db: AsyncSession, contract_id: uuid.UUID
+    db: AsyncSession,
+    contract_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
 ) -> Contract | None:
-    result = await db.execute(
-        select(Contract).where(Contract.id == contract_id)
-    )
+    stmt = select(Contract).where(Contract.id == contract_id)
+    if organization_id is not None:
+        stmt = stmt.where(Contract.organization_id == organization_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
 async def list_contracts(
     db: AsyncSession,
     *,
+    organization_id: uuid.UUID | None = None,
     page: int = 1,
     per_page: int = 20,
     partner_id: uuid.UUID | None = None,
@@ -41,6 +45,8 @@ async def list_contracts(
     contract_type: str | None = None,
 ) -> tuple[list[Contract], int]:
     conditions = []
+    if organization_id is not None:
+        conditions.append(Contract.organization_id == organization_id)
     if partner_id:
         conditions.append(Contract.partner_id == partner_id)
     if project_id:
@@ -85,12 +91,31 @@ async def update_contract(
     return contract
 
 
+class ContractStateError(ValueError):
+    """署名できない契約状態。"""
+
+
+# 署名してはならない状態（終端・取消）
+UNSIGNABLE_STATUSES = frozenset({"terminated", "expired", "cancelled"})
+
+
 async def sign_contract(
-    db: AsyncSession, contract_id: uuid.UUID, signed_by_our: uuid.UUID, signed_by_partner: str
+    db: AsyncSession,
+    contract_id: uuid.UUID,
+    signed_by_our: uuid.UUID,
+    signed_by_partner: str,
+    organization_id: uuid.UUID | None = None,
 ) -> Contract | None:
-    contract = await get_contract_by_id(db, contract_id)
+    contract = await get_contract_by_id(db, contract_id, organization_id)
     if not contract:
         return None
+    if contract.status in UNSIGNABLE_STATUSES:
+        raise ContractStateError(
+            f"contract {contract_id} is {contract.status} and cannot be signed"
+        )
+    if contract.signed_at is not None:
+        # 先行署名を上書きしない（証跡の否認不能性を守る）
+        raise ContractStateError(f"contract {contract_id} is already signed")
 
     contract.status = "active"
     contract.signed_by_our = signed_by_our
@@ -100,6 +125,16 @@ async def sign_contract(
 
 
 async def list_contracts_for_partner(
-    db: AsyncSession, partner_id: uuid.UUID, page: int = 1, per_page: int = 20
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    page: int = 1,
+    per_page: int = 20,
+    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[Contract], int]:
-    return await list_contracts(db, page=page, per_page=per_page, partner_id=partner_id)
+    return await list_contracts(
+        db,
+        page=page,
+        per_page=per_page,
+        partner_id=partner_id,
+        organization_id=organization_id,
+    )

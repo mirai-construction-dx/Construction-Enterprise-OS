@@ -158,7 +158,9 @@ class ContractUpdate(BaseModel):
     contract_number: str | None = None
     title: str | None = None
     contract_type: str | None = None
-    amount: float | None = None
+    # 作成時(ContractCreate)と同じく正値のみ許可する。
+    # 無検証だと更新経由で 0/負値の契約金額を登録できてしまう。
+    amount: float | None = Field(default=None, gt=0)
     currency: str | None = None
     start_date: date | None = None
     end_date: date | None = None

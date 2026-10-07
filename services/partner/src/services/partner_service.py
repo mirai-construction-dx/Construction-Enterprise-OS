@@ -21,20 +21,28 @@ async def create_partner(
     return partner
 
 
-async def get_partner_by_id(db: AsyncSession, partner_id: uuid.UUID) -> Partner | None:
-    result = await db.execute(
+async def get_partner_by_id(
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> Partner | None:
+    stmt = (
         select(Partner)
         .options(
             selectinload(Partner.contacts),
         )
         .where(Partner.id == partner_id)
     )
+    if organization_id is not None:
+        stmt = stmt.where(Partner.organization_id == organization_id)
+    result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
 async def list_partners(
     db: AsyncSession,
     *,
+    organization_id: uuid.UUID | None = None,
     page: int = 1,
     per_page: int = 20,
     company_type: str | None = None,
@@ -43,6 +51,8 @@ async def list_partners(
     search: str | None = None,
 ) -> tuple[list[Partner], int]:
     conditions = []
+    if organization_id is not None:
+        conditions.append(Partner.organization_id == organization_id)
     if company_type:
         conditions.append(Partner.company_type == company_type)
     if status:
@@ -112,12 +122,17 @@ async def list_contacts(
 
 
 async def calculate_partner_rating(
-    db: AsyncSession, partner_id: uuid.UUID
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
 ) -> float | None:
-    result = await db.execute(
-        select(func.avg(Evaluation.overall_score)).where(
-            Evaluation.partner_id == partner_id
-        )
+    stmt = select(func.avg(Evaluation.overall_score)).where(
+        Evaluation.partner_id == partner_id
     )
+    if organization_id is not None:
+        stmt = stmt.where(Evaluation.organization_id == organization_id)
+    result = await db.execute(stmt)
     avg = result.scalar()
-    return round(float(avg), 1) if avg else None
+    # 平均 0.0 は falsy のため ``if avg`` では欠測(None)と区別できない。
+    # evaluation_service.get_partner_rating と挙動を揃える（P-8）。
+    return round(float(avg), 1) if avg is not None else 0.0

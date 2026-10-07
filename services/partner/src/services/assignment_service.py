@@ -23,6 +23,7 @@ async def create_assignment(
 async def list_assignments(
     db: AsyncSession,
     *,
+    organization_id: uuid.UUID | None = None,
     page: int = 1,
     per_page: int = 20,
     partner_id: uuid.UUID | None = None,
@@ -30,6 +31,8 @@ async def list_assignments(
     status: str | None = None,
 ) -> tuple[list[ProjectAssignment], int]:
     conditions = []
+    if organization_id is not None:
+        conditions.append(ProjectAssignment.organization_id == organization_id)
     if partner_id:
         conditions.append(ProjectAssignment.partner_id == partner_id)
     if project_id:

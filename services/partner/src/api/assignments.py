@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import get_current_user, require_organization_id
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -42,7 +42,7 @@ async def create_assignment(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = UUID(current_user.org) if current_user.org else UUID("00000000-0000-0000-0000-000000000001")
+    org_id = require_organization_id(current_user)
     assignment = await assignment_service.create_assignment(db, org_id, body.model_dump())
     await db.flush()
     await db.refresh(assignment)
@@ -62,6 +62,7 @@ async def list_assignments(
 ):
     assignments, total = await assignment_service.list_assignments(
         db,
+        organization_id=require_organization_id(current_user),
         page=page,
         per_page=per_page,
         partner_id=partner_id,

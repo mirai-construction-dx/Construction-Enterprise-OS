@@ -24,12 +24,15 @@ async def create_evaluation(
 async def list_evaluations(
     db: AsyncSession,
     *,
+    organization_id: uuid.UUID | None = None,
     page: int = 1,
     per_page: int = 20,
     partner_id: uuid.UUID | None = None,
     project_id: uuid.UUID | None = None,
 ) -> tuple[list[Evaluation], int]:
     conditions = []
+    if organization_id is not None:
+        conditions.append(Evaluation.organization_id == organization_id)
     if partner_id:
         conditions.append(Evaluation.partner_id == partner_id)
     if project_id:
@@ -58,22 +61,36 @@ async def list_evaluations(
 
 
 async def get_partner_evaluations(
-    db: AsyncSession, partner_id: uuid.UUID, page: int = 1, per_page: int = 20
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    page: int = 1,
+    per_page: int = 20,
+    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[Evaluation], int]:
-    return await list_evaluations(db, page=page, per_page=per_page, partner_id=partner_id)
+    return await list_evaluations(
+        db,
+        page=page,
+        per_page=per_page,
+        partner_id=partner_id,
+        organization_id=organization_id,
+    )
 
 
 async def get_partner_rating(
-    db: AsyncSession, partner_id: uuid.UUID
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
 ) -> tuple[float, int]:
-    result = await db.execute(
-        select(
-            func.avg(Evaluation.overall_score),
-            func.count(Evaluation.id),
-        ).where(Evaluation.partner_id == partner_id)
-    )
+    stmt = select(
+        func.avg(Evaluation.overall_score),
+        func.count(Evaluation.id),
+    ).where(Evaluation.partner_id == partner_id)
+    if organization_id is not None:
+        stmt = stmt.where(Evaluation.organization_id == organization_id)
+    result = await db.execute(stmt)
     avg, count = result.one_or_none() or (None, 0)
-    rating = round(float(avg), 1) if avg else 0.0
+    # 平均 0.0 は欠測と区別する（P-8: partner_service.calculate_partner_rating と一致）
+    rating = round(float(avg), 1) if avg is not None else 0.0
     return rating, count
 
 

@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import get_current_user
+from ..middleware.auth import get_current_user, require_organization_id
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -26,11 +26,11 @@ def _evaluation_to_response(eval_) -> EvaluationResponse:
         project_id=eval_.project_id,
         evaluator_id=eval_.evaluator_id,
         overall_score=float(eval_.overall_score),
-        quality_score=float(eval_.quality_score) if eval_.quality_score else None,
-        safety_score=float(eval_.safety_score) if eval_.safety_score else None,
-        schedule_score=float(eval_.schedule_score) if eval_.schedule_score else None,
-        cost_score=float(eval_.cost_score) if eval_.cost_score else None,
-        communication_score=float(eval_.communication_score) if eval_.communication_score else None,
+        quality_score=float(eval_.quality_score) if eval_.quality_score is not None else None,
+        safety_score=float(eval_.safety_score) if eval_.safety_score is not None else None,
+        schedule_score=float(eval_.schedule_score) if eval_.schedule_score is not None else None,
+        cost_score=float(eval_.cost_score) if eval_.cost_score is not None else None,
+        communication_score=float(eval_.communication_score) if eval_.communication_score is not None else None,
         comment=eval_.comment,
         evaluation_period_start=eval_.evaluation_period_start,
         evaluation_period_end=eval_.evaluation_period_end,
@@ -45,7 +45,7 @@ async def create_evaluation(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = UUID(current_user.org) if current_user.org else UUID("00000000-0000-0000-0000-000000000001")
+    org_id = require_organization_id(current_user)
     evaluator_id = UUID(current_user.sub)
     evaluation = await evaluation_service.create_evaluation(
         db, org_id, evaluator_id, body.model_dump()
@@ -68,6 +68,7 @@ async def list_evaluations(
 ):
     evaluations, total = await evaluation_service.list_evaluations(
         db,
+        organization_id=require_organization_id(current_user),
         page=page,
         per_page=per_page,
         partner_id=partner_id,
