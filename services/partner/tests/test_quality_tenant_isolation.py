@@ -237,44 +237,37 @@ class TestServiceScoping:
             wheres.append(parts[1] if len(parts) > 1 else "")
         return " | ".join(wheres)
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 協力会社の取得が org で絞られていない")
     async def test_defect_get_partner_by_id_not_scoped(self):
         sql = await self._capture(
-            lambda db: partner_service.get_partner_by_id(db, PARTNER_ID)
+            lambda db: partner_service.get_partner_by_id(db, PARTNER_ID, ORG_A)
         )
         assert "organization_id" in sql
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 協力会社一覧が org で絞られていない")
     async def test_defect_list_partners_not_scoped(self):
-        sql = await self._capture(lambda db: partner_service.list_partners(db))
+        sql = await self._capture(lambda db: partner_service.list_partners(db, organization_id=ORG_A))
         assert "organization_id" in sql
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 契約の取得が org で絞られていない")
     async def test_defect_get_contract_by_id_not_scoped(self):
         sql = await self._capture(
-            lambda db: contract_service.get_contract_by_id(db, PARTNER_ID)
+            lambda db: contract_service.get_contract_by_id(db, PARTNER_ID, ORG_A)
         )
         assert "organization_id" in sql
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 契約一覧が org で絞られていない")
     async def test_defect_list_contracts_not_scoped(self):
-        sql = await self._capture(lambda db: contract_service.list_contracts(db))
+        sql = await self._capture(lambda db: contract_service.list_contracts(db, organization_id=ORG_A))
         assert "organization_id" in sql
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 評価一覧が org で絞られていない")
     async def test_defect_list_evaluations_not_scoped(self):
-        sql = await self._capture(lambda db: evaluation_service.list_evaluations(db))
+        sql = await self._capture(lambda db: evaluation_service.list_evaluations(db, organization_id=ORG_A))
         assert "organization_id" in sql
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 配置一覧が org で絞られていない")
     async def test_defect_list_assignments_not_scoped(self):
-        sql = await self._capture(lambda db: assignment_service.list_assignments(db))
+        sql = await self._capture(lambda db: assignment_service.list_assignments(db, organization_id=ORG_A))
         assert "organization_id" in sql
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-P-1: 評価集計が org で絞られていない")
     async def test_defect_get_partner_rating_not_scoped(self):
         sql = await self._capture(
-            lambda db: evaluation_service.get_partner_rating(db, PARTNER_ID)
+            lambda db: evaluation_service.get_partner_rating(db, PARTNER_ID, ORG_A)
         )
         assert "organization_id" in sql
 

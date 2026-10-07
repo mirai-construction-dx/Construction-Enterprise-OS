@@ -195,7 +195,7 @@ class TestSignatureStateTransition:
         db.execute = AsyncMock(return_value=_result_one(contract))
 
         result = await contract_service.sign_contract(
-            db, CONTRACT_ID, USER_A, "テスト商事株式会社"
+            db, CONTRACT_ID, USER_A, "テスト商事株式会社", ORG_A
         )
 
         assert result.status == "active"
@@ -217,7 +217,7 @@ class TestSignatureStateTransition:
         db.execute = AsyncMock(return_value=_result_one(contract))
 
         with pytest.raises(ContractStateError):
-            await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "後行商事")
+            await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "後行商事", ORG_A)
 
         # 先行署名の証跡は保持される（否認不能性）
         assert contract.signed_by_our == previous_signer, "先行署名者が上書きされた"
@@ -230,7 +230,7 @@ class TestSignatureStateTransition:
         db.execute = AsyncMock(return_value=_result_one(contract))
 
         with pytest.raises(ContractStateError):
-            await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "テスト商事")
+            await contract_service.sign_contract(db, CONTRACT_ID, USER_A, "テスト商事", ORG_A)
 
         # 拒否された契約は変更されない（終端状態のまま）
         assert contract.status == "terminated", "terminated 契約が active へ遷移した"
@@ -286,8 +286,8 @@ class TestRatingAggregation:
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_result_one((Decimal("4.25"), 2)))
 
-        first = await evaluation_service.get_partner_rating(db, PARTNER_ID)
-        second = await evaluation_service.get_partner_rating(db, PARTNER_ID)
+        first = await evaluation_service.get_partner_rating(db, PARTNER_ID, ORG_A)
+        second = await evaluation_service.get_partner_rating(db, PARTNER_ID, ORG_A)
 
         assert first == second
         # round(4.25, 1) は銀行丸めで 4.2。JIS の四捨五入なら 4.3 になる。
@@ -299,7 +299,7 @@ class TestRatingAggregation:
         result.one_or_none.return_value = (None, 0)
         db.execute = AsyncMock(return_value=result)
 
-        rating, count = await evaluation_service.get_partner_rating(db, PARTNER_ID)
+        rating, count = await evaluation_service.get_partner_rating(db, PARTNER_ID, ORG_A)
 
         assert rating == 0.0
         assert count == 0
@@ -308,7 +308,7 @@ class TestRatingAggregation:
         db = AsyncMock()
         db.execute = AsyncMock(return_value=_result_one((Decimal("3.75"), 4)))
 
-        rating, count = await evaluation_service.get_partner_rating(db, PARTNER_ID)
+        rating, count = await evaluation_service.get_partner_rating(db, PARTNER_ID, ORG_A)
 
         assert rating == 3.8  # round(3.75, 1) = 3.8 (銀行丸め)
         assert count == 4
@@ -334,10 +334,10 @@ class TestRatingAggregation:
         db.execute = AsyncMock(return_value=result)
 
         partner_service_value = await partner_service.calculate_partner_rating(
-            db, PARTNER_ID
+            db, PARTNER_ID, ORG_A
         )
         evaluation_service_value, _ = await evaluation_service.get_partner_rating(
-            db, PARTNER_ID
+            db, PARTNER_ID, ORG_A
         )
 
         assert partner_service_value == evaluation_service_value

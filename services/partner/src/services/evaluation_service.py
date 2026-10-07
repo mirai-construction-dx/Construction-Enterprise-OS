@@ -24,7 +24,7 @@ async def create_evaluation(
 async def list_evaluations(
     db: AsyncSession,
     *,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
     page: int = 1,
     per_page: int = 20,
     partner_id: uuid.UUID | None = None,
@@ -63,9 +63,9 @@ async def list_evaluations(
 async def get_partner_evaluations(
     db: AsyncSession,
     partner_id: uuid.UUID,
+    organization_id: uuid.UUID,
     page: int = 1,
     per_page: int = 20,
-    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[Evaluation], int]:
     return await list_evaluations(
         db,
@@ -79,7 +79,7 @@ async def get_partner_evaluations(
 async def get_partner_rating(
     db: AsyncSession,
     partner_id: uuid.UUID,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
 ) -> tuple[float, int]:
     stmt = select(
         func.avg(Evaluation.overall_score),
@@ -95,9 +95,9 @@ async def get_partner_rating(
 
 
 async def update_partner_rating(
-    db: AsyncSession, partner_id: uuid.UUID
+    db: AsyncSession, partner_id: uuid.UUID, organization_id: uuid.UUID
 ) -> None:
-    rating, _ = await get_partner_rating(db, partner_id)
+    rating, _ = await get_partner_rating(db, partner_id, organization_id)
     result = await db.execute(select(Partner).where(Partner.id == partner_id))
     partner = result.scalar_one_or_none()
     if partner:

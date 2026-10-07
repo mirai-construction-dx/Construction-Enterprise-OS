@@ -23,7 +23,7 @@ async def create_assignment(
 async def list_assignments(
     db: AsyncSession,
     *,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
     page: int = 1,
     per_page: int = 20,
     partner_id: uuid.UUID | None = None,
@@ -63,6 +63,16 @@ async def list_assignments(
 
 
 async def get_project_assignments(
-    db: AsyncSession, project_id: uuid.UUID, page: int = 1, per_page: int = 20
+    db: AsyncSession,
+    project_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    page: int = 1,
+    per_page: int = 20,
 ) -> tuple[list[ProjectAssignment], int]:
-    return await list_assignments(db, page=page, per_page=per_page, project_id=project_id)
+    return await list_assignments(
+        db,
+        organization_id=organization_id,
+        page=page,
+        per_page=per_page,
+        project_id=project_id,
+    )

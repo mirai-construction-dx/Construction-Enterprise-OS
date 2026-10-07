@@ -51,7 +51,7 @@ async def create_evaluation(
         db, org_id, evaluator_id, body.model_dump()
     )
     await db.flush()
-    await evaluation_service.update_partner_rating(db, body.partner_id)
+    await evaluation_service.update_partner_rating(db, body.partner_id, org_id)
     await db.refresh(evaluation)
     return APIResponse(data=_evaluation_to_response(evaluation))
 

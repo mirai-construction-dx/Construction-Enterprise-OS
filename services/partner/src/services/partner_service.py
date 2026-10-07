@@ -24,7 +24,7 @@ async def create_partner(
 async def get_partner_by_id(
     db: AsyncSession,
     partner_id: uuid.UUID,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
 ) -> Partner | None:
     stmt = (
         select(Partner)
@@ -42,7 +42,7 @@ async def get_partner_by_id(
 async def list_partners(
     db: AsyncSession,
     *,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
     page: int = 1,
     per_page: int = 20,
     company_type: str | None = None,
@@ -88,9 +88,12 @@ async def list_partners(
 
 
 async def update_partner(
-    db: AsyncSession, partner_id: uuid.UUID, update_data: dict
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    update_data: dict,
+    organization_id: uuid.UUID,
 ) -> Partner | None:
-    partner = await get_partner_by_id(db, partner_id)
+    partner = await get_partner_by_id(db, partner_id, organization_id)
     if not partner:
         return None
 
@@ -124,7 +127,7 @@ async def list_contacts(
 async def calculate_partner_rating(
     db: AsyncSession,
     partner_id: uuid.UUID,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
 ) -> float | None:
     stmt = select(func.avg(Evaluation.overall_score)).where(
         Evaluation.partner_id == partner_id

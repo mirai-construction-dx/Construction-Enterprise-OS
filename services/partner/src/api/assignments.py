@@ -91,7 +91,11 @@ async def get_project_assignments(
     current_user: TokenData = Depends(get_current_user),
 ):
     assignments, total = await assignment_service.get_project_assignments(
-        db, project_id, page=page, per_page=per_page
+        db,
+        project_id,
+        require_organization_id(current_user),
+        page=page,
+        per_page=per_page,
     )
     total_pages = max((total + per_page - 1) // per_page, 1) if total > 0 else 0
     return APIResponse(

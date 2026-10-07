@@ -152,8 +152,11 @@ async def update_partner(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    partner = await partner_service.update_partner(db, partner_id, body.model_dump(exclude_unset=True))
-    if not partner:
+    org_id = require_organization_id(current_user)
+    partner = await partner_service.update_partner(
+        db, partner_id, body.model_dump(exclude_unset=True), org_id
+    )
+    if not partner or partner.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "PARTNER_NOT_FOUND", "message": "協力会社が見つかりません。"},

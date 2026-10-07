@@ -138,7 +138,7 @@ async def update_contract(
                 "message": "active への変更は署名 API を使用してください。",
             },
         )
-    contract = await contract_service.update_contract(db, contract_id, payload)
+    contract = await contract_service.update_contract(db, contract_id, payload, org_id)
     if not contract:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

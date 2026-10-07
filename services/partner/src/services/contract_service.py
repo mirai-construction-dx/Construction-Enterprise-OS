@@ -24,7 +24,7 @@ async def create_contract(
 async def get_contract_by_id(
     db: AsyncSession,
     contract_id: uuid.UUID,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
 ) -> Contract | None:
     stmt = select(Contract).where(Contract.id == contract_id)
     if organization_id is not None:
@@ -36,7 +36,7 @@ async def get_contract_by_id(
 async def list_contracts(
     db: AsyncSession,
     *,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
     page: int = 1,
     per_page: int = 20,
     partner_id: uuid.UUID | None = None,
@@ -79,9 +79,12 @@ async def list_contracts(
 
 
 async def update_contract(
-    db: AsyncSession, contract_id: uuid.UUID, update_data: dict
+    db: AsyncSession,
+    contract_id: uuid.UUID,
+    update_data: dict,
+    organization_id: uuid.UUID,
 ) -> Contract | None:
-    contract = await get_contract_by_id(db, contract_id)
+    contract = await get_contract_by_id(db, contract_id, organization_id)
     if not contract:
         return None
 
@@ -104,7 +107,7 @@ async def sign_contract(
     contract_id: uuid.UUID,
     signed_by_our: uuid.UUID,
     signed_by_partner: str,
-    organization_id: uuid.UUID | None = None,
+    organization_id: uuid.UUID,
 ) -> Contract | None:
     contract = await get_contract_by_id(db, contract_id, organization_id)
     if not contract:
@@ -127,9 +130,9 @@ async def sign_contract(
 async def list_contracts_for_partner(
     db: AsyncSession,
     partner_id: uuid.UUID,
+    organization_id: uuid.UUID,
     page: int = 1,
     per_page: int = 20,
-    organization_id: uuid.UUID | None = None,
 ) -> tuple[list[Contract], int]:
     return await list_contracts(
         db,
