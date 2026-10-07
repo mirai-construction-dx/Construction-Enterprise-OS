@@ -53,13 +53,13 @@ class DeviceUpdateRequest(BaseModel):
     site_id: UUID | None = None
     firmware_version: str | None = None
     status: str | None = None
-    battery_level: int | None = None
+    battery_level: int | None = Field(default=None, ge=0, le=100)
     location: str | None = None
     metadata: dict | None = None
 
 
 class DeviceHeartbeatRequest(BaseModel):
-    battery_level: int | None = None
+    battery_level: int | None = Field(default=None, ge=0, le=100)
     location: str | None = None
     firmware_version: str | None = None
 

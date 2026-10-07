@@ -396,7 +396,8 @@ def test_acknowledge_alert_requires_auth(unauth_client):
 # POST /alerts/{id}/resolve
 # ============================================
 def test_resolve_alert_sets_resolved_at(client, mock_db):
-    alert = _make_alert(12)
+    # DEF-08a: resolve requires a prior acknowledge (state-machine order).
+    alert = _make_alert(12, acknowledged_at=datetime.now(timezone.utc))
     mock_db.execute = AsyncMock(
         return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=alert))
     )
