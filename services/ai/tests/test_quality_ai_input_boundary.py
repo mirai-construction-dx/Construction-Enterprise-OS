@@ -204,7 +204,10 @@ class TestEmbeddingTenantScope:
         service = EmbeddingService(base_url="http://127.0.0.1:1", api_key="x")
         asyncio.run(
             service.delete_embeddings(
-                db, "document", uuid.UUID("00000000-0000-0000-0000-0000000000d1")
+                db,
+                "document",
+                uuid.UUID("00000000-0000-0000-0000-0000000000d1"),
+                organization_id=ORG,
             )
         )
         sql = str(

@@ -14,6 +14,7 @@ from ..schemas import (
     CompletionRequest,
 )
 from ..services.llm_service import MockLLMProvider, OpenAICompatibleProvider
+from ..services.masking_service import mask_messages
 from ..services.prompt_service import PromptService, render_user_template
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,9 @@ async def chat(
         kwargs["temperature"] = body.temperature
     if body.max_tokens is not None:
         kwargs["max_tokens"] = body.max_tokens
+
+    # 機密保護: 個人情報はマスキングを通してからモデルへ送信する
+    messages = mask_messages(messages)
 
     try:
         response_text = await llm.complete(messages, **kwargs)
@@ -120,6 +124,9 @@ async def chat_stream(
         kwargs["temperature"] = body.temperature
     if body.max_tokens is not None:
         kwargs["max_tokens"] = body.max_tokens
+
+    # 機密保護: 個人情報はマスキングを通してからモデルへ送信する
+    messages = mask_messages(messages)
 
     async def event_generator():
         try:
@@ -183,6 +190,8 @@ async def complete(
     }
 
     llm = _get_llm_provider()
+    # 機密保護: 変数展開結果の個人情報もマスキングしてからモデルへ送信する
+    messages = mask_messages(messages)
     try:
         response_text = await llm.complete(messages, **kwargs)
     finally:
