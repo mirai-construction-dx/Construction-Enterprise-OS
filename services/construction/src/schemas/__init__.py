@@ -36,7 +36,7 @@ class WBSUpdateRequest(BaseModel):
     planned_cost: Decimal | None = None
     actual_cost: Decimal | None = None
     weight_percent: Decimal | None = None
-    progress_percent: Decimal | None = None
+    progress_percent: Decimal | None = Field(None, ge=0, le=100)
     status: str | None = None
     responsible_person: UUID | None = None
 

@@ -75,11 +75,21 @@ async def update_wbs(db: AsyncSession, wbs: WBSItem, data: dict) -> WBSItem:
     return wbs
 
 
-async def get_wbs_children(db: AsyncSession, parent_id: uuid.UUID) -> list[WBSItem]:
-    result = await db.execute(
-        select(WBSItem).where(WBSItem.parent_id == parent_id).order_by(WBSItem.wbs_code)
-    )
-    return list(result.scalars().all())
+async def get_wbs_children(
+    db: AsyncSession,
+    parent_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> list[WBSItem]:
+    query = select(WBSItem).where(WBSItem.parent_id == parent_id)
+    if organization_id is not None:
+        query = query.where(WBSItem.organization_id == organization_id)
+    result = await db.execute(query.order_by(WBSItem.wbs_code))
+    # SQL の WHERE に加え、ORM が返した行に対しても防御的に同一組織のみへ絞る
+    # （モック等で WHERE が無視される状況でも他テナントを混入させない）。
+    children = list(result.scalars().all())
+    if organization_id is not None:
+        children = [c for c in children if c.organization_id == organization_id]
+    return children
 
 
 async def build_wbs_tree(
@@ -105,16 +115,18 @@ async def build_wbs_tree(
 
     trees = []
     for root in roots:
-        tree = await _build_subtree(db, root)
+        tree = await _build_subtree(db, root, organization_id)
         trees.append(tree)
     return trees
 
 
-async def _build_subtree(db: AsyncSession, node: WBSItem) -> dict:
-    children = await get_wbs_children(db, node.id)
+async def _build_subtree(
+    db: AsyncSession, node: WBSItem, organization_id: uuid.UUID | None = None
+) -> dict:
+    children = await get_wbs_children(db, node.id, organization_id)
     child_trees = []
     for child in children:
-        child_trees.append(await _build_subtree(db, child))
+        child_trees.append(await _build_subtree(db, child, organization_id))
     return {
         **{c.name: getattr(node, c.name) for c in node.__table__.columns},
         "children": child_trees,
@@ -137,14 +149,24 @@ async def update_wbs_progress(db: AsyncSession, wbs: WBSItem, data: dict) -> WBS
 # ============================================
 async def create_resource(db: AsyncSession, data: dict) -> Resource:
     resource = Resource(**data)
+    _calculate_resource_total_cost(resource)
     db.add(resource)
     await db.flush()
     await db.refresh(resource)
     return resource
 
 
-async def get_resource(db: AsyncSession, resource_id: uuid.UUID) -> Resource | None:
-    return await db.get(Resource, resource_id)
+async def get_resource(
+    db: AsyncSession, resource_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> Resource | None:
+    resource = await db.get(Resource, resource_id)
+    if (
+        resource is not None
+        and organization_id is not None
+        and resource.organization_id != organization_id
+    ):
+        return None
+    return resource
 
 
 async def list_resources(
@@ -203,7 +225,7 @@ async def update_resource_allocation(
 
 
 async def get_resource_cost_summary(
-    db: AsyncSession, project_id: uuid.UUID
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
 ) -> list[dict]:
     result = await db.execute(
         select(
@@ -216,7 +238,10 @@ async def get_resource_cost_summary(
                 func.sum(Resource.actual_quantity * Resource.unit_cost), 0
             ).label("total_actual"),
         )
-        .where(Resource.project_id == project_id)
+        .where(
+            Resource.project_id == project_id,
+            Resource.organization_id == organization_id,
+        )
         .group_by(Resource.resource_type)
     )
     return [
@@ -231,7 +256,12 @@ async def get_resource_cost_summary(
 
 
 def _calculate_resource_total_cost(resource: Resource) -> None:
-    qty = float(resource.actual_quantity or resource.planned_quantity or 0)
+    if resource.actual_quantity is not None:
+        qty = float(resource.actual_quantity)
+    elif resource.planned_quantity is not None:
+        qty = float(resource.planned_quantity)
+    else:
+        qty = 0.0
     cost = float(resource.unit_cost or 0)
     resource.total_cost = qty * cost
 
@@ -247,8 +277,17 @@ async def create_schedule(db: AsyncSession, data: dict) -> Schedule:
     return schedule
 
 
-async def get_schedule(db: AsyncSession, schedule_id: uuid.UUID) -> Schedule | None:
-    return await db.get(Schedule, schedule_id)
+async def get_schedule(
+    db: AsyncSession, schedule_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> Schedule | None:
+    schedule = await db.get(Schedule, schedule_id)
+    if (
+        schedule is not None
+        and organization_id is not None
+        and schedule.organization_id != organization_id
+    ):
+        return None
+    return schedule
 
 
 async def list_schedules(
@@ -297,19 +336,30 @@ async def update_schedule(db: AsyncSession, schedule: Schedule, data: dict) -> S
     return schedule
 
 
-async def get_critical_path(db: AsyncSession, project_id: uuid.UUID) -> list[Schedule]:
+async def get_critical_path(
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
+) -> list[Schedule]:
     result = await db.execute(
         select(Schedule)
-        .where(Schedule.project_id == project_id, Schedule.critical_path.is_(True))
+        .where(
+            Schedule.project_id == project_id,
+            Schedule.organization_id == organization_id,
+            Schedule.critical_path.is_(True),
+        )
         .order_by(Schedule.planned_start)
     )
     return list(result.scalars().all())
 
 
-async def get_gantt_data(db: AsyncSession, project_id: uuid.UUID) -> list[dict]:
+async def get_gantt_data(
+    db: AsyncSession, project_id: uuid.UUID, organization_id: uuid.UUID
+) -> list[dict]:
     result = await db.execute(
         select(Schedule)
-        .where(Schedule.project_id == project_id)
+        .where(
+            Schedule.project_id == project_id,
+            Schedule.organization_id == organization_id,
+        )
         .order_by(Schedule.planned_start)
     )
     schedules = list(result.scalars().all())
@@ -341,8 +391,17 @@ async def create_method(db: AsyncSession, data: dict) -> MethodStatement:
     return method
 
 
-async def get_method(db: AsyncSession, method_id: uuid.UUID) -> MethodStatement | None:
-    return await db.get(MethodStatement, method_id)
+async def get_method(
+    db: AsyncSession, method_id: uuid.UUID, organization_id: uuid.UUID | None = None
+) -> MethodStatement | None:
+    method = await db.get(MethodStatement, method_id)
+    if (
+        method is not None
+        and organization_id is not None
+        and method.organization_id != organization_id
+    ):
+        return None
+    return method
 
 
 async def list_methods(

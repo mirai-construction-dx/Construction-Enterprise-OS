@@ -43,10 +43,6 @@ class TestH1ListTenantSource:
     def list_case(self, request):
         return request.param
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-01a: 一覧が organization_id クエリ省略時に全テナントを返す（テナント越境）",
-    )
     def test_list_without_org_query_is_tenant_scoped(self, client, mock_db, list_case):
         captured = record_execute(
             mock_db, [MockScalarResult(total=0), MockScalarResult(items=[])]
@@ -59,10 +55,6 @@ class TestH1ListTenantSource:
             f"{list_case} の一覧がテナントで絞られていない: {sql!r}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-01b: 一覧が攻撃者指定の organization_id をそのまま信頼する（テナント越境）",
-    )
     def test_list_honors_token_org_not_query_org(self, client, mock_db, list_case):
         captured = record_execute(
             mock_db, [MockScalarResult(total=0), MockScalarResult(items=[])]
@@ -106,10 +98,6 @@ DETAIL_IDS = [c[0] for c in DETAIL_CASES]
 
 class TestH2DetailTenantBoundary:
     @pytest.mark.parametrize("name,factory,_body", DETAIL_CASES, ids=DETAIL_IDS)
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-02a: 個別GETが get_* の組織検査なしで他テナントを返す",
-    )
     def test_get_detail_rejects_other_tenant(self, client, mock_db, name, factory, _body):
         obj = factory(organization_id=ORG_B)
         mock_db.get = AsyncMock(return_value=obj)
@@ -119,10 +107,6 @@ class TestH2DetailTenantBoundary:
         )
 
     @pytest.mark.parametrize("name,factory,body", DETAIL_CASES, ids=DETAIL_IDS)
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-02b: 個別PUTが組織検査なしで他テナントを更新する",
-    )
     def test_put_detail_rejects_other_tenant(self, client, mock_db, name, factory, body):
         obj = factory(organization_id=ORG_B)
         mock_db.get = AsyncMock(return_value=obj)
@@ -134,10 +118,6 @@ class TestH2DetailTenantBoundary:
         )
 
     @pytest.mark.parametrize("name,factory,_body", DETAIL_CASES, ids=DETAIL_IDS)
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-02c: 個別DELETEが組織検査なしで他テナントを削除する",
-    )
     def test_delete_detail_rejects_other_tenant(
         self, client, mock_db, name, factory, _body
     ):
@@ -161,10 +141,6 @@ class TestH2DetailTenantBoundary:
 # H3: プロジェクト集計系のテナント境界
 # ============================================
 class TestH3ProjectAggregateTenantBoundary:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-03a: resource-cost-summary が組織で絞られていない（原価漏えい）",
-    )
     def test_resource_cost_summary_is_tenant_scoped(self, client, mock_db):
         captured = record_execute(mock_db, [MockScalarResult(items=[])])
         response = client.get(
@@ -176,10 +152,6 @@ class TestH3ProjectAggregateTenantBoundary:
             f"原価集計がテナントで絞られていない: {sql!r}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-03b: critical-path が組織で絞られていない（工程漏えい）",
-    )
     def test_critical_path_is_tenant_scoped(self, client, mock_db):
         captured = record_execute(mock_db, [MockScalarResult(items=[])])
         response = client.get(
@@ -191,10 +163,6 @@ class TestH3ProjectAggregateTenantBoundary:
             f"クリティカルパスがテナントで絞られていない: {sql!r}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-03c: gantt が組織で絞られていない（工程漏えい）",
-    )
     def test_gantt_is_tenant_scoped(self, client, mock_db):
         captured = record_execute(mock_db, [MockScalarResult(items=[])])
         response = client.get(
@@ -209,10 +177,6 @@ class TestH3ProjectAggregateTenantBoundary:
 # H4: 作成時の organization_id がボディ由来
 # ============================================
 class TestH4CreateTenantSpoof:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-04a: POST /resources が body の organization_id をそのまま保存する",
-    )
     def test_create_resource_uses_token_org(self, client, mock_db):
         response = client.post(
             f"{API}/resources",
@@ -233,10 +197,6 @@ class TestH4CreateTenantSpoof:
             f"body の他テナント {ORG_B} が保存された: {created.organization_id}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-04b: POST /schedules が body の organization_id をそのまま保存する",
-    )
     def test_create_schedule_uses_token_org(self, client, mock_db):
         response = client.post(
             f"{API}/schedules",
@@ -257,10 +217,6 @@ class TestH4CreateTenantSpoof:
             f"body の他テナント {ORG_B} が保存された: {created.organization_id}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-04c: POST /methods が body の organization_id をそのまま保存する",
-    )
     def test_create_method_uses_token_org(self, client, mock_db):
         response = client.post(
             f"{API}/methods",
@@ -300,10 +256,6 @@ class TestH4CreateTenantSpoof:
 # H7: WBS ツリー子ノードのテナント混入
 # ============================================
 class TestH7WbsTreeChildTenantLeak:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-07a: /wbs/tree の子ノード取得が組織で絞られていない",
-    )
     def test_wbs_tree_children_query_is_tenant_scoped(self, client, mock_db):
         root = make_wbs(organization_id=ORG_A, wbs_code="1", name="テスト工区A")
         captured = record_execute(
@@ -325,10 +277,6 @@ class TestH7WbsTreeChildTenantLeak:
             f"子ノード取得がテナントで絞られていない: {child_sql!r}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-07b: /wbs/tree が他テナントの子ノードを応答に混入させる",
-    )
     def test_wbs_tree_does_not_include_foreign_child(self, client, mock_db):
         root = make_wbs(organization_id=ORG_A, wbs_code="1", name="テスト工区A")
         foreign = make_wbs(
@@ -356,10 +304,6 @@ class TestH7WbsTreeChildTenantLeak:
             f"他テナント {ORG_B} の子ノードがツリーに混入: {child_orgs}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-07c: /wbs/{id}/children が他テナントの子ノードを返す",
-    )
     def test_wbs_children_endpoint_excludes_foreign_child(self, client, mock_db):
         parent = make_wbs(organization_id=ORG_A, name="テスト工区A")
         foreign = make_wbs(

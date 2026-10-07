@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     ResourceAllocationRequest,
@@ -24,25 +28,26 @@ router = APIRouter()
 async def create_resource(
     body: ResourceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.create_resource(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = require_organization_id(user)
+    return await construction_service.create_resource(db, data)
 
 
 @router.get("/resources", response_model=ResourceListResponse)
 async def list_resources(
-    organization_id: UUID | None = Query(None),
     project_id: UUID | None = Query(None),
     resource_type: str | None = Query(None),
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
     items, total = await construction_service.list_resources(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(user),
         project_id=project_id,
         resource_type=resource_type,
         status=status,
@@ -56,9 +61,11 @@ async def list_resources(
 async def get_resource(
     resource_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    resource = await construction_service.get_resource(db, resource_id)
+    resource = await construction_service.get_resource(
+        db, resource_id, require_organization_id(user)
+    )
     if not resource:
         raise HTTPException(status_code=404, detail="リソースが見つかりません")
     return resource
@@ -69,9 +76,11 @@ async def update_resource(
     resource_id: UUID,
     body: ResourceUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    resource = await construction_service.get_resource(db, resource_id)
+    resource = await construction_service.get_resource(
+        db, resource_id, require_organization_id(user)
+    )
     if not resource:
         raise HTTPException(status_code=404, detail="リソースが見つかりません")
     return await construction_service.update_resource(db, resource, body.model_dump(exclude_none=True))
@@ -81,9 +90,11 @@ async def update_resource(
 async def delete_resource(
     resource_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    resource = await construction_service.get_resource(db, resource_id)
+    resource = await construction_service.get_resource(
+        db, resource_id, require_organization_id(user)
+    )
     if not resource:
         raise HTTPException(status_code=404, detail="リソースが見つかりません")
     await db.delete(resource)
@@ -94,9 +105,11 @@ async def update_resource_allocation(
     resource_id: UUID,
     body: ResourceAllocationRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    resource = await construction_service.get_resource(db, resource_id)
+    resource = await construction_service.get_resource(
+        db, resource_id, require_organization_id(user)
+    )
     if not resource:
         raise HTTPException(status_code=404, detail="リソースが見つかりません")
     return await construction_service.update_resource_allocation(db, resource, body.status)
@@ -106,6 +119,8 @@ async def update_resource_allocation(
 async def get_resource_cost_summary(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.get_resource_cost_summary(db, project_id)
+    return await construction_service.get_resource_cost_summary(
+        db, project_id, require_organization_id(user)
+    )

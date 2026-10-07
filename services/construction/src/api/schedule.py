@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     GanttDataResponse,
@@ -23,25 +27,26 @@ router = APIRouter()
 async def create_schedule(
     body: ScheduleCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.create_schedule(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = require_organization_id(user)
+    return await construction_service.create_schedule(db, data)
 
 
 @router.get("/schedules", response_model=ScheduleListResponse)
 async def list_schedules(
-    organization_id: UUID | None = Query(None),
     project_id: UUID | None = Query(None),
     schedule_type: str | None = Query(None),
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
     items, total = await construction_service.list_schedules(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(user),
         project_id=project_id,
         schedule_type=schedule_type,
         status=status,
@@ -55,9 +60,11 @@ async def list_schedules(
 async def get_schedule(
     schedule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    schedule = await construction_service.get_schedule(db, schedule_id)
+    schedule = await construction_service.get_schedule(
+        db, schedule_id, require_organization_id(user)
+    )
     if not schedule:
         raise HTTPException(status_code=404, detail="スケジュールが見つかりません")
     return schedule
@@ -68,9 +75,11 @@ async def update_schedule(
     schedule_id: UUID,
     body: ScheduleUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    schedule = await construction_service.get_schedule(db, schedule_id)
+    schedule = await construction_service.get_schedule(
+        db, schedule_id, require_organization_id(user)
+    )
     if not schedule:
         raise HTTPException(status_code=404, detail="スケジュールが見つかりません")
     return await construction_service.update_schedule(db, schedule, body.model_dump(exclude_none=True))
@@ -80,9 +89,11 @@ async def update_schedule(
 async def delete_schedule(
     schedule_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    schedule = await construction_service.get_schedule(db, schedule_id)
+    schedule = await construction_service.get_schedule(
+        db, schedule_id, require_organization_id(user)
+    )
     if not schedule:
         raise HTTPException(status_code=404, detail="スケジュールが見つかりません")
     await db.delete(schedule)
@@ -92,15 +103,19 @@ async def delete_schedule(
 async def get_critical_path(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.get_critical_path(db, project_id)
+    return await construction_service.get_critical_path(
+        db, project_id, require_organization_id(user)
+    )
 
 
 @router.get("/projects/{project_id}/gantt", response_model=list[GanttDataResponse])
 async def get_gantt_data(
     project_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.get_gantt_data(db, project_id)
+    return await construction_service.get_gantt_data(
+        db, project_id, require_organization_id(user)
+    )

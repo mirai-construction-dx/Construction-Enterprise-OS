@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     MethodApprovalRequest,
@@ -18,17 +23,20 @@ from ..services import construction_service
 
 router = APIRouter()
 
+# 施工計画書の承認ができるロール。admin は常に許可（auth サービスと同一規約）。
+_APPROVAL_ROLES = {"approver", "management"}
 
-def _actor_id(user: TokenData) -> UUID:
-    """トークンの sub から操作者を同定する（ボディ由来の値は信用しない）。"""
-    try:
-        return UUID(user.sub)
-    except (TypeError, ValueError):
+
+def _require_approver(user: TokenData) -> None:
+    roles = set(user.roles or [])
+    if "admin" in roles:
+        return
+    if not (_APPROVAL_ROLES & roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
-                "code": "INVALID_IDENTITY",
-                "message": "トークンの利用者IDが不正です。",
+                "code": "INSUFFICIENT_ROLE",
+                "message": "施工計画書の承認には承認ロールが必要です。",
             },
         )
 
@@ -37,25 +45,27 @@ def _actor_id(user: TokenData) -> UUID:
 async def create_method(
     body: MethodCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    return await construction_service.create_method(db, body.model_dump())
+    data = body.model_dump()
+    data["organization_id"] = require_organization_id(user)
+    data["created_by"] = require_actor_id(user)
+    return await construction_service.create_method(db, data)
 
 
 @router.get("/methods", response_model=MethodListResponse)
 async def list_methods(
-    organization_id: UUID | None = Query(None),
     project_id: UUID | None = Query(None),
     document_type: str | None = Query(None),
     status: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
     items, total = await construction_service.list_methods(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(user),
         project_id=project_id,
         document_type=document_type,
         status=status,
@@ -69,9 +79,11 @@ async def list_methods(
 async def get_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(
+        db, method_id, require_organization_id(user)
+    )
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     return method
@@ -82,9 +94,11 @@ async def update_method(
     method_id: UUID,
     body: MethodUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(
+        db, method_id, require_organization_id(user)
+    )
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     return await construction_service.update_method(db, method, body.model_dump(exclude_none=True))
@@ -94,9 +108,11 @@ async def update_method(
 async def delete_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(
+        db, method_id, require_organization_id(user)
+    )
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     await db.delete(method)
@@ -106,9 +122,11 @@ async def delete_method(
 async def submit_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(
+        db, method_id, require_organization_id(user)
+    )
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:
@@ -124,12 +142,15 @@ async def approve_method(
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    _require_approver(user)
+    method = await construction_service.get_method(
+        db, method_id, require_organization_id(user)
+    )
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:
         # 承認者同定はトークン由来（_body.approved_by は後方互換のため受理のみ）。
-        return await construction_service.approve_method(db, method, _actor_id(user))
+        return await construction_service.approve_method(db, method, require_actor_id(user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -138,9 +159,11 @@ async def approve_method(
 async def reject_method(
     method_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _user: TokenData = Depends(get_current_user),
+    user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id)
+    method = await construction_service.get_method(
+        db, method_id, require_organization_id(user)
+    )
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:

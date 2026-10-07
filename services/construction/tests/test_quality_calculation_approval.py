@@ -62,10 +62,6 @@ class TestH6ResourceCostCalculation:
         _calculate_resource_total_cost(r)
         assert r.total_cost == Decimal("3000")
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-06a: actual_quantity=0 が偽値として planned にフォールバックする",
-    )
     def test_total_cost_zero_actual_is_not_replaced_by_planned(self):
         """実績数量 0（=未消化）は 0 円であるべきで、計画値で水増ししてはならない。"""
         r = make_resource(
@@ -108,10 +104,6 @@ class TestH6ResourceCostCalculation:
 
         assert calc() == calc()
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-06b: create_resource が total_cost を計算せず None のまま保存する",
-    )
     def test_create_resource_computes_total_cost(self, client, mock_db):
         response = client.post(
             f"{API}/resources",
@@ -186,10 +178,6 @@ class TestH5ApprovalIdentity:
         )
         assert method.approved_by == USER_A
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-05b: 承認にロール検査がない（roles 未使用。必要ロール名は仕様未定義→人の確認要）",
-    )
     def test_approve_requires_explicit_role(self, mock_db):
         from unittest.mock import AsyncMock
 
@@ -206,10 +194,6 @@ class TestH5ApprovalIdentity:
             f"ロールを持たない利用者が承認できた: {response.status_code}"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-05c: 他テナントの施工計画書を承認できてしまう（組織検査なし）",
-    )
     def test_approve_other_tenant_method_rejected(self, client, mock_db):
         from unittest.mock import AsyncMock
 
@@ -226,10 +210,6 @@ class TestH5ApprovalIdentity:
         )
         assert method.status == "review"  # 状態が変わっていないこと
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-05d: created_by がボディ由来で作成者を偽装できる（証跡の信頼性）",
-    )
     def test_create_method_created_by_is_token_derived(self, client, mock_db):
         response = client.post(
             f"{API}/methods",
@@ -336,10 +316,6 @@ class TestAuthRequiredQuality:
 # ============================================
 class TestBoundaryValidationQ8:
     @pytest.mark.parametrize("value", ["150", "-5"])
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEF-08a: PUT /wbs/{id} は進捗率の0-100制約を検証しない（PATCHとは非対称）",
-    )
     def test_wbs_put_rejects_out_of_range_progress(self, client, mock_db, value):
         from unittest.mock import AsyncMock
 
