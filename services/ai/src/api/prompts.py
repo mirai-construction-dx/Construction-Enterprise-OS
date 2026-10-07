@@ -6,7 +6,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import scope_org, token_org
 from ..models.base import get_db
 from ..schemas import (
@@ -136,6 +141,7 @@ async def delete_prompt(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = scope_org(token_data)
+    require_any_role(token_data, MANAGEMENT_ROLES)
     deleted = await PromptService.delete_template(db, template_id, org_id)
     if not deleted:
         raise HTTPException(

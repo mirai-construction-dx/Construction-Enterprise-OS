@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -122,5 +127,6 @@ async def delete_notification_template(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "テンプレートが見つかりません。"},
         )
+    require_any_role(token_data, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
     await delete_template(db, template)
     return None

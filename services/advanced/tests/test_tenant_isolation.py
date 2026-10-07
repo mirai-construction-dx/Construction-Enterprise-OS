@@ -407,14 +407,25 @@ def test_admin_creates_in_body_org(kind):
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(("kind", "method", "suffix", "body"), BY_ID_OPS, ids=BY_ID_IDS)
 def test_by_id_other_org_is_not_found_and_not_written(kind, method, suffix, body):
-    # The org-scoped lookup does not match another organization's record -> None
-    client, db = _client(_Result(value=None))
+    # The org-scoped lookup does not match another organization's record -> None.
+    # DELETE additionally requires a management role, so use site_manager (regular org-scoped
+    # manager) to reach the org-scoped 404 rather than the RBAC 403.
+    client, db = _client(_Result(value=None), user=_user(roles=["site_manager"]))
     url = f"{RESOURCES[kind]['path']}/{uuid.uuid4()}{suffix}"
     resp = _request(client, method, url, body)
     assert resp.status_code == 404
     assert _error_code(resp) == "NOT_FOUND"
     assert db.execute.await_count == 1
     _assert_scoped_to(db, 0, ORG_A)
+    _assert_no_write(db)
+
+
+@pytest.mark.parametrize("kind", KINDS)
+def test_delete_requires_management_role(kind):
+    client, db = _client(user=_user(roles=["engineer"]))
+    resp = client.delete(f"{RESOURCES[kind]['path']}/{uuid.uuid4()}")
+    assert resp.status_code == 403
+    assert _error_code(resp) == "FORBIDDEN"
     _assert_no_write(db)
 
 

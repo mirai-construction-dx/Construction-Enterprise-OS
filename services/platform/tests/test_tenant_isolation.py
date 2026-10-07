@@ -384,6 +384,21 @@ def test_admin_can_delete_other_org_config(mock_jwt):
     db.delete.assert_awaited_once_with(config)
 
 
+@patch("src.middleware.auth.jwt")
+def test_delete_config_requires_management_role(mock_jwt):
+    mock_jwt.decode.return_value = _payload(roles=["viewer"])  # non-management
+    config = _config(ORG_A)  # same org -> passes the org-scoped 404 check
+    client, db = _client(config)
+
+    resp = client.delete(
+        f"/platform/viewer/configs/{CONFIG_ID}", headers=_auth_header()
+    )
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
+    db.delete.assert_not_awaited()
+
+
 # ── create ───────────────────────────────────────────────────
 
 CREATE_REQUESTS = [

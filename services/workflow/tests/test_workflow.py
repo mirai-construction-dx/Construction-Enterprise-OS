@@ -362,6 +362,19 @@ def test_create_definition_success(mock_jwt, app):
 
 
 @patch("src.middleware.auth.jwt")
+def test_delete_definition_without_management_role_is_403(mock_jwt, app):
+    mock_jwt.decode.return_value = {**VALID_TOKEN_PAYLOAD, "roles": ["site_worker"]}
+
+    client = TestClient(app)
+    response = client.delete(
+        f"/api/v1/workflow/definitions/{TEST_DEF_ID}", headers=_make_auth_header()
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "FORBIDDEN"
+
+
+@patch("src.middleware.auth.jwt")
 def test_create_instance_auto_creates_approvals(mock_jwt, app):
     mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
 

@@ -259,3 +259,39 @@ class TestNotificationCreation:
         assert notification is existing
         assert created is False
         mock_db.add.assert_not_called()
+
+
+def test_delete_template_requires_management_role():
+    """テンプレート削除には管理ロール（admin/site_manager）が必要（RBAC）。"""
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from src.middleware.auth import TokenData, get_current_user
+
+    app = create_app()
+    template_id = uuid4()
+
+    mock_db = AsyncMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = SimpleNamespace(id=template_id)
+    mock_db.execute.return_value = result
+    mock_db.delete = AsyncMock()
+    mock_db.flush = AsyncMock()
+
+    async def _get_db():
+        yield mock_db
+
+    async def _get_user():
+        return TokenData(
+            sub=str(uuid4()), type="user", org=str(uuid4()), roles=["site_worker"]
+        )
+
+    app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_current_user] = _get_user
+
+    client = TestClient(app)
+    resp = client.delete(f"/api/v1/notification-templates/{template_id}")
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
+    mock_db.delete.assert_not_awaited()

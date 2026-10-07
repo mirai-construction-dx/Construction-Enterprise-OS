@@ -283,7 +283,7 @@ def test_delete_other_org_index_is_not_found_and_not_deleted(mock_jwt):
 
 @patch("src.middleware.auth.jwt")
 def test_delete_own_org_index_is_scoped(mock_jwt):
-    mock_jwt.decode.return_value = _payload()
+    mock_jwt.decode.return_value = _payload(roles=["site_manager"])
     vi = MockVectorIndex(id=RECORD_ID, organization_id=ORG_A)
     client, db = _client(vi, _Result(rowcount=1))
     r = client.delete(f"/api/v1/vectors/indices/{RECORD_ID}", headers=_auth_header())
@@ -291,6 +291,19 @@ def test_delete_own_org_index_is_scoped(mock_jwt):
     assert r.json()["data"]["deleted"] is True
     assert ORG_A in _params(db, 0).values()
     assert ORG_A in _params(db, 1).values()  # DELETE also carries the org predicate
+
+
+@patch("src.middleware.auth.jwt")
+def test_delete_requires_management_role(mock_jwt):
+    """削除は admin / site_manager のみ。非管理ロールは対象が見つかっても 403。"""
+    mock_jwt.decode.return_value = _payload(roles=["vision_user"])
+    vi = MockVectorIndex(id=RECORD_ID, organization_id=ORG_A)
+    client, db = _client(vi, _Result(rowcount=1))
+    r = client.delete(f"/api/v1/vectors/indices/{RECORD_ID}", headers=_auth_header())
+    _assert_error(r, 403, "FORBIDDEN")
+    # Scoped SELECT ran, but the role gate stopped the DELETE from being issued.
+    assert db.execute.await_count == 1
+    _assert_no_write(db)
 
 
 @patch("src.middleware.auth.jwt")
