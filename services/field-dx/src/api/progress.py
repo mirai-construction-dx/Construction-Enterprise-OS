@@ -6,12 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import (
-    TokenData,
-    get_current_user,
-    require_actor_id,
-    require_organization_id,
-)
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     ProgressCreateRequest,
@@ -146,15 +142,10 @@ async def create_progress(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
-    if body.organization_id != org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="組織が異なるため作成できません",
-        )
+    org_id = create_org(current_user, body.organization_id)
     data = body.model_dump()
     data["organization_id"] = org_id
-    data["recorded_by"] = require_actor_id(current_user)
+    data["recorded_by"] = UUID(current_user.sub)
     record = await field_service.create_progress_record(db, data)
     return record
 
@@ -170,7 +161,7 @@ async def list_progress(
 ):
     items, total = await field_service.list_progress_records(
         db,
-        organization_id=require_organization_id(current_user),
+        organization_id=scope_org(current_user),
         project_id=project_id,
         status=status,
         page=page,
@@ -191,9 +182,9 @@ async def update_progress(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     record = await field_service.get_progress_record(db, record_id)
-    if not record or record.organization_id != org_id:
+    if not record or (org_id is not None and record.organization_id != org_id):
         raise HTTPException(status_code=404, detail="進捗記録が見つかりません")
     return await field_service.update_progress_record(
         db, record, body.model_dump(exclude_none=True)
@@ -206,9 +197,9 @@ async def get_progress(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     record = await field_service.get_progress_record(db, record_id)
-    if not record or record.organization_id != org_id:
+    if not record or (org_id is not None and record.organization_id != org_id):
         raise HTTPException(status_code=404, detail="進捗記録が見つかりません")
     return record
 
@@ -223,5 +214,5 @@ async def progress_summary(
     current_user: TokenData = Depends(get_current_user),
 ):
     return await field_service.get_progress_summary(
-        db, project_id, require_organization_id(current_user)
+        db, project_id, scope_org(current_user)
     )

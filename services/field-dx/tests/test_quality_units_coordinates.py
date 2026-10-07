@@ -94,7 +94,7 @@ def make_client():
 
         async def _current_user():
             return TokenData(
-                sub=USER_SUB, type="user", org=str(ORG_A), roles=["admin"]
+                sub=USER_SUB, type="user", org=str(ORG_A), roles=["site_manager"]
             )
 
         app.dependency_overrides[get_db] = _get_db

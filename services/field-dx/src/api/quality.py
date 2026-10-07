@@ -6,12 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import (
-    TokenData,
-    get_current_user,
-    require_actor_id,
-    require_organization_id,
-)
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     QualityCheckCreateRequest,
@@ -123,15 +119,10 @@ async def create_quality_check(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
-    if body.organization_id != org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="組織が異なるため作成できません",
-        )
+    org_id = create_org(current_user, body.organization_id)
     data = body.model_dump()
     data["organization_id"] = org_id
-    data["inspector_id"] = require_actor_id(current_user)
+    data["inspector_id"] = UUID(current_user.sub)
     check = await field_service.create_quality_check(db, data)
     return check
 
@@ -148,7 +139,7 @@ async def list_quality_checks(
 ):
     items, total = await field_service.list_quality_checks(
         db,
-        organization_id=require_organization_id(current_user),
+        organization_id=scope_org(current_user),
         project_id=project_id,
         check_type=check_type,
         status=status,
@@ -170,9 +161,9 @@ async def update_quality_check(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     check = await field_service.get_quality_check(db, check_id)
-    if not check or check.organization_id != org_id:
+    if not check or (org_id is not None and check.organization_id != org_id):
         raise HTTPException(status_code=404, detail="品質チェックが見つかりません")
     return await field_service.update_quality_check(
         db, check, body.model_dump(exclude_none=True)
@@ -189,7 +180,7 @@ async def quality_stats(
     current_user: TokenData = Depends(get_current_user),
 ):
     return await field_service.get_quality_stats(
-        db, project_id, require_organization_id(current_user)
+        db, project_id, scope_org(current_user)
     )
 
 

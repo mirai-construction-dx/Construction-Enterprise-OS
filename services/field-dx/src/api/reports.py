@@ -5,12 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import (
-    TokenData,
-    get_current_user,
-    require_actor_id,
-    require_organization_id,
-)
+from ..middleware.auth import TokenData, get_current_user
+from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
     DailyReportCreateRequest,
@@ -33,15 +29,10 @@ async def create_report(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
-    if body.organization_id != org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="組織が異なるため作成できません",
-        )
+    org_id = create_org(current_user, body.organization_id)
     data = body.model_dump()
     data["organization_id"] = org_id
-    data["created_by"] = require_actor_id(current_user)
+    data["created_by"] = UUID(current_user.sub)
     report = await field_service.create_daily_report(db, data)
     return report
 
@@ -59,7 +50,7 @@ async def list_reports(
 ):
     items, total = await field_service.list_daily_reports(
         db,
-        organization_id=require_organization_id(current_user),
+        organization_id=scope_org(current_user),
         project_id=project_id,
         status=status,
         date_from=date_from,
@@ -78,9 +69,9 @@ async def get_report(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report or report.organization_id != org_id:
+    if not report or (org_id is not None and report.organization_id != org_id):
         raise HTTPException(status_code=404, detail="日報が見つかりません")
     return report
 
@@ -92,9 +83,9 @@ async def update_report(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report or report.organization_id != org_id:
+    if not report or (org_id is not None and report.organization_id != org_id):
         raise HTTPException(status_code=404, detail="日報が見つかりません")
     return await field_service.update_daily_report(
         db, report, body.model_dump(exclude_none=True)
@@ -110,9 +101,9 @@ async def submit_report(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report or report.organization_id != org_id:
+    if not report or (org_id is not None and report.organization_id != org_id):
         raise HTTPException(status_code=404, detail="日報が見つかりません")
     try:
         return await field_service.submit_daily_report(db, report)
@@ -129,11 +120,11 @@ async def approve_report(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    org_id = require_organization_id(current_user)
+    org_id = scope_org(current_user)
     report = await field_service.get_daily_report(db, report_id)
-    if not report or report.organization_id != org_id:
+    if not report or (org_id is not None and report.organization_id != org_id):
         raise HTTPException(status_code=404, detail="日報が見つかりません")
-    approved_by = require_actor_id(current_user)
+    approved_by = UUID(current_user.sub)
     try:
         return await field_service.approve_daily_report(db, report, approved_by)
     except ValueError as e:
