@@ -1,0 +1,10 @@
+{
+  "id": "T-f96faf87-82eb-4133-b7bf-947b4c051fd0",
+  "subject": "WBS: /wbs/tree のルート順序修正＋回帰テスト",
+  "description": "services/construction/src/api/wbs.py で /wbs/tree を /wbs/{wbs_id} より前に定義。test_construction.py に 422 にならない回帰テストを追加。feature ブランチ→PR。",
+  "status": "completed",
+  "activeForm": "WBSルート順序を修正中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

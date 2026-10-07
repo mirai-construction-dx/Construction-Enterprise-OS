@@ -179,6 +179,9 @@ class PointCloudCreate(BaseModel):
     accuracy_mm: float | None = None
     is_colorized: bool = False
     is_classified: bool = False
+    version: str | None = Field(default=None, max_length=50)
+    source_model_id: UUID | None = None
+    source_video_id: str | None = Field(default=None, max_length=255)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -218,6 +221,9 @@ class PointCloudResponse(BaseModel):
     accuracy_mm: float | None = None
     is_colorized: bool = False
     is_classified: bool = False
+    version: str | None = None
+    source_model_id: UUID | None = None
+    source_video_id: str | None = None
     # SQLAlchemy の宣言的Baseでは `metadata` が MetaData 予約属性になるため、
     # ORM の実属性名 `metadata_` から読み取る(直すと読み取りAPIが500になる)。
     metadata: dict[str, Any] | None = Field(default=None, validation_alias="metadata_")

@@ -12,6 +12,10 @@ from src.middleware.auth import TokenData, get_current_user
 from src.models.base import get_db
 
 
+TEST_ORG = uuid.UUID("00000000-0000-0000-0000-0000000000aa")
+TEST_USER = uuid.UUID("00000000-0000-0000-0000-0000000000dd")
+
+
 class MockScalarResult:
     def __init__(self, value=None, items=None, total=0):
         self._value = value
@@ -82,7 +86,7 @@ def app(mock_db):
         yield mock_db
 
     async def mock_get_current_user():
-        return TokenData(sub="test-user-id", type="user", org="test-org", roles=["admin"])
+        return TokenData(sub=str(TEST_USER), type="user", org=str(TEST_ORG), roles=["admin"])
 
     _app.dependency_overrides[get_db] = mock_get_db
     _app.dependency_overrides[get_current_user] = mock_get_current_user
@@ -145,7 +149,7 @@ class TestAuthRequired:
 # ============================================
 class TestDailyReportCRUD:
     def test_create_daily_report(self, client, mock_db):
-        org_id = uuid.uuid4()
+        org_id = TEST_ORG
         project_id = uuid.uuid4()
         created_by = uuid.uuid4()
 
@@ -216,7 +220,7 @@ class TestDailyReportCRUD:
         report_id = uuid.uuid4()
         report = DailyReport(
             id=report_id,
-            organization_id=uuid.uuid4(),
+            organization_id=TEST_ORG,
             project_id=uuid.uuid4(),
             report_date=date(2026, 5, 24),
             weather="sunny",
@@ -254,7 +258,7 @@ class TestDailyReportCRUD:
         report_id = uuid.uuid4()
         report = DailyReport(
             id=report_id,
-            organization_id=uuid.uuid4(),
+            organization_id=TEST_ORG,
             project_id=uuid.uuid4(),
             report_date=date(2026, 5, 24),
             weather="sunny",
@@ -284,7 +288,7 @@ class TestDailyReportCRUD:
         report_id = uuid.uuid4()
         report = DailyReport(
             id=report_id,
-            organization_id=uuid.uuid4(),
+            organization_id=TEST_ORG,
             project_id=uuid.uuid4(),
             report_date=date(2026, 5, 24),
             weather="sunny",
@@ -312,7 +316,7 @@ class TestDailyReportCRUD:
         report_id = uuid.uuid4()
         report = DailyReport(
             id=report_id,
-            organization_id=uuid.uuid4(),
+            organization_id=TEST_ORG,
             project_id=uuid.uuid4(),
             report_date=date(2026, 5, 24),
             weather="sunny",
@@ -337,10 +341,9 @@ class TestDailyReportCRUD:
         from src.models import DailyReport
 
         report_id = uuid.uuid4()
-        approver_id = uuid.uuid4()
         report = DailyReport(
             id=report_id,
-            organization_id=uuid.uuid4(),
+            organization_id=TEST_ORG,
             project_id=uuid.uuid4(),
             report_date=date(2026, 5, 24),
             weather="sunny",
@@ -356,12 +359,12 @@ class TestDailyReportCRUD:
         mock_db.get = AsyncMock(return_value=report)
 
         response = client.post(
-            f"/api/v1/field/reports/{report_id}/approve?approved_by={approver_id}",
+            f"/api/v1/field/reports/{report_id}/approve",
             headers=_auth_headers(),
         )
         assert response.status_code == 200
         assert report.status == "approved"
-        assert report.approved_by == approver_id
+        assert report.approved_by == TEST_USER
 
     def test_approve_draft_fails(self, client, mock_db):
         from src.models import DailyReport
@@ -369,7 +372,7 @@ class TestDailyReportCRUD:
         report_id = uuid.uuid4()
         report = DailyReport(
             id=report_id,
-            organization_id=uuid.uuid4(),
+            organization_id=TEST_ORG,
             project_id=uuid.uuid4(),
             report_date=date(2026, 5, 24),
             weather="sunny",
@@ -385,7 +388,7 @@ class TestDailyReportCRUD:
         mock_db.get = AsyncMock(return_value=report)
 
         response = client.post(
-            f"/api/v1/field/reports/{report_id}/approve?approved_by={uuid.uuid4()}",
+            f"/api/v1/field/reports/{report_id}/approve",
             headers=_auth_headers(),
         )
         assert response.status_code == 400
@@ -396,7 +399,7 @@ class TestDailyReportCRUD:
 # ============================================
 class TestProgressTracking:
     def test_create_progress_record(self, client, mock_db):
-        org_id = uuid.uuid4()
+        org_id = TEST_ORG
         project_id = uuid.uuid4()
         recorded_by = uuid.uuid4()
 
@@ -520,7 +523,7 @@ class TestProgressTracking:
 # ============================================
 class TestQualityCheck:
     def test_create_quality_check(self, client, mock_db):
-        org_id = uuid.uuid4()
+        org_id = TEST_ORG
         project_id = uuid.uuid4()
         inspector_id = uuid.uuid4()
 

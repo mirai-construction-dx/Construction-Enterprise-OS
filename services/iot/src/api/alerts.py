@@ -18,6 +18,7 @@ from ..schemas import (
 )
 from ..models import AlertRule as AlertRuleModel
 from ..services.alert_service import (
+    AlertStateError,
     get_alert_rules,
     get_alert_history,
     acknowledge_alert,
@@ -38,6 +39,20 @@ def _org_mismatch(code: str, message: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST, detail={"code": code, "message": message}
     )
+
+
+def _actor_id(user: TokenData) -> UUID:
+    """トークンの sub を操作者として同定する（非 UUID は 403、500 にしない）。"""
+    try:
+        return UUID(user.sub)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "INVALID_IDENTITY",
+                "message": "Authenticated user id is invalid.",
+            },
+        ) from exc
 
 
 async def _validate_rule_targets(
@@ -155,8 +170,14 @@ async def acknowledge(
     current_user: TokenData = Depends(get_current_user),
 ):
     org = scope_org(current_user)
-    user_id = UUID(current_user.sub)
-    alert = await acknowledge_alert(db, alert_id, user_id, org)
+    user_id = _actor_id(current_user)
+    try:
+        alert = await acknowledge_alert(db, alert_id, user_id, org)
+    except AlertStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not alert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -172,7 +193,13 @@ async def resolve(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    alert = await resolve_alert(db, alert_id, scope_org(current_user))
+    try:
+        alert = await resolve_alert(db, alert_id, scope_org(current_user))
+    except AlertStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not alert:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

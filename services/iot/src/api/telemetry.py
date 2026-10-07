@@ -85,6 +85,14 @@ async def query_device_telemetry(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    if start_time > end_time:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "INVALID_TIME_RANGE",
+                "message": "start_time は end_time 以前である必要があります。",
+            },
+        )
     await _ensure_device_visible(db, device_id, current_user)
     rows = await query_telemetry(
         db,

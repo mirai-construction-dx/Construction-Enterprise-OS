@@ -21,6 +21,20 @@ from ._tenant_refs import ensure_wbs_in_org
 router = APIRouter()
 
 
+def _actor_id(user: TokenData) -> UUID:
+    """トークンの sub から操作者を同定する（ボディ由来の値は信用しない）。"""
+    try:
+        return UUID(user.sub)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "INVALID_IDENTITY",
+                "message": "トークンの利用者IDが不正です。",
+            },
+        )
+
+
 @router.post("/methods", response_model=MethodResponse, status_code=status.HTTP_201_CREATED)
 async def create_method(
     body: MethodCreateRequest,
@@ -112,7 +126,7 @@ async def submit_method(
 @router.post("/methods/{method_id}/approve", response_model=MethodResponse)
 async def approve_method(
     method_id: UUID,
-    body: MethodApprovalRequest,
+    body: MethodApprovalRequest | None = None,
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
@@ -120,7 +134,8 @@ async def approve_method(
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
     try:
-        return await construction_service.approve_method(db, method, body.approved_by)
+        # 承認者同定はトークン由来（body.approved_by は受理のみで信用しない）。
+        return await construction_service.approve_method(db, method, _actor_id(user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

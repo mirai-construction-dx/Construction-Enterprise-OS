@@ -71,3 +71,21 @@ async def get_current_user(
         )
 
     return token_data
+
+
+# 承認・削除に必要なロール（auth サービスの既定ロール seed と一致）
+APPROVAL_ROLES = frozenset({"admin", "site_manager", "site_supervisor"})
+MANAGEMENT_ROLES = frozenset({"admin", "site_manager"})
+
+
+def require_any_role(token_data: TokenData, allowed_roles: frozenset[str]) -> None:
+    """トークンが allowed_roles のいずれかを保持することを要求する（fail-closed）。"""
+    roles = set(token_data.roles or [])
+    if not (roles & allowed_roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "FORBIDDEN",
+                "message": "この操作に必要なロールがありません。",
+            },
+        )

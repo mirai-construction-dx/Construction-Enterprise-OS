@@ -52,7 +52,7 @@ async def create_bim_model(
         file_format=body.file_format,
         file_size=body.file_size,
         file_key=body.file_key,
-        version=body.version,
+        version=body.version or "v1",
         status=body.status,
         author=body.author,
         software=body.software,

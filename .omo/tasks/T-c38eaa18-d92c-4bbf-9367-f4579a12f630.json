@@ -1,0 +1,10 @@
+{
+  "id": "T-c38eaa18-d92c-4bbf-9367-f4579a12f630",
+  "subject": "Migrate 5 non-MOCK sample-fallback pages",
+  "description": "Migrated 9 extra fetching pages: common/page, auth/ad, auth/entra, api/webhooks, erp/invoices + bim, ai/vector, ai/ocr, ai/vision (sample constants with non-MOCK names).",
+  "status": "completed",
+  "activeForm": "Migrating non-MOCK sample-fallback pages",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f42f53a93ffewcprMA2KUxXYZb"
+}

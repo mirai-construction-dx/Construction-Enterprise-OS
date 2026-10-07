@@ -17,6 +17,7 @@ from ..schemas import (
     TokenData,
 )
 from ..services import contract_service, partner_service
+from ..services.contract_service import ContractStateError
 
 router = APIRouter()
 
@@ -149,6 +150,15 @@ async def update_contract(
     if not contract:
         raise _contract_not_found()
     update_data = body.model_dump(exclude_unset=True)
+    if update_data.get("status") == "active" and contract.signed_at is None:
+        # 署名を経由せずに active へ遷移させることを禁じる（署名の迂回防止）
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "SIGNATURE_REQUIRED",
+                "message": "active への変更は署名 API を使用してください。",
+            },
+        )
     if update_data.get("partner_id") is not None:
         # A contract belongs to its partner's organization, so the new partner must belong to
         # the contract's organization (admin included). For regular users the contract's org is
@@ -177,9 +187,19 @@ async def sign_contract(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    contract = await contract_service.sign_contract(
-        db, contract_id, body.signed_by_our, body.signed_by_partner, scope_org(current_user)
-    )
+    try:
+        contract = await contract_service.sign_contract(
+            db,
+            contract_id,
+            UUID(current_user.sub),
+            body.signed_by_partner,
+            scope_org(current_user),
+        )
+    except ContractStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not contract:
         raise _contract_not_found()
     return APIResponse(data=_contract_to_response(contract))

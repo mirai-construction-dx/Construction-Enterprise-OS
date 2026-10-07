@@ -20,9 +20,24 @@ ORG_A = uuid.UUID("00000000-0000-0000-0000-00000000000a")
 ORG_B = uuid.UUID("00000000-0000-0000-0000-00000000000b")
 PROJECT = uuid.UUID("00000000-0000-0000-0000-0000000000f1")
 
-USER_A = TokenData(sub="user-a", type="user", org=str(ORG_A), roles=["user"])
-USER_A_NO_ROLES = TokenData(sub="user-a", type="user", org=str(ORG_A), roles=None)
-ADMIN_A = TokenData(sub="admin", type="user", org=str(ORG_A), roles=["admin"])
+USER_A = TokenData(
+    sub=str(uuid.UUID("00000000-0000-0000-0000-0000000000c1")),
+    type="user",
+    org=str(ORG_A),
+    roles=["user"],
+)
+USER_A_NO_ROLES = TokenData(
+    sub=str(uuid.UUID("00000000-0000-0000-0000-0000000000c1")),
+    type="user",
+    org=str(ORG_A),
+    roles=None,
+)
+ADMIN_A = TokenData(
+    sub=str(uuid.UUID("00000000-0000-0000-0000-0000000000c2")),
+    type="user",
+    org=str(ORG_A),
+    roles=["admin"],
+)
 NO_ORG = TokenData(sub="no-org", type="user", org=None, roles=["user"])
 BAD_ORG = TokenData(sub="bad-org", type="user", org="not-a-uuid", roles=["user"])
 

@@ -43,7 +43,11 @@ export default function LoginPage() {
           <h2 className="text-xl font-bold text-gray-900 mb-6">ログイン</h2>
 
           {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700">
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="mb-4 flex items-center gap-2 rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-sm text-danger-700"
+            >
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
             </div>

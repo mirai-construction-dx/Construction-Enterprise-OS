@@ -92,6 +92,49 @@ async def list_elements(
     )
 
 
+# NOTE: /elements/search は /elements/{element_id} より先に登録しなければ、
+#       ルーティング衝突で "search" が UUID として解釈され 422 になる。
+@router.get("/elements/search")
+async def search_elements(
+    q: str = Query(..., min_length=1),
+    model_id: UUID | None = Query(None),
+    organization_id: UUID | None = Query(None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    token_data: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    org = scope_org(token_data, organization_id)
+    query = _scope_elements(select(BIMElement), org)
+    count_query = _scope_elements(select(func.count(BIMElement.id)), org)
+
+    search_term = f"%{q}%"
+    name_filter = BIMElement.name.ilike(search_term)
+    type_filter = BIMElement.element_type.ilike(search_term)
+    combined = name_filter | type_filter
+
+    query = query.where(combined)
+    count_query = count_query.where(combined)
+
+    if model_id:
+        query = query.where(BIMElement.model_id == model_id)
+        count_query = count_query.where(BIMElement.model_id == model_id)
+
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+    total_pages = ceil(total / per_page) if total > 0 else 0
+
+    query = query.order_by(BIMElement.name)
+    query = query.offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(query)
+    elements = result.scalars().all()
+
+    meta = MetaInfo(page=page, per_page=per_page, total=total, total_pages=total_pages)
+    return _api_response(
+        data=[_element_to_response(e) for e in elements], meta=meta
+    )
+
+
 @router.get("/elements/{element_id}")
 async def get_element(
     element_id: UUID,
@@ -161,44 +204,3 @@ async def elements_by_level(
         for lvl, items in grouped.items()
     ]
     return _api_response(data=data)
-
-
-@router.get("/elements/search")
-async def search_elements(
-    q: str = Query(..., min_length=1),
-    model_id: UUID | None = Query(None),
-    organization_id: UUID | None = Query(None),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    token_data: TokenData = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    org = scope_org(token_data, organization_id)
-    query = _scope_elements(select(BIMElement), org)
-    count_query = _scope_elements(select(func.count(BIMElement.id)), org)
-
-    search_term = f"%{q}%"
-    name_filter = BIMElement.name.ilike(search_term)
-    type_filter = BIMElement.element_type.ilike(search_term)
-    combined = name_filter | type_filter
-
-    query = query.where(combined)
-    count_query = count_query.where(combined)
-
-    if model_id:
-        query = query.where(BIMElement.model_id == model_id)
-        count_query = count_query.where(BIMElement.model_id == model_id)
-
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
-    total_pages = ceil(total / per_page) if total > 0 else 0
-
-    query = query.order_by(BIMElement.name)
-    query = query.offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    elements = result.scalars().all()
-
-    meta = MetaInfo(page=page, per_page=per_page, total=total, total_pages=total_pages)
-    return _api_response(
-        data=[_element_to_response(e) for e in elements], meta=meta
-    )

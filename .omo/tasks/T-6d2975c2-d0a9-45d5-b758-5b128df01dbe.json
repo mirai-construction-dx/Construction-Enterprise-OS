@@ -1,0 +1,10 @@
+{
+  "id": "T-6d2975c2-d0a9-45d5-b758-5b128df01dbe",
+  "subject": "#70: python-jose を PyJWT へ統一し ecdsa を除去",
+  "description": "python-jose 利用箇所を PyJWT へ置換し、requirements から python-jose/ecdsa を除去。pip-audit 許容を 0 にする。テストで検証。feature ブランチ→PR。",
+  "status": "pending",
+  "activeForm": "python-jose を PyJWT へ統一中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

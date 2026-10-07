@@ -16,7 +16,12 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    APPROVAL_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org, token_org
 from ..models.base import get_db
 from ..schemas import (
@@ -34,6 +39,63 @@ router = APIRouter()
 settings = get_settings()
 
 MAX_UPLOAD_BYTES = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+ALLOWED_DOCUMENT_TYPES = frozenset(
+    {"pdf", "cad", "bim", "photo", "video", "spreadsheet", "other"}
+)
+
+# 実行形式・スクリプト系の MIME 種別。文書管理として扱わない。
+DANGEROUS_CONTENT_TYPES = frozenset(
+    {
+        "application/x-msdownload",
+        "application/x-msdos-program",
+        "application/x-dosexec",
+        "application/x-executable",
+        "application/vnd.microsoft.portable-executable",
+        "application/x-msi",
+        "application/java-archive",
+        "application/x-sh",
+        "application/x-shellscript",
+    }
+)
+
+# DB の document_status enum と一致させる（migrations/000_base_schema.sql）。
+ALLOWED_DOCUMENT_STATUSES = frozenset(
+    {"draft", "under_review", "approved", "rejected", "obsolete", "deleted"}
+)
+
+
+def _parse_enum_param(
+    value: str | None, allowed: frozenset[str], field: str, code: str
+) -> str | None:
+    """許容値リストに無いクエリ値を 422 で拒否する（native enum 500 化を防ぐ）。"""
+    if not value:
+        return None
+    if value not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": code,
+                "message": f"{field} が不正です。指定可能値: " + ", ".join(sorted(allowed)),
+            },
+        )
+    return value
+
+
+def _parse_uuid_param(value: str | None, field: str) -> UUID | None:
+    """クエリ/フォーム由来の UUID 文字列を検証し、不正値は 400 に変換する。"""
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_REQUEST",
+                "message": f"{field} の形式が不正です。UUID を指定してください。",
+            },
+        ) from None
 
 
 def _api_response(data=None, meta=None, error=None, success=True):
@@ -78,11 +140,60 @@ async def upload_document(
 
     import json
 
-    parsed_tags = json.loads(tags) if isinstance(tags, str) else tags
-    parsed_metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
-    parsed_project_id = UUID(project_id) if project_id else None
+    # クライアント入力の不備は 4xx として返す。ここで例外を通すと
+    # グローバル例外ハンドラが 500 に変換し、原因が分からない障害になる。
+    try:
+        parsed_tags = json.loads(tags) if isinstance(tags, str) else tags
+        parsed_metadata = (
+            json.loads(metadata) if isinstance(metadata, str) else metadata
+        )
+        parsed_project_id = UUID(project_id) if project_id else None
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_REQUEST",
+                "message": "tags / metadata / project_id の形式が不正です。",
+            },
+        ) from None
+
+    if not isinstance(parsed_tags, list):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_TAGS",
+                "message": "tags は配列で指定してください。",
+            },
+        )
+    if parsed_metadata is not None and not isinstance(parsed_metadata, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_METADATA",
+                "message": "metadata はオブジェクトで指定してください。",
+            },
+        )
+    if document_type not in ALLOWED_DOCUMENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "INVALID_DOCUMENT_TYPE",
+                "message": (
+                    "document_type が不正です。指定可能値: "
+                    + ", ".join(sorted(ALLOWED_DOCUMENT_TYPES))
+                ),
+            },
+        )
 
     content_type = file.content_type or "application/octet-stream"
+    if content_type.split(";")[0].strip().lower() in DANGEROUS_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail={
+                "code": "UNSUPPORTED_MEDIA_TYPE",
+                "message": f"content_type {content_type} は受理できません。",
+            },
+        )
 
     try:
         document = await document_service.create_document(
@@ -122,7 +233,13 @@ async def list_documents(
     db: AsyncSession = Depends(get_db),
 ):
     org_filter = scope_org(token_data, organization_id)
-    parsed_project_id = UUID(project_id) if project_id else None
+    parsed_project_id = _parse_uuid_param(project_id, "project_id")
+    parsed_document_type = _parse_enum_param(
+        document_type, ALLOWED_DOCUMENT_TYPES, "document_type", "INVALID_DOCUMENT_TYPE"
+    )
+    parsed_status = _parse_enum_param(
+        status, ALLOWED_DOCUMENT_STATUSES, "status", "INVALID_STATUS"
+    )
     parsed_tags = tags.split(",") if tags else None
 
     documents, pmeta = await document_service.list_documents(
@@ -131,8 +248,8 @@ async def list_documents(
         page=page,
         per_page=per_page,
         query=query,
-        document_type=document_type,
-        status=status,
+        document_type=parsed_document_type,
+        status=parsed_status,
         project_id=parsed_project_id,
         tags=parsed_tags,
     )
@@ -207,6 +324,9 @@ async def update_document(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # 承認状態への遷移（approved / rejected）は承認ロールを要求する（DOC-1）
+    if body.status in ("approved", "rejected"):
+        require_any_role(token_data, APPROVAL_ROLES)
     document = await document_service.update_document(
         db=db,
         document_id=document_id,
@@ -230,9 +350,17 @@ async def delete_document(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    document = await document_service.soft_delete_document(
-        db, document_id, scope_org(token_data)
-    )
+    org_id = scope_org(token_data)  # 組織検証を先に（fail-closed）
+    # 文書削除はロールを持つユーザーのみ（roles 空は 403、DOC-2）
+    if not (token_data.roles or []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "FORBIDDEN",
+                "message": "この操作に必要なロールがありません。",
+            },
+        )
+    document = await document_service.soft_delete_document(db, document_id, org_id)
     if not document:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

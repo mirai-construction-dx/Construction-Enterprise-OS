@@ -1,0 +1,10 @@
+{
+  "id": "T-0bbadcab-1328-4ee2-9ce0-4a470bb9479c",
+  "subject": "#79: Node 24 へ統一",
+  "description": ".nvmrc / Dockerfile(node:20) / engines(>=20) / CI(node 22) を Node 24 に統一。ビルド・テストで互換確認。feature ブランチ→PR。",
+  "status": "completed",
+  "activeForm": "Node 24 へ統一中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

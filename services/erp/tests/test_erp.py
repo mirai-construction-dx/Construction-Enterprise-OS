@@ -11,6 +11,9 @@ from src.main import create_app
 from src.middleware.auth import TokenData, get_current_user
 from src.models.base import get_db
 
+# approved_by / created_by はトークンの sub から導出するため、sub は有効な UUID で固定する。
+USER = uuid.UUID("00000000-0000-0000-0000-0000000000a1")
+
 
 class MockScalarResult:
     def __init__(self, value=None, items=None, total=0):
@@ -83,7 +86,7 @@ def app(mock_db):
         yield mock_db
 
     async def mock_get_current_user():
-        return TokenData(sub="test-user-id", type="user", org="test-org", roles=["admin"])
+        return TokenData(sub=str(USER), type="user", org="test-org", roles=["admin"])
 
     _app.dependency_overrides[get_db] = mock_get_db
     _app.dependency_overrides[get_current_user] = mock_get_current_user
@@ -565,7 +568,7 @@ class TestCostFlow:
 
         mock_db.get = mock_get
 
-        approver_id = uuid.uuid4()
+        approver_id = USER
         response = client.post(
             f"/api/v1/erp/costs/{cost_id}/approve",
             json={"approved_by": str(approver_id)},
@@ -574,7 +577,7 @@ class TestCostFlow:
         assert response.status_code == 200
 
         assert cost_item.status == "approved"
-        assert cost_item.approved_by == approver_id
+        assert cost_item.approved_by == USER
         assert cost_item.approved_at is not None
         assert float(budget.actual_amount) == 150000
         assert float(ledger.actual_cost) == 150000

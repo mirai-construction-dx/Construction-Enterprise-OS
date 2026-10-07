@@ -4,7 +4,7 @@ from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import TokenData, get_current_user
@@ -155,6 +155,15 @@ async def hazard_zones_intersecting_site(
             ).model_dump()
         )
 
+    # 危険度の高い順（critical → high → medium → low）に並べる。
+    # 文字列降順では severity 順にならないため、CASE で数値化してソートする。
+    severity_order = case(
+        (HazardZone.risk_level == "critical", 0),
+        (HazardZone.risk_level == "high", 1),
+        (HazardZone.risk_level == "medium", 2),
+        (HazardZone.risk_level == "low", 3),
+        else_=4,
+    )
     query = select(HazardZone).where(
         func.ST_Intersects(
             HazardZone.zone_area,
@@ -163,7 +172,7 @@ async def hazard_zones_intersecting_site(
     )
     if org is not None:
         query = query.where(HazardZone.organization_id == org)
-    query = query.order_by(HazardZone.risk_level.desc())
+    query = query.order_by(severity_order)
     result = await db.execute(query)
     zones = result.scalars().all()
 

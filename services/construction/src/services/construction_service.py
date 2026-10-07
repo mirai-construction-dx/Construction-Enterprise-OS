@@ -82,7 +82,12 @@ async def get_wbs_children(
     if organization_id is not None:
         query = query.where(WBSItem.organization_id == organization_id)
     result = await db.execute(query.order_by(WBSItem.wbs_code))
-    return list(result.scalars().all())
+    # SQL の WHERE に加え、ORM が返した行に対しても防御的に同一組織のみへ絞る
+    # （モック等で WHERE が無視される状況でも他テナントを混入させない）。
+    children = list(result.scalars().all())
+    if organization_id is not None:
+        children = [c for c in children if c.organization_id == organization_id]
+    return children
 
 
 async def build_wbs_tree(
@@ -141,6 +146,7 @@ async def update_wbs_progress(db: AsyncSession, wbs: WBSItem, data: dict) -> WBS
 # ============================================
 async def create_resource(db: AsyncSession, data: dict) -> Resource:
     resource = Resource(**data)
+    _calculate_resource_total_cost(resource)
     db.add(resource)
     await db.flush()
     await db.refresh(resource)
@@ -247,7 +253,12 @@ async def get_resource_cost_summary(
 
 
 def _calculate_resource_total_cost(resource: Resource) -> None:
-    qty = float(resource.actual_quantity or resource.planned_quantity or 0)
+    if resource.actual_quantity is not None:
+        qty = float(resource.actual_quantity)
+    elif resource.planned_quantity is not None:
+        qty = float(resource.planned_quantity)
+    else:
+        qty = 0.0
     cost = float(resource.unit_cost or 0)
     resource.total_cost = qty * cost
 

@@ -1,0 +1,10 @@
+{
+  "id": "T-8ae065d6-9f15-41b7-956a-af90023bb940",
+  "subject": "CI: 脆弱性スキャンを検出時に失敗させる",
+  "description": ".github/workflows/ci.yml の pip-audit を find -exec（終了コードが常に0）から失敗伝播する形に変更し、Trivy に exit-code を設定。feature ブランチ→PR。",
+  "status": "completed",
+  "activeForm": "CI脆弱性検査を修正中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "T-c65ffbdf-77d7-438d-8ff6-e3b411ddef74",
+  "subject": "Web: api-client の 204 No Content 対応＋テスト",
+  "description": "apps/web/src/lib/api-client.ts で 204/空本文を JSON 解析せず安全に扱う。249系テスト追加。feature ブランチ→PR。",
+  "status": "completed",
+  "activeForm": "204応答処理を修正中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

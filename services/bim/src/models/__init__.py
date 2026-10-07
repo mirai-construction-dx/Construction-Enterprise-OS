@@ -145,6 +145,11 @@ class PointCloud(Base):
     accuracy_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_colorized: Mapped[bool] = mapped_column(Boolean, default=False)
     is_classified: Mapped[bool] = mapped_column(Boolean, default=False)
+    version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source_model_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    source_video_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     location: Mapped[str | None] = mapped_column(
         Geometry(geometry_type="POLYGON", srid=4326, spatial_index=False), nullable=True
     )

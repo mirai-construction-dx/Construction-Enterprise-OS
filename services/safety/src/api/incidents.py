@@ -46,15 +46,16 @@ async def create_incident(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = create_org(current_user, body.organization_id)
     incident = await safety_service.create_safety_incident(
         db,
-        organization_id=create_org(current_user, body.organization_id),
+        organization_id=org_id,
         title=body.title,
         description=body.description,
         incident_type=body.incident_type,
         severity=body.severity,
         incident_date=body.incident_date,
-        reported_by=body.reported_by,
+        reported_by=UUID(current_user.sub),
         project_id=body.project_id,
         site_id=body.site_id,
         location=body.location,
@@ -118,7 +119,7 @@ async def update_incident(
         description=body.description,
         status=body.status,
         severity=body.severity,
-        investigated_by=body.investigated_by,
+        investigated_by=UUID(current_user.sub),
         root_cause=body.root_cause,
         corrective_actions=body.corrective_actions,
         injured_count=body.injured_count,

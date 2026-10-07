@@ -71,6 +71,9 @@ async def create_pointcloud(
         accuracy_mm=body.accuracy_mm,
         is_colorized=body.is_colorized,
         is_classified=body.is_classified,
+        version=body.version or "v1",
+        source_model_id=body.source_model_id,
+        source_video_id=body.source_video_id,
         metadata_=body.metadata,
         uploaded_by=UUID(token_data.sub),
     )

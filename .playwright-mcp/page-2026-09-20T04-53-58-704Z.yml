@@ -1,0 +1,132 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - complementary [ref=f1e3]:
+      - generic [ref=f1e4]:
+        - generic [ref=f1e5]: CE
+        - generic [ref=f1e7]:
+          - paragraph [ref=f1e8]: Construction-OS
+          - paragraph [ref=f1e9]: Enterprise Platform
+        - button [ref=f1e10] [cursor=pointer]
+      - navigation [ref=f1e14]:
+        - generic [ref=f1e15]:
+          - button "ダッシュボード" [ref=f1e16] [cursor=pointer]
+          - generic [ref=f1e26]:
+            - button "統合ダッシュボード" [ref=f1e27] [cursor=pointer]
+            - list [ref=f1e31]:
+              - listitem [ref=f1e32]:
+                - link "全社統合" [ref=f1e33] [cursor=pointer]:
+                  - /url: /dashboard
+              - listitem [ref=f1e35]:
+                - link "現場ダッシュボード" [ref=f1e36] [cursor=pointer]:
+                  - /url: /dashboard/field
+              - listitem [ref=f1e38]:
+                - link "経営ダッシュボード" [ref=f1e39] [cursor=pointer]:
+                  - /url: /dashboard/exec
+              - listitem [ref=f1e41]:
+                - link "AI分析" [ref=f1e42] [cursor=pointer]:
+                  - /url: /dashboard/ai
+              - listitem [ref=f1e44]:
+                - link "KPI/アラート 3" [ref=f1e45] [cursor=pointer]:
+                  - /url: /dashboard/kpi
+                  - generic [ref=f1e46]: KPI/アラート
+                  - generic [ref=f1e47]: "3"
+        - button "共通基盤" [ref=f1e49] [cursor=pointer]
+        - generic [ref=f1e57]:
+          - button "文書・図面管理" [ref=f1e58] [cursor=pointer]
+          - generic [ref=f1e66]:
+            - button "文書管理" [ref=f1e67] [cursor=pointer]
+            - list [ref=f1e71]:
+              - listitem [ref=f1e72]:
+                - link "文書一覧" [ref=f1e73] [cursor=pointer]:
+                  - /url: /documents
+              - listitem [ref=f1e75]:
+                - link "図面管理" [ref=f1e76] [cursor=pointer]:
+                  - /url: /documents/drawings
+              - listitem [ref=f1e78]:
+                - link "承認ワークフロー" [ref=f1e79] [cursor=pointer]:
+                  - /url: /documents/approval
+              - listitem [ref=f1e81]:
+                - link "BIM/CIM" [ref=f1e82] [cursor=pointer]:
+                  - /url: /documents/bim
+        - button "現場DX" [ref=f1e85] [cursor=pointer]
+        - button "協力会社連携" [ref=f1e95] [cursor=pointer]
+        - button "GIS/地図" [ref=f1e105] [cursor=pointer]
+        - button "AI・分析基盤" [ref=f1e112] [cursor=pointer]
+        - button "IoT・リアルタイム監視" [ref=f1e127] [cursor=pointer]
+        - button "ERP・経営管理" [ref=f1e135] [cursor=pointer]
+        - button "セキュリティ・監査" [ref=f1e142] [cursor=pointer]
+        - button "ワークフロー" [ref=f1e149] [cursor=pointer]
+        - button "自動化・ロボティクス" [ref=f1e158] [cursor=pointer]
+        - button "システム管理" [ref=f1e166] [cursor=pointer]
+      - generic [ref=f1e174]:
+        - generic [ref=f1e175]: 田健
+        - generic [ref=f1e176]:
+          - paragraph [ref=f1e177]: 田中 健一
+          - paragraph [ref=f1e178]: 現場監督
+    - generic [ref=f1e179]:
+      - banner [ref=f1e180]:
+        - button [ref=f1e181] [cursor=pointer]
+        - button "全表示（管理者）" [ref=f1e184] [cursor=pointer]
+        - button "ダークモード" [ref=f1e192] [cursor=pointer]
+        - button "3" [ref=f1e195] [cursor=pointer]
+        - generic [ref=f1e200]:
+          - generic [ref=f1e201]: 田健
+          - generic [ref=f1e202]: 田中 健一
+        - button "ログアウト" [ref=f1e203] [cursor=pointer]
+      - main [ref=f1e207]:
+        - generic [ref=f1e208]:
+          - generic [ref=f1e209]:
+            - generic [ref=f1e210]:
+              - heading "文書管理" [level=1] [ref=f1e211]
+              - paragraph [ref=f1e212]: 建設書類・図面・写真の一元管理と電子承認
+            - generic [ref=f1e213]:
+              - button "アップロード" [ref=f1e214] [cursor=pointer]
+              - button "新規フォルダ" [ref=f1e218] [cursor=pointer]
+          - generic [ref=f1e220]:
+            - generic [ref=f1e221]:
+              - paragraph [ref=f1e222]: "750"
+              - paragraph [ref=f1e223]: 総ファイル数
+            - generic [ref=f1e224]:
+              - paragraph [ref=f1e225]: "12"
+              - paragraph [ref=f1e226]: 承認待ち
+            - generic [ref=f1e227]:
+              - paragraph [ref=f1e228]: 4.8 GB
+              - paragraph [ref=f1e229]: 使用容量
+          - generic [ref=f1e230]:
+            - textbox "ファイル名・工事名・種類で検索..." [ref=f1e235]
+            - button "フィルター" [ref=f1e236] [cursor=pointer]
+          - generic [ref=f1e239]:
+            - heading "フォルダ" [level=2] [ref=f1e240]
+            - generic [ref=f1e241]:
+              - button "図面・設計書 142件" [ref=f1e242] [cursor=pointer]:
+                - generic [ref=f1e245]: 図面・設計書
+                - generic [ref=f1e246]: 142件
+              - button "施工管理書類 87件" [ref=f1e247] [cursor=pointer]:
+                - generic [ref=f1e250]: 施工管理書類
+                - generic [ref=f1e251]: 87件
+              - button "安全管理書類 63件" [ref=f1e252] [cursor=pointer]:
+                - generic [ref=f1e255]: 安全管理書類
+                - generic [ref=f1e256]: 63件
+              - button "検査・試験記録 45件" [ref=f1e257] [cursor=pointer]:
+                - generic [ref=f1e260]: 検査・試験記録
+                - generic [ref=f1e261]: 45件
+              - button "契約書類 29件" [ref=f1e262] [cursor=pointer]:
+                - generic [ref=f1e265]: 契約書類
+                - generic [ref=f1e266]: 29件
+              - button "写真台帳 384件" [ref=f1e267] [cursor=pointer]:
+                - generic [ref=f1e270]: 写真台帳
+                - generic [ref=f1e271]: 384件
+          - generic [ref=f1e272]: データを取得できませんでした。
+          - generic [ref=f1e273]:
+            - generic [ref=f1e274]:
+              - heading "最近の書類" [level=2] [ref=f1e275]
+              - button "すべて表示" [ref=f1e276] [cursor=pointer]
+            - table [ref=f1e277]:
+              - rowgroup [ref=f1e278]:
+                - row [ref=f1e279]:
+                  - columnheader "ファイル名" [ref=f1e280]
+                  - columnheader "工事" [ref=f1e281]
+                  - columnheader "ステータス" [ref=f1e282]
+                  - columnheader [ref=f1e283]
+              - rowgroup
+  - alert [ref=f1e284]
