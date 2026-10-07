@@ -26,6 +26,24 @@ fi
 DATABASE_URL="$1"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+# 事前検査: ORM モデルを持つのに適用対象(migrations/*.sql)も alembic も無いサービスを検出する。
+# これらは下の探索で「黙って skip」され、空DBにテーブルが作られないまま
+# 「適用完了」と表示されてしまう (erp で実際に発生した障害)。
+uncovered=()
+for service_dir in "$REPO_ROOT"/services/*/; do
+  [ -d "${service_dir}src/models" ] || continue
+  grep -rq "__tablename__" "${service_dir}src/models" 2>/dev/null || continue
+  if [ ! -d "${service_dir}migrations" ] && [ ! -d "${service_dir}alembic" ]; then
+    uncovered+=("$(basename "$service_dir")")
+  fi
+done
+if [ ${#uncovered[@]} -gt 0 ]; then
+  echo "スキーマ適用対象が存在しないサービスがあります: ${uncovered[*]}" >&2
+  echo "  migrations/000_base_schema.sql を生成するか、alembic 管理であることを明記してください。" >&2
+  echo "  (生成: python3 scripts/db/generate_base_schema.py <service>)" >&2
+  exit 3
+fi
+
 applied=0
 failed_files=()
 # サービス名の昇順、同一サービス内はファイル名の昇順(= 000 → 001 → 002)

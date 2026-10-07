@@ -29,6 +29,7 @@ TARGETS = [
     "autonomous",
     "bim",
     "construction",
+    "erp",
     "field-dx",
     "gis",
     "iot",
@@ -43,6 +44,16 @@ TARGETS = [
     "notification",
 ]
 # auth と workflow は alembic 管理のため対象外
+# 明示的な除外。ここに挙げたサービスは DDL 生成対象に含めない。
+# ORM モデルを持つサービスを除外する場合は、必ず理由を添えてここへ登録する
+# (登録漏れは「黙って skip して成功」ではなくエラーにする — 下記 coverage_gaps 参照)。
+EXCLUDED = {
+    "auth": "alembic 管理 (services/auth/alembic)",
+    "workflow": "alembic 管理 (services/workflow/alembic)",
+    "gateway": "ORM モデルなし (API プロキシのみ)",
+    "mcp": "ORM モデルなし (DB を保持しない)",
+    "logs": "実装なし (ログ保管ディレクトリのみ)",
+}
 
 HEADER = """-- {schema} スキーマ 基盤 DDL (自動生成 / 冪等)
 --
@@ -178,16 +189,65 @@ def render(service: str, data: dict) -> str:
     return "\n\n".join(parts) + "\n"
 
 
+def has_orm_models(service: str) -> bool:
+    """サービスが SQLAlchemy のテーブル定義を持つか。"""
+    models_dir = SERVICES / service / "src" / "models"
+    if not models_dir.is_dir():
+        return False
+    for path in models_dir.rglob("*.py"):
+        if "__tablename__" in path.read_text(encoding="utf-8", errors="ignore"):
+            return True
+    return False
+
+
+def coverage_gaps(services: list[str]) -> list[str]:
+    """ORM モデルを持つのに DDL 生成対象でも明示的除外でもないサービス。
+
+    これらを黙って skip すると「DDL が無いのに同期チェックが成功する」偽グリーンになる。
+    """
+    return [
+        s
+        for s in services
+        if s not in TARGETS and s not in EXCLUDED and has_orm_models(s)
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("services", nargs="*")
     args = parser.parse_args()
 
+    candidates = args.services or sorted(
+        p.name for p in SERVICES.iterdir() if p.is_dir()
+    )
+
+    missing = [s for s in candidates if not (SERVICES / s).is_dir()]
+    if missing:
+        print(
+            "サービスが存在しません: " + ", ".join(sorted(missing)),
+            file=sys.stderr,
+        )
+        return 2
+
+    # ORM モデルを持つサービスを対象漏れのまま成功させない (偽グリーン防止)
+    gaps = coverage_gaps(candidates)
+    if gaps:
+        print(
+            "DDL 生成対象に含まれていないサービスがあります: "
+            + ", ".join(sorted(gaps))
+            + " — TARGETS に追加するか、EXCLUDED に理由付きで登録してください",
+            file=sys.stderr,
+        )
+        return 2
+
     targets = args.services or TARGETS
     if args.services:
-        for service in [s for s in targets if s not in TARGETS]:
-            print(f"skip {service}: 生成対象外 (models 無し or alembic 管理)")
+        for service in candidates:
+            if service in EXCLUDED:
+                print(f"skip {service}: 対象外 ({EXCLUDED[service]})")
+            elif service not in TARGETS:
+                print(f"skip {service}: 生成対象外 (ORM モデル無し)")
         targets = [s for s in targets if s in TARGETS]
 
     drifted = []
@@ -206,6 +266,15 @@ def main() -> int:
         if drifted:
             print("DDL がモデルと不一致: " + ", ".join(drifted))
             return 1
+        if not targets:
+            # 対象外のサービスしか指定されなかった場合に「一致」と表示しない。
+            # 検査していないのに成功メッセージを出すと偽グリーンになる。
+            print(
+                "検査対象なし: "
+                + ", ".join(sorted(candidates))
+                + " はすべて生成対象外 (TARGETS 外)"
+            )
+            return 0
         print("全サービスの基盤DDLがモデルと一致")
     return 0
 
