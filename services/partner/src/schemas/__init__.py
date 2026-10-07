@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -34,17 +34,18 @@ class TokenData(BaseModel):
 # ============================================
 # 協力会社 (Partner)
 # ============================================
-COMPANY_TYPES = [
+# 語彙（許可リスト）: 協力会社の種別と取引状態。未定義値は 422 で拒否する。
+CompanyType = Literal[
     "subcontractor", "supplier", "consultant", "designer", "surveyor",
     "equipment_rental", "material_supplier", "transportation", "other",
 ]
-PARTNER_STATUSES = ["active", "inactive", "blacklisted", "pending_review"]
+PartnerStatus = Literal["active", "inactive", "blacklisted", "pending_review"]
 
 
 class PartnerCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     name_kana: str | None = None
-    company_type: str = Field(min_length=1, max_length=50)
+    company_type: CompanyType
     tax_id: str | None = None
     address: str | None = None
     phone: str | None = None
@@ -56,13 +57,13 @@ class PartnerCreate(BaseModel):
     specializations: list[str] | None = None
     license_info: dict | None = None
     insurance_info: dict | None = None
-    status: str = "active"
+    status: PartnerStatus = "active"
 
 
 class PartnerUpdate(BaseModel):
     name: str | None = None
     name_kana: str | None = None
-    company_type: str | None = None
+    company_type: CompanyType | None = None
     tax_id: str | None = None
     address: str | None = None
     phone: str | None = None
@@ -74,7 +75,7 @@ class PartnerUpdate(BaseModel):
     specializations: list[str] | None = None
     license_info: dict | None = None
     insurance_info: dict | None = None
-    status: str | None = None
+    status: PartnerStatus | None = None
 
 
 class PartnerContactCreate(BaseModel):

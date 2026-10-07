@@ -21,6 +21,29 @@ async def create_evaluation(
     return evaluation
 
 
+async def find_existing_evaluation(
+    db: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    partner_id: uuid.UUID | None,
+    project_id: uuid.UUID | None,
+    evaluator_id: uuid.UUID,
+) -> Evaluation | None:
+    """同一評価者・同一対象・同一案件の既存評価を返す（P-9: 重複登録防止）。"""
+    stmt = (
+        select(Evaluation)
+        .where(
+            Evaluation.organization_id == organization_id,
+            Evaluation.partner_id == partner_id,
+            Evaluation.project_id == project_id,
+            Evaluation.evaluator_id == evaluator_id,
+        )
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 async def list_evaluations(
     db: AsyncSession,
     *,

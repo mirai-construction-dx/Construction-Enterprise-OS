@@ -255,18 +255,20 @@ async def test_sign_contract(client: AsyncClient, auth_headers):
 async def test_create_evaluation(client: AsyncClient, auth_headers):
     mock_evaluation = make_mock_evaluation()
 
-    with patch("src.api.evaluations.evaluation_service.create_evaluation", new_callable=AsyncMock) as mock_create:
-        mock_create.return_value = mock_evaluation
-        with patch("src.api.evaluations.evaluation_service.update_partner_rating", new_callable=AsyncMock) as mock_update:
-            mock_update.return_value = None
+    with patch("src.api.evaluations.evaluation_service.find_existing_evaluation", new_callable=AsyncMock) as mock_find:
+        mock_find.return_value = None
+        with patch("src.api.evaluations.evaluation_service.create_evaluation", new_callable=AsyncMock) as mock_create:
+            mock_create.return_value = mock_evaluation
+            with patch("src.api.evaluations.evaluation_service.update_partner_rating", new_callable=AsyncMock) as mock_update:
+                mock_update.return_value = None
 
-            response = await client.post("/api/v1/partners/evaluations", json={
-                "partner_id": str(SAMPLE_UUID),
-                "overall_score": 4.5,
-                "quality_score": 4.0,
-                "safety_score": 5.0,
-                "comment": "良い協力会社です",
-            }, headers=auth_headers)
+                response = await client.post("/api/v1/partners/evaluations", json={
+                    "partner_id": str(SAMPLE_UUID),
+                    "overall_score": 4.5,
+                    "quality_score": 4.0,
+                    "safety_score": 5.0,
+                    "comment": "良い協力会社です",
+                }, headers=auth_headers)
 
     assert response.status_code == 201
     data = response.json()

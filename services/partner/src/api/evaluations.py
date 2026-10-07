@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import get_current_user, require_organization_id
@@ -47,9 +47,23 @@ async def create_evaluation(
 ):
     org_id = require_organization_id(current_user)
     evaluator_id = UUID(current_user.sub)
-    evaluation = await evaluation_service.create_evaluation(
-        db, org_id, evaluator_id, body.model_dump()
+    data = body.model_dump()
+    existing = await evaluation_service.find_existing_evaluation(
+        db,
+        organization_id=org_id,
+        partner_id=data.get("partner_id"),
+        project_id=data.get("project_id"),
+        evaluator_id=evaluator_id,
     )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "DUPLICATE_EVALUATION",
+                "message": "同一評価者・同一対象・同一案件の評価は既に登録されています。",
+            },
+        )
+    evaluation = await evaluation_service.create_evaluation(db, org_id, evaluator_id, data)
     await db.flush()
     await evaluation_service.update_partner_rating(db, body.partner_id, org_id)
     await db.refresh(evaluation)

@@ -347,10 +347,6 @@ class TestRatingAggregation:
 
 
 class TestDuplicateEvaluation:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-P-9: evaluations に (partner_id, project_id, evaluator_id) の一意制約が無い",
-    )
     def test_defect_evaluation_has_unique_constraint(self):
         """同一評価者・同一対象・同一案件の重複登録を DB で防ぐ制約が必要。"""
         unique_sets = [
@@ -362,10 +358,6 @@ class TestDuplicateEvaluation:
             set(columns) >= {"partner_id", "evaluator_id"} for columns in unique_sets
         ), f"評価の一意制約が無い (existing unique sets: {unique_sets})"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-P-9: 同一内容の評価を重複登録でき、評点集計が汚染される",
-    )
     async def test_defect_duplicate_evaluation_can_be_registered(self, api):
         """同一評価者・同一対象・同一期間の 2 回目の登録は拒否されるべき。"""
         payload = {
@@ -377,6 +369,10 @@ class TestDuplicateEvaluation:
         created = _evaluation()
 
         with (
+            patch.object(
+                evaluation_service, "find_existing_evaluation",
+                AsyncMock(side_effect=[None, created]),
+            ),
             patch.object(
                 evaluation_service, "create_evaluation", AsyncMock(return_value=created)
             ),
@@ -407,10 +403,6 @@ class TestDuplicateEvaluation:
 
 
 class TestMasterValueValidation:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="DEFECT-P-10: company_type / status が許可リストで検証されない",
-    )
     async def test_defect_company_type_and_status_not_validated(self, api):
         """company_type / status は定義済み許可リストに制限されるべき。"""
         created = MagicMock()
