@@ -28,6 +28,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session() as session:
         try:
             yield session
+            # 18サービス（construction/erp/gis 等）と同じくリクエスト正常終了時に確定する。
+            # これが無いと close() 時に暗黙ロールバックされ、flush 済みの書き込みが失われる。
+            await session.commit()
         except Exception:
             await session.rollback()
             raise
