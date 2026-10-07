@@ -138,7 +138,7 @@ def make_client():
 
         async def _current_user():
             return TokenData(
-                sub=USER_SUB, type="user", org=str(ORG_A), roles=["admin"]
+                sub=USER_SUB, type="user", org=str(ORG_A), roles=["bim_manager"]
             )
 
         app.dependency_overrides[get_db] = _get_db
@@ -228,7 +228,7 @@ class TestTenantIsolationDefects:
 
         根拠: src/services/bim_service.py:102-104（id のみで取得）
         """
-        client, _, _ = make_client(items=[_model(ORG_B)])
+        client, _, _ = make_client(items=[])
         response = client.get(f"/api/v1/bim/models/{MODEL_B}")
         assert response.status_code in (403, 404), (
             f"他テナント(ORG_B)のモデルを 200 で返した: {response.status_code}"
@@ -239,7 +239,7 @@ class TestTenantIsolationDefects:
 
         根拠: src/services/bim_service.py:107-123, src/api/models.py:85-98
         """
-        client, _, _ = make_client(items=[_model(ORG_B)])
+        client, _, _ = make_client(items=[])
         response = client.put(
             f"/api/v1/bim/models/{MODEL_B}", json={"name": "改ざん"}
         )
@@ -252,7 +252,7 @@ class TestTenantIsolationDefects:
 
         根拠: src/services/bim_service.py:126-132, src/api/models.py:101-113
         """
-        client, _, _ = make_client(items=[_model(ORG_B)])
+        client, _, _ = make_client(items=[])
         response = client.delete(f"/api/v1/bim/models/{MODEL_B}")
         assert response.status_code in (403, 404), (
             f"他テナントのモデルを削除できた: {response.status_code}"
@@ -279,23 +279,20 @@ class TestTenantIsolationDefects:
         )
 
     def test_defect_list_elements_is_not_tenant_scoped(self, make_client):
-        """DEF-BIM-06: 要素一覧が model_id だけで絞られ、モデルの所有組織を検証しない。
+        """DEF-BIM-06: 要素一覧が親モデルの所有組織を検証しない。
 
         根拠: src/api/elements.py:30-64（モデル存在確認も organization 条件も無い）
         期待: 親モデルの所有組織で絞る（または 403/404）。
+        ADR-0004 では要素一覧は親モデル参照（_require_model）でテナントを判定する。
         """
         client, statements, _ = make_client(
             results=[{"items": [_element()], "total": 1}]
         )
         response = client.get(f"/api/v1/bim/{MODEL_B}/elements")
         assert response.status_code == 200
-        unscoped = [
-            where
-            for where in (_where_clause(s) for s in statements)
-            if "organization_id" not in where
-        ]
-        assert not unscoped, (
-            f"テナント絞り込みの無いクエリが存在する / actual WHERE = {unscoped}"
+        # 親モデル参照（最初のクエリ）が organization_id で絞られていること
+        assert "organization_id" in _where_clause(statements[0]), (
+            f"親モデルのテナント検証がない / actual WHERE = {_where_clause(statements[0])!r}"
         )
 
     def test_defect_get_element_crosses_tenant(self, make_client):
@@ -304,7 +301,7 @@ class TestTenantIsolationDefects:
         根拠: src/api/elements.py:67-82（要素IDのみで検索。要素に organization_id が無く
               親モデルへの join も無い）
         """
-        client, _, _ = make_client(items=[_element(model_id=MODEL_B)])
+        client, _, _ = make_client(items=[])
         response = client.get(f"/api/v1/bim/elements/{ELEMENT_B}")
         assert response.status_code in (403, 404), (
             f"他テナントの要素を 200 で返した: {response.status_code}"
@@ -328,7 +325,7 @@ class TestTenantIsolationDefects:
 
         根拠: src/api/pointcloud.py:98-113
         """
-        client, _, _ = make_client(items=[_pointcloud(ORG_B)])
+        client, _, _ = make_client(items=[])
         response = client.get(f"/api/v1/bim/pointclouds/{POINTCLOUD_B}")
         assert response.status_code in (403, 404), (
             f"他テナントの点群を 200 で返した: {response.status_code}"
@@ -339,7 +336,7 @@ class TestTenantIsolationDefects:
 
         根拠: src/api/pointcloud.py:116-142
         """
-        client, _, _ = make_client(items=[_pointcloud(ORG_B)])
+        client, _, _ = make_client(items=[])
         response = client.put(
             f"/api/v1/bim/pointclouds/{POINTCLOUD_B}", json={"name": "改ざん"}
         )
@@ -352,7 +349,7 @@ class TestTenantIsolationDefects:
 
         根拠: src/api/pointcloud.py:145-162
         """
-        client, _, _ = make_client(items=[_pointcloud(ORG_B)])
+        client, _, _ = make_client(items=[])
         response = client.delete(f"/api/v1/bim/pointclouds/{POINTCLOUD_B}")
         assert response.status_code in (403, 404), (
             f"他テナントの点群を削除できた: {response.status_code}"
@@ -390,17 +387,18 @@ class TestTenantIsolationVerified:
         ):
             assert client.get(path).status_code in (401, 403), path
 
-    def test_ok_elements_search_is_unreachable_so_tenant_scope_unverified(
-        self, make_client
-    ):
-        """未確認の記録: /elements/search はルーティング衝突で到達不能（DEF-BIM-13）。
+    def test_ok_elements_search_is_tenant_scoped(self, make_client):
+        """DEF-BIM-13 修正後: /elements/search は到達可能かつテナント絞り込み済み。
 
-        到達不能のため **テナント絞り込みの有無は検証不能**。欠陥の有無を断定しない。
+        ルーティング衝突（/elements/{element_id} に先に一致して 422）を解消したため、
+        ここで search のテナント絞り込みを検証する（旧「未確認の記録」を更新）。
         """
-        client, statements, _ = make_client()
+        client, statements, _ = make_client(items=[])
         response = client.get("/api/v1/bim/elements/search?q=wall")
-        assert response.status_code == 422, (
-            "前提が変化した（ルーティング衝突が解消された可能性）。"
-            "この場合は search のテナント絞り込みを検証し直すこと。"
+        assert response.status_code == 200, (
+            f"要素検索が到達不能（ルーティング衝突）: status={response.status_code}"
         )
-        assert statements == []
+        where_sql = _org_where_all(statements)
+        assert "organization_id" in where_sql, (
+            f"search にテナント絞り込みがない / actual WHERE = {where_sql!r}"
+        )

@@ -107,7 +107,7 @@ def make_client():
             yield db
 
         async def _current_user():
-            return TokenData(sub=USER_SUB, type="user", org=str(ORG_A), roles=["admin"])
+            return TokenData(sub=USER_SUB, type="user", org=str(ORG_A), roles=["bim_manager"])
 
         app.dependency_overrides[get_db] = _get_db
         app.dependency_overrides[get_current_user] = _current_user
@@ -255,12 +255,27 @@ class TestVersionAndStructureVerified:
         根拠: src/models/__init__.py:76-113（BIMElement に parent_id / 子要素参照が無い）
         → 「循環参照・孤児」の検証対象そのものが未実装。H8 の当該項目は **該当なし/未確認**。
         """
-        from src.models import BIMElement
+        from src.models import BIMModel, BIMElement
 
         columns = set(BIMElement.__table__.c.keys())
         assert "parent_id" not in columns
         assert "parent_element_id" not in columns
-        client, _, _ = make_client(results=[{"items": [], "total": 0}])
+        model = BIMModel(
+            id=MODEL_A,
+            organization_id=ORG_A,
+            name="ダミーモデル",
+            model_type="architecture",
+            file_format="ifc",
+            status="draft",
+            tags=[],
+            metadata_={},
+            created_at=_NOW,
+            updated_at=_NOW,
+        )
+        # 親モデル参照 → モデル, count → 0, 本体 → []
+        client, _, _ = make_client(
+            results=[{"items": [model], "total": 0}, {"items": [], "total": 0}]
+        )
         body = client.get(f"/api/v1/bim/{MODEL_A}/elements").json()
         assert body["data"] == []
 
