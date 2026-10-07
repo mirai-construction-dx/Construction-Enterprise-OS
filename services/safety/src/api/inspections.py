@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -14,6 +19,7 @@ from ..schemas import (
     InspectionUpdate,
 )
 from ..services import safety_service
+from ..services.safety_service import InspectionResultReversalError
 
 router = APIRouter()
 
@@ -45,12 +51,21 @@ async def create_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
+    if body.organization_id != org_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "Organization in the body does not match the token.",
+            },
+        )
     inspection = await safety_service.create_inspection(
         db,
-        organization_id=body.organization_id,
+        organization_id=org_id,
         title=body.title,
         inspection_type=body.inspection_type,
-        inspector_id=body.inspector_id,
+        inspector_id=require_actor_id(current_user),
         project_id=body.project_id,
         site_id=body.site_id,
         inspection_date=body.inspection_date,
@@ -72,7 +87,7 @@ async def list_inspections(
 ):
     inspections = await safety_service.get_inspections(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(current_user),
         inspection_type=inspection_type,
         status=status,
         project_id=project_id,
@@ -87,7 +102,9 @@ async def inspection_stats(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    stats = await safety_service.get_inspection_stats(db)
+    stats = await safety_service.get_inspection_stats(
+        db, require_organization_id(current_user)
+    )
     return APIResponse(data=stats)
 
 
@@ -97,8 +114,9 @@ async def get_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspection = await safety_service.get_inspection_by_id(db, inspection_id)
-    if not inspection:
+    org_id = require_organization_id(current_user)
+    inspection = await safety_service.get_inspection_by_id(db, inspection_id, org_id)
+    if not inspection or inspection.organization_id != org_id:
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "Inspection not found."},
@@ -113,12 +131,20 @@ async def update_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
+    existing = await safety_service.get_inspection_by_id(db, inspection_id, org_id)
+    if not existing or existing.organization_id != org_id:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "Inspection not found."},
+        )
     inspection = await safety_service.update_inspection(
         db,
         inspection_id,
+        organization_id=org_id,
         title=body.title,
         status=body.status,
-        inspector_id=body.inspector_id,
+        inspector_id=require_actor_id(current_user),
         inspection_date=body.inspection_date,
         location=body.location,
         findings=body.findings,
@@ -141,14 +167,29 @@ async def complete_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspection = await safety_service.complete_inspection(
-        db,
-        inspection_id,
-        is_safe=body.is_safe,
-        findings=body.findings,
-        corrective_actions=body.corrective_actions,
-        score=body.score,
-    )
+    org_id = require_organization_id(current_user)
+    existing = await safety_service.get_inspection_by_id(db, inspection_id, org_id)
+    if not existing or existing.organization_id != org_id:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "NOT_FOUND", "message": "Inspection not found."},
+        )
+    try:
+        inspection = await safety_service.complete_inspection(
+            db,
+            inspection_id,
+            is_safe=body.is_safe,
+            actor_id=require_actor_id(current_user),
+            organization_id=org_id,
+            findings=body.findings,
+            corrective_actions=body.corrective_actions,
+            score=body.score,
+        )
+    except InspectionResultReversalError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not inspection:
         raise HTTPException(
             status_code=404,

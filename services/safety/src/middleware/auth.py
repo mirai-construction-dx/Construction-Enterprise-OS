@@ -1,6 +1,7 @@
 """JWT authentication middleware."""
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -75,3 +76,43 @@ async def get_current_user(
         )
 
     return token_data
+
+
+def require_organization_id(token_data: TokenData) -> UUID:
+    """トークンの org を必須化して UUID で返す（fail-closed）。
+
+    org 欠落時に既定組織へフォールバックすると、組織クレームを持たない
+    トークンが他組織のデータへ到達する経路になるため 403 とする。
+    """
+    if not token_data.org:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_REQUIRED",
+                "message": "Organization claim is required.",
+            },
+        )
+    try:
+        return UUID(token_data.org)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_INVALID",
+                "message": "Organization claim is invalid.",
+            },
+        ) from exc
+
+
+def require_actor_id(token_data: TokenData) -> UUID:
+    """トークンの sub を操作者として同定する（ボディ・クエリの値は信用しない）。"""
+    try:
+        return UUID(token_data.sub)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "INVALID_IDENTITY",
+                "message": "Authenticated user id is invalid.",
+            },
+        ) from exc

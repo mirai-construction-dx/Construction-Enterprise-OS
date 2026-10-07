@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_actor_id,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas import APIResponse, IncidentCreate, IncidentUpdate
 from ..services import safety_service
@@ -45,15 +50,25 @@ async def create_incident(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
+    if body.organization_id != org_id:
+        # 他組織を指定した作成は越境書込みになるため拒否する
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORG_MISMATCH",
+                "message": "Organization in the body does not match the token.",
+            },
+        )
     incident = await safety_service.create_safety_incident(
         db,
-        organization_id=body.organization_id,
+        organization_id=org_id,
         title=body.title,
         description=body.description,
         incident_type=body.incident_type,
         severity=body.severity,
         incident_date=body.incident_date,
-        reported_by=body.reported_by,
+        reported_by=require_actor_id(current_user),
         project_id=body.project_id,
         site_id=body.site_id,
         location=body.location,
@@ -77,7 +92,7 @@ async def list_incidents(
 ):
     incidents = await safety_service.get_safety_incidents(
         db,
-        organization_id=organization_id,
+        organization_id=require_organization_id(current_user),
         incident_type=incident_type,
         severity=severity,
         status=status,
@@ -93,8 +108,10 @@ async def get_incident(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    incident = await safety_service.get_safety_incident_by_id(db, incident_id)
-    if not incident:
+    org_id = require_organization_id(current_user)
+    incident = await safety_service.get_safety_incident_by_id(db, incident_id, org_id)
+    # SQL の組織条件に加え、取得結果の所有組織も検証する（多層防御）
+    if not incident or incident.organization_id != org_id:
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "Incident not found."},
@@ -109,21 +126,23 @@ async def update_incident(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = require_organization_id(current_user)
     incident = await safety_service.update_safety_incident(
         db,
         incident_id,
+        organization_id=org_id,
         title=body.title,
         description=body.description,
         status=body.status,
         severity=body.severity,
-        investigated_by=body.investigated_by,
+        investigated_by=require_actor_id(current_user),
         root_cause=body.root_cause,
         corrective_actions=body.corrective_actions,
         injured_count=body.injured_count,
         fatality_count=body.fatality_count,
         is_osha_reportable=body.is_osha_reportable,
     )
-    if not incident:
+    if not incident or incident.organization_id != org_id:
         raise HTTPException(
             status_code=404,
             detail={"code": "NOT_FOUND", "message": "Incident not found."},
