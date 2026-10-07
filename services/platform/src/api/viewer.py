@@ -8,7 +8,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models import ViewerConfig, ViewerScene
 from ..models.base import get_db
@@ -148,6 +153,7 @@ async def delete_viewer_config(
     config = result.scalar_one_or_none()
     if not config:
         raise _config_not_found()
+    require_any_role(token_data, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
     await db.delete(config)
     await db.flush()
     return _api_response(data={"deleted": True})

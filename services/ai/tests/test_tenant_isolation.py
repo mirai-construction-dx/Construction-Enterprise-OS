@@ -49,6 +49,7 @@ EMPTY_ORG = _headers(org="")
 INVALID_ORG = _headers(org="not-a-uuid")
 ADMIN = _headers(org=str(ORG_B), roles=["admin"])
 ADMIN_NO_ORG = _headers(org=None, roles=["admin"])
+SITE_MANAGER = _headers(roles=["site_manager"])
 
 
 class _Result:
@@ -293,7 +294,7 @@ def test_update_other_org_prompt_is_404_without_write(client, db):
 
 
 def test_delete_other_org_prompt_is_404_without_write(client, db):
-    response = client.delete(f"/api/v1/ai/prompts/{TEMPLATE_ID}", headers=USER_A)
+    response = client.delete(f"/api/v1/ai/prompts/{TEMPLATE_ID}", headers=SITE_MANAGER)
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "NOT_FOUND"
     assert _org_filter_value(db.statements[0], db.params[0]) == ORG_A
@@ -422,7 +423,7 @@ def test_rag_generate_template_lookup_is_org_scoped(client, db):
 
 def test_delete_embeddings_restricted_to_token_org(client, db):
     response = client.delete(
-        f"/api/v1/ai/embeddings/document/{SOURCE_ID}", headers=USER_A
+        f"/api/v1/ai/embeddings/document/{SOURCE_ID}", headers=SITE_MANAGER
     )
     assert response.status_code == 200
     assert response.json()["data"]["deleted"] == 0
@@ -439,7 +440,30 @@ def test_admin_delete_embeddings_crosses_orgs(client, db):
 
 
 # ============================================
-# 5. Unchanged endpoints (fixed mock data, no org-owned records)
+# 5. RBAC: delete requires management role
+# ============================================
+
+
+def test_delete_prompt_requires_management_role(client, db):
+    """非管理ロール(member)はプロンプト削除を実行できない（RBAC delete）。"""
+    response = client.delete(f"/api/v1/ai/prompts/{TEMPLATE_ID}", headers=USER_A)
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "FORBIDDEN"
+    db.assert_no_db_access()
+
+
+def test_delete_embeddings_requires_management_role(client, db):
+    """非管理ロール(member)は埋め込み削除を実行できない（RBAC delete）。"""
+    response = client.delete(
+        f"/api/v1/ai/embeddings/document/{SOURCE_ID}", headers=USER_A
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "FORBIDDEN"
+    db.assert_no_db_access()
+
+
+# ============================================
+# 6. Unchanged endpoints (fixed mock data, no org-owned records)
 # ============================================
 
 
@@ -450,7 +474,7 @@ def test_mock_endpoints_unchanged(client, path):
 
 
 # ============================================
-# 6. Helper unit tests
+# 7. Helper unit tests
 # ============================================
 
 
