@@ -54,7 +54,7 @@ def _auth_headers(
         "sub": str(user_id),
         "type": "user",
         "org": str(org_id),
-        "roles": roles if roles is not None else ["admin"],
+        "roles": roles if roles is not None else ["site_manager"],
         "scopes": scopes if scopes is not None else ["documents:read", "documents:write"],
     }
     token = jwt.encode(payload, settings.jwt_public_key, algorithm=settings.JWT_ALGORITHM)

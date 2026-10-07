@@ -47,7 +47,7 @@ def _auth_headers(
         "sub": str(user_id),
         "type": "user",
         "org": str(org_id),
-        "roles": roles if roles is not None else ["admin"],
+        "roles": roles if roles is not None else ["site_manager"],
         "scopes": scopes if scopes is not None else ["documents:read", "documents:write"],
     }
     token = jwt.encode(payload, settings.jwt_public_key, algorithm=settings.JWT_ALGORITHM)
@@ -172,7 +172,6 @@ class TestTenantBoundary:
         assert response.status_code == 200
         assert delete.call_args.args[2] == ORG_A
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-DOC-1: 文書ステータス変更にロール検査が無く承認偽装が可能")
     def test_defect_approval_status_can_be_set_without_approval_role(self, client):
         """[欠陥] 文書ステータスを任意ロールのトークンで 'approved' にできる。
 
@@ -188,7 +187,6 @@ class TestTenantBoundary:
             )
         assert response.status_code == 403, "権限なしで承認状態へ遷移できてしまう"
 
-    @pytest.mark.xfail(strict=True, reason="DEFECT-DOC-2: 文書削除に権限検査が無い")
     def test_defect_delete_without_management_role(self, client):
         """[欠陥] 文書削除にロール検査が無い(roles=[] でも削除できる)。"""
         deleted = _make_document(status="deleted")
