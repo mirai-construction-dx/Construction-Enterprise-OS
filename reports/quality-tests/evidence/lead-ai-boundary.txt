@@ -1,0 +1,165 @@
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+...............................F.FF                                      [100%]
+=================================== FAILURES ===================================
+_____ TestPromptTemplateSSTI.test_user_template_is_not_evaluated_as_python _____
+
+self = <tests.test_quality_ai_input_boundary.TestPromptTemplateSSTI object at 0x786db8769cd0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x786da9da7980>
+
+    def test_user_template_is_not_evaluated_as_python(self, monkeypatch):
+        """利用者が保存したテンプレート本文が Jinja2 の式として評価されてはならない。
+    
+        `{{ 7*7 }}` が "49" に展開されるなら、任意の Python 式
+        （例: クラス階層の走査）が実行可能であり、RCE に到達しうる。
+        """
+        # provider はモックに固定（外部 LLM へ接続しない）
+        from src.services import llm_service
+    
+        sent: dict = {}
+    
+        async def fake_complete(self, messages, **kwargs):
+            sent["messages"] = messages
+            return "ok"
+    
+        monkeypatch.setattr(llm_service.MockLLMProvider, "complete", fake_complete)
+        monkeypatch.setattr(llm_service.OpenAICompatibleProvider, "complete", fake_complete)
+    
+        client = _client_with(_Template("数量は {{ 7*7 }} です"))
+        r = client.post(
+            "/api/v1/ai/complete",
+            json={"prompt_template_id": str(TEMPLATE_ID), "variables": {}},
+            headers=_headers(),
+        )
+        assert r.status_code == 200, r.text
+        user_message = sent["messages"][-1]["content"]
+>       assert "49" not in user_message, (
+            f"テンプレート本文が Jinja2 式として評価されている（SSTI）: {user_message!r}"
+        )
+E       AssertionError: テンプレート本文が Jinja2 式として評価されている（SSTI）: '数量は 49 です'
+E       assert '49' not in '数量は 49 です'
+E         
+E         '49' is contained here:
+E           数量は 49 です
+E         ?     ++
+
+tests/test_quality_ai_input_boundary.py:132: AssertionError
+____ TestEmbeddingTenantScope.test_delete_embeddings_is_organization_scoped ____
+
+self = <tests.test_quality_ai_input_boundary.TestEmbeddingTenantScope object at 0x786db876a6f0>
+
+    def test_delete_embeddings_is_organization_scoped(self):
+        """DELETE /ai/embeddings/{type}/{id} は自組織の埋め込みだけを消すこと。"""
+        import asyncio
+    
+        from src.services.embedding_service import EmbeddingService
+    
+        captured: dict = {}
+        db = AsyncMock()
+    
+        async def mock_execute(stmt, *args, **kwargs):
+            captured["stmt"] = stmt
+            return _Result()
+    
+        db.execute = mock_execute
+        service = EmbeddingService(base_url="http://127.0.0.1:1", api_key="x")
+        asyncio.run(
+            service.delete_embeddings(
+                db, "document", uuid.UUID("00000000-0000-0000-0000-0000000000d1")
+            )
+        )
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+            )
+        )
+>       assert "organization_id" in sql, (
+            f"埋め込み削除が組織スコープされていない（越境削除）: {sql}"
+        )
+E       AssertionError: 埋め込み削除が組織スコープされていない（越境削除）: DELETE FROM ai.embeddings WHERE ai.embeddings.source_type = 'document' AND ai.embeddings.source_id = '00000000-0000-0000-0000-0000000000d1'
+E       assert 'organization_id' in "DELETE FROM ai.embeddings WHERE ai.embeddings.source_type = 'document' AND ai.embeddings.source_id = '00000000-0000-0000-0000-0000000000d1'"
+
+tests/test_quality_ai_input_boundary.py:181: AssertionError
+____ TestMaskingBeforeModelSend.test_pii_is_masked_before_sending_to_model _____
+
+self = <tests.test_quality_ai_input_boundary.TestMaskingBeforeModelSend object at 0x786db876ac00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x786d9fb3ce60>
+
+    def test_pii_is_masked_before_sending_to_model(self, monkeypatch):
+        """個人情報を含む入力はモデルへ送る前にマスキングされること（仕様 V3.5）。"""
+        from src.services import llm_service
+    
+        sent: dict = {}
+    
+        async def fake_complete(self, messages, **kwargs):
+            sent["messages"] = messages
+            return "ok"
+    
+        monkeypatch.setattr(llm_service.MockLLMProvider, "complete", fake_complete)
+        monkeypatch.setattr(llm_service.OpenAICompatibleProvider, "complete", fake_complete)
+    
+        client = _client_with(None)
+        pii = "担当者テスト太郎の連絡先は test-taro@example.invalid / 090-0000-0000 です"
+        r = client.post(
+            "/api/v1/ai/chat",
+            json={"messages": [{"role": "user", "content": pii}]},
+            headers=_headers(),
+        )
+        assert r.status_code == 200, r.text
+        payload = str(sent["messages"])
+>       assert "test-taro@example.invalid" not in payload, (
+            "メールアドレスがマスキングされずにモデルへ送信されている"
+        )
+E       AssertionError: メールアドレスがマスキングされずにモデルへ送信されている
+E       assert 'test-taro@example.invalid' not in "[{'role': '...0-0000 です'}]"
+E         
+E         'test-taro@example.invalid' is contained here:
+E           スト太郎の連絡先は test-taro@example.invalid / 090-0000-0000 です'}]
+
+tests/test_quality_ai_input_boundary.py:212: AssertionError
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_ai.py::TestHealthCheck::test_health_returns_200
+PASSED tests/test_ai.py::TestAuthRequired::test_all_endpoints_require_auth
+PASSED tests/test_ai.py::TestAuthRequired::test_delete_embeddings_requires_auth
+PASSED tests/test_ai.py::TestAuthRequired::test_prompt_detail_requires_auth
+PASSED tests/test_ai.py::TestAuthRequired::test_prompt_update_requires_auth
+PASSED tests/test_ai.py::TestAuthRequired::test_prompt_delete_requires_auth
+PASSED tests/test_ai.py::TestPromptTemplateCRUD::test_create_prompt_template
+PASSED tests/test_ai.py::TestPromptTemplateCRUD::test_list_prompt_templates
+PASSED tests/test_ai.py::TestLLMService::test_mock_llm_complete
+PASSED tests/test_ai.py::TestLLMService::test_mock_llm_stream
+PASSED tests/test_ai.py::TestLLMService::test_openai_provider_init
+PASSED tests/test_ai.py::TestLLMService::test_chat_endpoint_with_mock
+PASSED tests/test_ai.py::TestLLMService::test_chat_stream_endpoint
+PASSED tests/test_ai.py::TestLLMService::test_complete_endpoint_not_found
+PASSED tests/test_ai.py::TestTextChunking::test_chunk_text_basic
+PASSED tests/test_ai.py::TestTextChunking::test_chunk_text_short
+PASSED tests/test_ai.py::TestTextChunking::test_chunk_text_empty
+PASSED tests/test_ai.py::TestTextChunking::test_chunk_text_exact_size
+PASSED tests/test_ai.py::TestMockEmbedding::test_mock_embedding_dimensions
+PASSED tests/test_ai.py::TestMockEmbedding::test_mock_embedding_different_texts
+PASSED tests/test_ai.py::TestRAGService::test_semantic_search_mock
+PASSED tests/test_ai.py::TestRAGService::test_generate_with_context_mock
+PASSED tests/test_ai.py::TestDefaultPrompts::test_default_templates_exist
+PASSED tests/test_ai.py::TestDefaultPrompts::test_default_templates_have_required_fields
+PASSED tests/test_ai.py::TestRAGSearchEndpoint::test_rag_search_endpoint
+PASSED tests/test_ai.py::TestRAGSearchEndpoint::test_rag_generate_endpoint
+PASSED tests/test_ai.py::TestEmbeddingEndpoint::test_create_embeddings_endpoint
+PASSED tests/test_ai.py::TestEmbeddingEndpoint::test_search_embeddings_endpoint
+PASSED tests/test_ai.py::TestEmbeddingEndpoint::test_delete_embeddings_endpoint
+PASSED tests/test_health_readiness.py::test_health_returns_503_when_database_unavailable
+PASSED tests/test_public_endpoint_authz.py::test_ai_models_requires_authentication
+PASSED tests/test_quality_ai_input_boundary.py::TestPromptTemplateSSTI::test_template_lookup_is_organization_scoped
+FAILED tests/test_quality_ai_input_boundary.py::TestPromptTemplateSSTI::test_user_template_is_not_evaluated_as_python
+FAILED tests/test_quality_ai_input_boundary.py::TestEmbeddingTenantScope::test_delete_embeddings_is_organization_scoped
+FAILED tests/test_quality_ai_input_boundary.py::TestMaskingBeforeModelSend::test_pii_is_masked_before_sending_to_model
+3 failed, 32 passed, 1 warning in 2.50s
