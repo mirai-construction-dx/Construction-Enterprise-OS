@@ -138,14 +138,3 @@ async def update_bim_model(
     await db.flush()
     await db.refresh(model)
     return model
-
-
-async def delete_bim_model(
-    db: AsyncSession, model_id: UUID, organization_id: UUID | None = None
-) -> bool:
-    model = await get_bim_model(db, model_id, organization_id)
-    if not model:
-        return False
-    await db.delete(model)
-    await db.flush()
-    return True

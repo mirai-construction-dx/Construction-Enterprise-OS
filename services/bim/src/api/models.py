@@ -6,7 +6,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -18,7 +23,6 @@ from ..schemas import (
 )
 from ..services.bim_service import (
     create_bim_model,
-    delete_bim_model,
     get_bim_model,
     list_bim_models,
     update_bim_model,
@@ -109,10 +113,13 @@ async def delete_model(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    deleted = await delete_bim_model(db, model_id, scope_org(token_data))
-    if not deleted:
+    model = await get_bim_model(db, model_id, scope_org(token_data))
+    if not model:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "BIMモデルが見つかりません。"},
         )
+    require_any_role(token_data, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
+    await db.delete(model)
+    await db.flush()
     return _api_response(data={"deleted": True})

@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models import PointCloud
 from ..models.base import get_db
@@ -161,6 +166,7 @@ async def delete_pointcloud(
     db: AsyncSession = Depends(get_db),
 ):
     pc = await _get_pointcloud_or_404(db, pointcloud_id, scope_org(token_data))
+    require_any_role(token_data, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
     await db.delete(pc)
     await db.flush()
     return _api_response(data={"deleted": True})

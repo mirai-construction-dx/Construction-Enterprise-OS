@@ -106,13 +106,29 @@ async def get_current_client(
     return token_data
 
 
-def require_any_role(token_data: TokenData) -> None:
-    """操作（write）には任意の有効ロールが 1 つ以上必要（空ロールは fail-closed）。"""
-    if not (token_data.roles or []):
+# rbac-role-model.md: auth サービスの DEFAULT_ROLES を正典とする
+MANAGEMENT_ROLES = frozenset({"admin", "site_manager"})
+# 作成・更新（write）: 任意の有効ロール
+WRITE_ROLES = frozenset(
+    {
+        "admin",
+        "site_manager",
+        "site_supervisor",
+        "site_worker",
+        "inspector",
+        "accountant",
+        "readonly",
+    }
+)
+
+
+def require_any_role(token_data: TokenData, allowed_roles: frozenset[str]) -> None:
+    """トークンが allowed_roles のいずれかを保持することを要求する（fail-closed）。"""
+    if not (set(token_data.roles or []) & allowed_roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={
                 "code": "FORBIDDEN",
-                "message": "この操作にはロールが必要です。",
+                "message": "この操作に必要なロールがありません。",
             },
         )

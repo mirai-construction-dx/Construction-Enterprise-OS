@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user, require_any_role
+from ..middleware.auth import WRITE_ROLES, TokenData, get_current_user, require_any_role
 from ..middleware.tenant import create_org, is_cross_org_admin, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -169,7 +169,7 @@ async def acknowledge(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    require_any_role(current_user)
+    require_any_role(current_user, WRITE_ROLES)
     org = scope_org(current_user)
     user_id = _actor_id(current_user)
     try:
@@ -194,7 +194,7 @@ async def resolve(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    require_any_role(current_user)
+    require_any_role(current_user, WRITE_ROLES)
     try:
         alert = await resolve_alert(db, alert_id, scope_org(current_user))
     except AlertStateError as exc:

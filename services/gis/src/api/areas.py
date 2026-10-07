@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models import HazardZone
 from ..models.base import get_db
@@ -251,6 +256,7 @@ async def delete_hazard_zone(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "危険区域が見つかりません。"},
         )
+    require_any_role(token_data, MANAGEMENT_ROLES)
     await db.delete(zone)
     await db.flush()
     return _api_response(data={"deleted": True})
