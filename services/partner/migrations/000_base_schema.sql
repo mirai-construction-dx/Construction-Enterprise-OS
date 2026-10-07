@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS partner.evaluations (
 	evaluation_period_end DATE, 
 	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
 	PRIMARY KEY (id), 
+	CONSTRAINT uq_evaluations_partner_project_evaluator UNIQUE (partner_id, project_id, evaluator_id), 
 	FOREIGN KEY(partner_id) REFERENCES partner.partners (id)
 );
 
