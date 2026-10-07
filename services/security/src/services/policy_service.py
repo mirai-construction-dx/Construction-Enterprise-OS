@@ -20,8 +20,8 @@ async def create_policy(
     category: str,
     content: str,
     description: str | None = None,
-    effective_date: str | None = None,
-    review_date: str | None = None,
+    effective_date: date | None = None,
+    review_date: date | None = None,
     approved_by: UUID | None = None,
 ) -> SecurityPolicy:
     policy = SecurityPolicy(
@@ -30,8 +30,8 @@ async def create_policy(
         category=category,
         content=content,
         description=description,
-        effective_date=date.fromisoformat(effective_date) if effective_date else None,
-        review_date=date.fromisoformat(review_date) if review_date else None,
+        effective_date=effective_date,
+        review_date=review_date,
         approved_by=approved_by,
         status="active",
     )
@@ -76,8 +76,8 @@ async def update_policy(
     category: str | None = None,
     content: str | None = None,
     status: str | None = None,
-    effective_date: str | None = None,
-    review_date: str | None = None,
+    effective_date: date | None = None,
+    review_date: date | None = None,
 ) -> SecurityPolicy | None:
     policy = await get_policy_by_id(db, policy_id)
     if not policy:
@@ -93,9 +93,9 @@ async def update_policy(
     if status is not None:
         policy.status = status
     if effective_date is not None:
-        policy.effective_date = date.fromisoformat(effective_date)  # type: ignore[assignment]
+        policy.effective_date = effective_date
     if review_date is not None:
-        policy.review_date = date.fromisoformat(review_date)  # type: ignore[assignment]
+        policy.review_date = review_date
     policy.updated_at = _utcnow()
     await db.flush()
     return policy

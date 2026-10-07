@@ -1,7 +1,7 @@
 """Security data models."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     BigInteger,
@@ -139,8 +139,9 @@ class SecurityPolicy(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(20), default="active")
-    effective_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
-    review_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    # 列は Date 型のため date が正しい（datetime と誤記すると型検査が通らない）
+    effective_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    review_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True
     )

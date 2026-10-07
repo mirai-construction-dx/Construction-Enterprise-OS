@@ -1,6 +1,6 @@
 """API request/response schemas."""
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -122,8 +122,10 @@ class PolicyCreate(BaseModel):
     description: str | None = None
     category: str = Field(min_length=1, max_length=50)
     content: str = Field(min_length=1)
-    effective_date: str | None = None
-    review_date: str | None = None
+    # `str` で受けると形式検証が入らず、サービス層の date.fromisoformat() で
+    # 例外 → 500 になる。境界で date として検証し、不正は 422 で返す。
+    effective_date: date | None = None
+    review_date: date | None = None
 
 
 class PolicyUpdate(BaseModel):
@@ -132,8 +134,8 @@ class PolicyUpdate(BaseModel):
     category: str | None = None
     content: str | None = None
     status: str | None = None
-    effective_date: str | None = None
-    review_date: str | None = None
+    effective_date: date | None = None
+    review_date: date | None = None
 
 
 class PolicyResponse(BaseModel):

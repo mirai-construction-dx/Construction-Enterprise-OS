@@ -34,6 +34,17 @@ settings = get_settings()
 
 MAX_UPLOAD_BYTES = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
+# DB の document_type enum と一致させる。Form 引数は Pydantic 検証を通らないため、
+# ここで許可値を確認しないと DB 到達時に 500 になる。
+ALLOWED_DOCUMENT_TYPES = frozenset(
+    {"pdf", "cad", "bim", "photo", "video", "spreadsheet", "other"}
+)
+
+# DB の document_status enum と一致させる（migrations/000_base_schema.sql）。
+ALLOWED_DOCUMENT_STATUSES = frozenset(
+    {"draft", "under_review", "approved", "rejected", "obsolete", "deleted"}
+)
+
 
 def _api_response(data=None, meta=None, error=None, success=True):
     return APIResponse(success=success, data=data, error=error, meta=meta)
@@ -41,6 +52,51 @@ def _api_response(data=None, meta=None, error=None, success=True):
 
 def _org_id(token_data: TokenData) -> UUID:
     return UUID(token_data.org) if token_data.org else UUID(int=0)
+
+
+def _parse_enum_param(
+    value: str | None, allowed: frozenset[str], field: str, code: str
+) -> str | None:
+    """許容値リストに無いクエリ値を 422 で拒否する。
+
+    native enum 列の比較に素の文字列を渡すと DB エラー → 500 になるため、
+    境界で拒否する（upload の document_type 検証と同じ挙動に揃える）。
+    """
+    if not value:
+        # 未指定・空文字は「絞り込み無し」として従来どおり扱う（過剰な拒否をしない）
+        return None
+    if value not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": code,
+                "message": (
+                    f"{field} が不正です。指定可能値: " + ", ".join(sorted(allowed))
+                ),
+            },
+        )
+    return value
+
+
+def _parse_uuid_param(value: str | None, field: str) -> UUID | None:
+    """クエリ/フォーム由来の UUID 文字列を検証する。
+
+    不正な値をそのまま `UUID()` へ渡すと ValueError がグローバル例外ハンドラに
+    到達して 500 になり、クライアント入力の不備がサーバ障害として扱われる。
+    ここで 400 に変換する。
+    """
+    if not value:
+        return None
+    try:
+        return UUID(value)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_REQUEST",
+                "message": f"{field} の形式が不正です。UUID を指定してください。",
+            },
+        ) from None
 
 
 @router.post("/upload")
@@ -73,9 +129,50 @@ async def upload_document(
 
     import json
 
-    parsed_tags = json.loads(tags) if isinstance(tags, str) else tags
-    parsed_metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
-    parsed_project_id = UUID(project_id) if project_id else None
+    # クライアント入力の不備は 4xx として返す。ここで例外を通すと
+    # グローバル例外ハンドラが 500 に変換し、原因が分からない障害になる。
+    try:
+        parsed_tags = json.loads(tags) if isinstance(tags, str) else tags
+        parsed_metadata = (
+            json.loads(metadata) if isinstance(metadata, str) else metadata
+        )
+        parsed_project_id = UUID(project_id) if project_id else None
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_REQUEST",
+                "message": "tags / metadata / project_id の形式が不正です。",
+            },
+        ) from None
+
+    if not isinstance(parsed_tags, list):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_TAGS",
+                "message": "tags は配列で指定してください。",
+            },
+        )
+    if parsed_metadata is not None and not isinstance(parsed_metadata, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_METADATA",
+                "message": "metadata はオブジェクトで指定してください。",
+            },
+        )
+    if document_type not in ALLOWED_DOCUMENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "INVALID_DOCUMENT_TYPE",
+                "message": (
+                    "document_type が不正です。指定可能値: "
+                    + ", ".join(sorted(ALLOWED_DOCUMENT_TYPES))
+                ),
+            },
+        )
 
     content_type = file.content_type or "application/octet-stream"
 
@@ -115,7 +212,13 @@ async def list_documents(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    parsed_project_id = UUID(project_id) if project_id else None
+    parsed_project_id = _parse_uuid_param(project_id, "project_id")
+    parsed_document_type = _parse_enum_param(
+        document_type, ALLOWED_DOCUMENT_TYPES, "document_type", "INVALID_DOCUMENT_TYPE"
+    )
+    parsed_status = _parse_enum_param(
+        status, ALLOWED_DOCUMENT_STATUSES, "status", "INVALID_STATUS"
+    )
     parsed_tags = tags.split(",") if tags else None
 
     documents, pmeta = await document_service.list_documents(
@@ -124,8 +227,8 @@ async def list_documents(
         page=page,
         per_page=per_page,
         query=query,
-        document_type=document_type,
-        status=status,
+        document_type=parsed_document_type,
+        status=parsed_status,
         project_id=parsed_project_id,
         tags=parsed_tags,
     )
