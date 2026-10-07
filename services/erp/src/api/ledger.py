@@ -5,7 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    TokenData,
+    get_current_user,
+    require_organization_id,
+)
 from ..models.base import get_db
 from ..schemas.schemas import (
     FinancialSummary,
@@ -22,19 +26,16 @@ router = APIRouter()
 
 @router.get("/ledger/summary")
 async def get_ledger_overall_summary(
-    # 全社の財務サマリー。同一ファイルの他ルート同様に認証を要求する
-    _user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user),
 ):
-    """全工事台帳の財務サマリー（フロントエンドダッシュボード用スタブ）"""
-    return {
-        "total_revenue": 850000000,
-        "total_cost": 680000000,
-        "gross_profit": 170000000,
-        "operating_profit": 145000000,
-        "projects_count": 12,
-        "gross_margin": 0.2,
-        "operating_margin": 0.171,
-    }
+    """自組織の工事台帳を集計した財務サマリー（読み取り専用）。
+
+    組織は必ずトークンの org クレームから導出する。
+    """
+    return await ledger_service.get_overall_summary(
+        db, require_organization_id(current_user)
+    )
 
 
 @router.post(

@@ -520,30 +520,24 @@ class TestH5BoundaryValidation:
 # ============================================================
 # H6: GET /ledger/summary が固定スタブ値
 # ============================================================
-class TestH6LedgerSummaryStub:
-    EXPECTED_STUB = {
-        "total_revenue": 850000000,
-        "total_cost": 680000000,
-        "gross_profit": 170000000,
-        "operating_profit": 145000000,
-        "projects_count": 12,
-        "gross_margin": 0.2,
-        "operating_margin": 0.171,
-    }
+class TestH6LedgerSummaryAggregation:
+    """GET /ledger/summary は固定スタブではなく自組織の実データを集計する。"""
 
-    def test_summary_current_behavior_is_fixed_constant_without_db_access(self):
-        """台帳 0 件でも固定値。SQL も一切発行しない（実データ非参照）。"""
+    def test_summary_is_zero_without_ledgers(self):
         db = CaptureDB()
         client = make_client(db, org=ORG_A)
 
         response = client.get("/api/v1/erp/ledger/summary")
 
         assert response.status_code == 200
-        assert response.json() == self.EXPECTED_STUB
-        assert db.statements == []
-        assert statement_wheres(db) == []
+        body = response.json()
+        assert body["total_revenue"] == 0
+        assert body["total_cost"] == 0
+        assert body["projects_count"] == 0
+        # 販管費は未モデル化のため営業利益は未算出（固定値を返さない）
+        assert body["operating_profit"] is None
 
-    def test_summary_current_behavior_ignores_existing_ledger_data(self):
+    def test_summary_reflects_persisted_ledger_data(self):
         db = CaptureDB()
         db.put(make_ledger(ORG_A, contract="1234", actual="999", budget="1"))
         client = make_client(db, org=ORG_A)
@@ -551,8 +545,11 @@ class TestH6LedgerSummaryStub:
         response = client.get("/api/v1/erp/ledger/summary")
 
         assert response.status_code == 200
-        assert response.json()["total_revenue"] == 850000000
-        assert response.json()["projects_count"] == 12
+        body = response.json()
+        assert Decimal(str(body["total_revenue"])) == Decimal("1234")
+        assert Decimal(str(body["total_cost"])) == Decimal("999")
+        assert Decimal(str(body["gross_profit"])) == Decimal("235")
+        assert body["projects_count"] == 1
 
     @pytest.mark.xfail(
         strict=True,

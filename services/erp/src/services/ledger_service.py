@@ -112,3 +112,32 @@ async def get_financial_summary(
 
 def _recalculate_profit(ledger: ProjectLedger) -> None:
     ledger.estimated_profit = float(ledger.contract_amount) - float(ledger.actual_cost)
+
+
+async def get_overall_summary(db: AsyncSession, organization_id: uuid.UUID) -> dict:
+    """組織内の工事台帳を集計した全社サマリー。
+
+    以前は固定定数を返すスタブで、実データを参照していなかった（画面・MCP が
+    実データ前提で消費していた）。ここでは組織スコープで実データを集計する。
+    売上総利益のみ算出し、販管費（SG&A）はモデル化されていないため
+    営業利益・営業利益率は None（未算出）を返す。
+    """
+    result = await db.execute(
+        select(ProjectLedger).where(ProjectLedger.organization_id == organization_id)
+    )
+    ledgers = list(result.scalars().all())
+
+    total_revenue = sum(float(ledger.contract_amount or 0) for ledger in ledgers)
+    total_cost = sum(float(ledger.actual_cost or 0) for ledger in ledgers)
+    gross_profit = total_revenue - total_cost
+    projects_count = len(ledgers)
+
+    return {
+        "total_revenue": total_revenue,
+        "total_cost": total_cost,
+        "gross_profit": gross_profit,
+        "operating_profit": None,
+        "projects_count": projects_count,
+        "gross_margin": (gross_profit / total_revenue) if total_revenue > 0 else 0.0,
+        "operating_margin": None,
+    }
