@@ -22,6 +22,7 @@
 |---|---|---|---|
 | MVP プロトタイプ | https://construction-os-mvp.mirai-dx-platform.com | WebUI `webui/Construction-Enterprise-OS---CRUD.html`(正本スタイル+全ページCRUD) | ✅ 稼働・E2E は `e2e/*.spec.ts` 計28テスト(desktop/mobile の2プロジェクト) |
 | 本番 | https://construction-os.mirai-dx-platform.com | 同上(同一コンテンツ) | ✅ 稼働 |
+| Staging | https://construction-os-stg.mirai-dx-platform.com | 本番前の検証環境（Cloudflare Access で保護／DNS は未設定） | 🚧 構築中 — [設計](docs/architecture/ADR-0005-staging-environment.md)・[手順](docs/operations/staging.md) |
 | DB | Neon `construction-enterprise-os` | auth スキーマ(Migration+Seed 適用) | ✅ 空DB再実行可能 |
 
 - **WebUI(CRUD 統合版)**: **OpenDesign 正本バンドルのスタイルを一切変更せず**、そのバンドルにデータ層+CRUD を統合(`webui/Construction-Enterprise-OS---CRUD.html`)。

@@ -58,6 +58,18 @@ CLOUDFLARE_API_TOKEN=*** CLOUDFLARE_ACCOUNT_ID=4f1e888469df7e0b896bb4e211b12633 
 - Tunnel: コンテナのタグ指定による再起動
 - DB: Neon の Point-in-Time 復元 / ブランチ切り替え
 
+## 6.5 Staging(stg)環境
+
+本番前の検証環境は `construction-os-stg` として分離している。
+
+- 設計: [`ADR-0005`](../architecture/ADR-0005-staging-environment.md)
+- 構築手順・運用手順: [`staging.md`](./staging.md)
+- スタック: `docker-compose.stg.yml`（`scripts/stg/render_stg_compose.py` の生成物）
+- DB: ホスト PostgreSQL 18 クラスタ `18/infra_stg` の `ceos_stg`
+- 入口: Cloudflare Pages + Access（DNS レコードは未設定。`staging.md` §6.0）
+
+**stg へのマージ契機は `main` へのマージである。** prod への反映は別の Human Gate とする。
+
 ## 7. 未実施(次フェーズ)
 
 - [ ] 本番(`construction-os-web`)への Next.js ビルドデプロイ(現状は MVP プロトタイプを配信)
