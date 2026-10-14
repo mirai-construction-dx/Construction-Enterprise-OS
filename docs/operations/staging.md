@@ -106,6 +106,7 @@ python3 scripts/stg/gen_release_manifest.py --check   # release 前提の充足�
 scripts/stg/status.sh            # 状態の要約（異常があれば非ゼロ終了）
 scripts/stg/check_gateway_upstreams.sh  # ゲートウェイ全ルートの到達性
 scripts/stg/run_mcp_live_tests.sh    # CI が skip する上流結合テストを stg で実行
+python3 scripts/stg/check_business_roundtrip.py  # 業務 API の書込→読取→テナント分離
 python3 scripts/stg/check_mcp_e2e.py  # MCP の初期化・一覧・実呼び出し
 scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
@@ -202,6 +203,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
+| **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → **別組織を要求しても返らない**（`MCDX-ADR-0004` のテナント分離）→ SQL で 1 行だけ削除、まで 6/6 PASS。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
 | **mobile の実行形態** | 完了 | 旧版は `output: 'export'` と書きながら `next dev`（開発サーバ）で配信しており、stg が本番の実行形態を練習していなかった（§9 D-1）。2 ステージビルドにして静的エクスポート `out/` を 依存ゼロの `serve.mjs` で配信する。smoke の S-10 が `x-ceos-static-export` で回帰検査する |
 | kibana の healthcheck | 完了 | 未定義で `status.sh` の healthy 判定対象外だった（§9 D-3）。公式イメージの `curl` で `/api/status` を叩く healthcheck を追加（start_period 180s）。**全 32 コンテナが healthy** になった |
 | **systemd 管理** | 完了 | `infra/systemd/ceos-stg.service` を追加し `/etc/systemd/system/` へ設置。`systemctl start/stop` で 32 コンテナの起動・停止を実測（停止後 0 個 → 起動後 32 個、smoke 12/12）。**enable は保留**（stg の DB クラスタが disabled のため、B-2 の決定と同時に判断する） |
