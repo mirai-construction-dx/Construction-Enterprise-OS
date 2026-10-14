@@ -209,6 +209,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **監視の通知経路** | 口を用意（送信先は未設定） | 失敗は journald と systemd の `failed` に残るだけで**誰にも届かなかった**。`CEOS_STG_ALERT_WEBHOOK` があれば初回と 1 時間ごとに POST し、無ければその事実をログに明示する。**現時点で送信先は未設定**である。§6.11 |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **集約ヘルスの網羅** | 完了（欠陥を検出して修正） | `GET /api/v1/health/services` は **3 件しか見ていなかった**のに「全サービス healthy」と表示されていた（21 上流のうち 17 は対象外）。stg で `vision` を止めても `overall: healthy` のままだった。全上流（20 ＋ auth 自身 = 21）へ広げ、`scripts/ci/check_health_coverage.py`（`make health-coverage`）で網羅を検査する。§6.12 |
+| **ダッシュボードの状態表示** | 完了（欠陥を検出して修正） | 画面は `"running"` / `"operational"` だけを正常として扱っていたため、API が返す `"healthy"` が**「警告」と黄色**で表示されていた。レイテンシも API の `latency_ms` ではなく存在しない `latency` を読んでいたため**一度も表示されていなかった**。写像を `lib/service-health.ts` へ切り出して 12 テストで固定した。§6.13 |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
 | **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → スコープ確認（B-5 / B-5b / B-5c）→ SQL で 1 行だけ削除。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
@@ -769,6 +770,49 @@ OK: ゲートウェイの全上流を網羅している（20 + 自身 = 21 サ�
 （スキーマの有無・依存先の状態・非同期処理の滞留は対象外。`health-checks.md` 参照）。
 全上流を 2 秒タイムアウトで並列にプローブするため、**多数が停止しているときは
 応答に約 2 秒かかる**（実測: 1 件停止で 2024ms）。
+
+### 6.13 ダッシュボードが健全なサービスを「警告」と表示していた
+
+§6.12 で集約ヘルスが 21 サービスを返すようにした結果、**web のダッシュボード
+（`/common` の「システムステータス」）の表示の食い違いが見えるようになった**。
+
+| 項目 | API が返す値 | 画面が読んでいた値 | 結果 |
+|---|---|---|---|
+| 状態 | `status: "healthy"` | `"running"` / `"operational"` だけを正常扱い | **健全でも「警告」と黄色**で表示 |
+| レイテンシ | `latency_ms: 12`（数値） | `latency`（存在しないフィールド） | **一度も表示されない** |
+
+つまり「**全部が黄色で警告**」に見え、レイテンシ欄は常に空だった。
+API の語彙は `healthy` / `degraded` / `unhealthy` であり、
+`running` / `operational` は画面側が想定していた別の語彙である。
+
+対策:
+
+1. 写像とレイテンシの取り出しを `apps/web/src/lib/service-health.ts` へ切り出した。
+   3 段階（`healthy` / `degraded` / `down`）へ写し、未知の語彙は `down`（fail-closed）とする。
+2. `apps/web/src/lib/__tests__/service-health.test.ts` で固定した
+   （12 テスト。以前は page.tsx に直書きでテストが無く、食い違いが残っていた）。
+3. 画面は `svc.level` を使い、未知の状態を赤で表示する。
+
+検証（実測）:
+
+```
+$ cd apps/web && pnpm typecheck   → 成功
+$ pnpm lint                      → No ESLint warnings or errors
+$ pnpm test                      → 21 files / 245 passed（追加前は 233）
+
+$ 変異試験: toHealthLevel から "healthy" の判定を外す（旧実装へ戻す）
+  → 3 failed（service-health.test.ts）。復元後に md5 一致を確認
+```
+
+限界（正直な記録）:
+
+- 残置の `SERVICES_DISPLAY`（PostgreSQL / Redis / MinIO / Kafka）は
+  **API のサービス名（auth 等）と一致しないため実際には効いていない**
+  （`type` 欄は常に空）。モックを表示していないことは確認したが、
+  死んだコードとして残っている。ハードウェア/ミドルウェアの状態を出したいなら
+  別の情報源が要る（この endpoint はアプリケーションサービスしか返さない）。
+- 画面の**実描画**（ブラウザ）では確認していない。確認したのは
+  「API の応答」「写像の単体テスト」「型・lint・テスト」までである。
 
 ## 7. ロールバック
 
