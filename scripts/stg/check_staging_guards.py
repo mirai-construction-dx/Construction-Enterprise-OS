@@ -14,6 +14,7 @@
   G-10 stg compose の**全サービスに再起動方針**がある（長時間動く環境。2026-10-14 追加）。
   G-11 上流の**名前解決を DNS に依存させていない**（静的 IP ＋ gateway の extra_hosts。2026-10-14 追加）。
   G-12 訓練スクリプトに**実行記録**がある（reports/staging/。2026-10-14 追加）。
+  G-13 API Tunnel の値が文書・workflow・スクリプト・compose で一致している（2026-10-14 追加）。
 
 `SKIP` を作らない。判定できないものは FAIL として報告する（AGENTS.md「未確認を成功と書かない」）。
 
@@ -23,6 +24,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -327,6 +329,65 @@ def check_drill_records() -> None:
     )
 
 
+def check_api_tunnel_consistency(stg: dict) -> None:
+    """API Tunnel の値が 3 か所で一致しているか。
+
+    なぜ必要か（2026-10-14 の実測）:
+        §6.4 はホスト名・トンネル名・転送先を定め、`staging-deploy.workflow.yml` の
+        `STG_API_UPSTREAM` は「§6.4 と同じ値でなければならない」と書いてある。
+        さらに本ラウンドで unit と準備スクリプトを足した。**同じ値を 4 か所
+        （文書・workflow・スクリプト・compose）に書く**ため、片方だけ直すと
+        静かに食い違う。機械的に突き合わせる。
+
+    検査:
+        G-13a 準備スクリプトの転送先ポートが stg compose のゲートウェイの公開ポートと一致
+        G-13b 準備スクリプトの公開ホストが `STG_API_UPSTREAM` のホストと一致
+        G-13c 公開ホストが §6.4 に書かれている（文書が追随している）
+    """
+    script_path = ROOT / "scripts" / "stg" / "prepare_api_tunnel.sh"
+    workflow_path = ROOT / "docs" / "operations" / "staging-deploy.workflow.yml"
+    doc_path = ROOT / "docs" / "operations" / "staging.md"
+    for path in (script_path, workflow_path, doc_path):
+        if not path.exists():
+            record("G-13 api tunnel consistency", False, f"{path.name} が無い")
+            return
+
+    script = script_path.read_text(encoding="utf-8")
+    workflow = workflow_path.read_text(encoding="utf-8")
+    doc = doc_path.read_text(encoding="utf-8")
+
+    target = re.search(r'^TARGET="http://127\.0\.0\.1:(\d+)"', script, re.MULTILINE)
+    host = re.search(r'^PUBLIC_HOST="([^"]+)"', script, re.MULTILINE)
+    upstream = re.search(r"STG_API_UPSTREAM:\s*https?://(\S+)", workflow)
+
+    # stg compose のゲートウェイ公開ポート（ホスト側）
+    published: set[str] = set()
+    for entry in stg["services"].get("gateway", {}).get("ports") or []:
+        parts = str(entry).split(":")
+        if len(parts) == 3:
+            published.add(parts[1])
+
+    if not (target and host and upstream):
+        record(
+            "G-13 api tunnel consistency",
+            False,
+            f"値を取り出せない（script={bool(target)}/{bool(host)} workflow={bool(upstream)}）",
+        )
+        return
+
+    port, host_value, upstream_host = target.group(1), host.group(1), upstream.group(1)
+    ok_port = port in published
+    ok_host = host_value == upstream_host
+    ok_doc = host_value in doc
+    detail = (
+        f"転送先 :{port} / 公開ホスト {host_value}"
+        f"（compose={'一致' if ok_port else published} /"
+        f" upstream={'一致' if ok_host else upstream_host} /"
+        f" 文書={'あり' if ok_doc else 'なし'}）"
+    )
+    record("G-13 api tunnel consistency", ok_port and ok_host and ok_doc, detail)
+
+
 def check_dev_not_polluted() -> None:
     base = yaml.safe_load(BASE_COMPOSE.read_text(encoding="utf-8"))
     environments = {
@@ -361,6 +422,7 @@ def main() -> int:
         check_restart_policy(stg)
         check_static_ip_and_hosts(stg)
         check_drill_records()
+        check_api_tunnel_consistency(stg)
         check_dev_not_polluted()
 
     failed = 0
