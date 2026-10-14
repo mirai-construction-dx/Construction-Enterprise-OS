@@ -150,6 +150,18 @@ sys.exit(0 if tools == want and tools else 1)
   # http://localhost:9000 が焼き込まれて /api/* が 500 になる（2026-10-14 実測）。
   check "S-9" "web 経由で /api/v1/health/services が通る" "200" \
     "$(code "http://127.0.0.1:19530/api/v1/health/services")"
+
+  # S-10 mobile が本番の実行形態（静的エクスポート）で配信されているか。
+  # 旧版は output: 'export' と書きながら next dev（開発サーバ）で配信していた
+  # （docs/operations/staging.md §9 D-1）。stg は本番の実行形態を練習する場である。
+  mobile_headers="$(curl -sSI --max-time 15 http://127.0.0.1:19531/ 2>/dev/null || true)"
+  if printf '%s' "$mobile_headers" | grep -qi '^x-ceos-static-export: 1'; then
+    echo "PASS: S-10 mobile が静的エクスポートを配信している（開発サーバではない）"
+    pass=$((pass + 1))
+  else
+    echo "FAIL: S-10 mobile が静的エクスポートを配信していない（next dev の可能性）" >&2
+    fail=$((fail + 1))
+  fi
 fi
 
 echo

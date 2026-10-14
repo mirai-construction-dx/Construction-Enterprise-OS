@@ -143,6 +143,16 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+    # 2026-10-14: healthcheck が無く、scripts/stg/status.sh の healthy 判定の対象外だった
+    # （起動しているが使えるか不明なコンテナが 1 つ残る状態）。公式イメージには curl が
+    # 入っており /api/status が 200 を返すことを実測で確認した。
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:5601/api/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # Kibana は起動に時間がかかるため長めに取る。
+      start_period: 180s
     networks:
       - construction-net
 
