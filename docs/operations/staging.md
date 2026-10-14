@@ -97,6 +97,7 @@ scripts/stg/seed_stg.sh           # 最小限の合成データ投入（管理�
 scripts/stg/smoke.sh              # スモークテスト
 scripts/stg/restore_drill.sh      # 復旧訓練（論理バックアップから別DBへ戻して照合）
 scripts/stg/e2e_stg.sh            # API の Playwright E2E を stg に向けて実行
+scripts/stg/rollback_drill.sh     # 停止→復帰のロールバック訓練
 scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
@@ -183,6 +184,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | 合成データ | 完了 | `seed_stg.sh` で users=1 / roles=7 / organizations=1（`notification.notification_templates` は 11 行をサービスが自動投入） |
 | **ログインの疎通** | 完了 | `POST /api/v1/auth/login` が gateway 経由で 200 + アクセストークン発行（実測） |
 | 復旧訓練（論理） | 完了 | `restore_drill.sh` — `ceos_stg` を別DBへ復元し、スキーマ 21 / テーブル 93 / 主要表の行数が一致。訓練用DBは削除済み |
+| ロールバック訓練 | 完了 | `scripts/stg/rollback_drill.sh` — 全 31 コンテナを停止し、同じリビジョンで復帰させ、health と smoke 10/10 を確認（2026-10-14）。**前リビジョンのイメージへ戻す訓練は digest 固定の release 工程が前提で未整備** |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
 | Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / allow 1 件のみ・`bypass` 0 件） |

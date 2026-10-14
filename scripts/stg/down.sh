@@ -21,11 +21,13 @@ for arg in "$@"; do
   esac
 done
 
-cd "$REPO_ROOT"
+# compose.sh 経由で実行する。compose ファイルは ${STG_...} を参照するため、
+# 秘密ファイルを読み込まずに `docker compose down` を直接叩くと
+# "required variable ... is missing a value" で失敗する（2026-10-14 実測）。
 if [ "$PURGE" = "1" ]; then
   echo "警告: stg のボリュームを削除する。ホスト PostgreSQL の ceos_stg は残る。"
-  docker compose -f docker-compose.stg.yml down --volumes --remove-orphans
+  "$REPO_ROOT/scripts/stg/compose.sh" down --volumes --remove-orphans
 else
-  docker compose -f docker-compose.stg.yml down --remove-orphans
+  "$REPO_ROOT/scripts/stg/compose.sh" down --remove-orphans
 fi
 echo "停止完了。"
