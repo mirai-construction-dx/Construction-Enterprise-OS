@@ -317,7 +317,7 @@ services:
       JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
       ENVIRONMENT: staging
       INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
-      HEALTH_SERVICE_URLS: '{"document":"http://document:8000/health","workflow":"http://workflow:8000/health","notification":"http://notification:8000/health"}'
+      HEALTH_SERVICE_URLS: '{"advanced":"http://advanced:8000/health","ai":"http://ai:8000/health","analytics":"http://analytics:8000/health","automation":"http://automation:8000/health","autonomous":"http://autonomous:8000/health","bim":"http://bim:8000/health","construction":"http://construction:8000/health","document":"http://document:8000/health","erp":"http://erp:8000/health","field-dx":"http://field-dx:8000/health","gis":"http://gis:8000/health","iot":"http://iot:8000/health","maintenance":"http://maintenance:8000/health","notification":"http://notification:8000/health","partner":"http://partner:8000/health","platform":"http://platform:8000/health","safety":"http://safety:8000/health","security":"http://security:8000/health","vision":"http://vision:8000/health","workflow":"http://workflow:8000/health"}'
       DEBUG: 'false'
       JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
       JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}

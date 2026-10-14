@@ -109,6 +109,12 @@ CLOUDFLARE_API_TOKEN=*** CLOUDFLARE_ACCOUNT_ID=4f1e888469df7e0b896bb4e211b12633 
 > **注 (2026-09-18)**: 当時の `/health` は DB 到達性を確認せず常に 200 を返していた。
 > 現在は DB へ到達できない場合 503 を返す。詳細は [`health-checks.md`](./health-checks.md) を参照。
 
+> **注 (2026-10-14)**: 上の「全サービス healthy」は**当時プローブしていた範囲**の結論である。
+> 当時の対象は 3 件（document / workflow / notification）だけで、
+> ゲートウェイの上流 21 件のうち 17 件を見ていなかった。
+> 現在は全上流を網羅し、`scripts/ci/check_health_coverage.py` が網羅を検査する。
+> 詳細は [`health-checks.md`](./health-checks.md) §集約エンドポイント。
+
 | `POST /api/v1/auth/login`(環境変数 ADMIN_EMAIL の値) | ✅ JWT 発行(roles: admin) |
 | `GET /api/v1/users`(Bearer) | ✅ シード済み管理ユーザーを返却（2026-08-18 時点の記録。当時は Neon 接続だったが現在はホスト PostgreSQL） |
 | `GET /api/v1/roles?organization_id=...`(Bearer) | ✅ 7ロール + 権限を返却 |

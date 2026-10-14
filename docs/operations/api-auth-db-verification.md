@@ -17,7 +17,7 @@
 
 | 確認項目 | エンドポイント | 結果 |
 |---|---|---|
-| ヘルスチェック | `GET /api/v1/health/services` | ✅ 全サービス healthy(auth 12ms 等) |
+| ヘルスチェック | `GET /api/v1/health/services` | ✅ healthy(auth 12ms 等)。**当時の対象は 3 件のみ**（2026-10-14 注記参照） |
 | 認証(ログイン) | `POST /api/v1/auth/login` | ✅ JWT 発行(roles: [admin]、org 付き) |
 | 認可(トークン検証) | `GET /api/v1/users`(Bearer) | ✅ シード済み管理ユーザーを Neon から返却 |
 | 認可(ロール) | `GET /api/v1/roles?organization_id=...`(Bearer) | ✅ admin ロール + 権限(users.read 等)を返却 |
@@ -55,6 +55,11 @@
 
 > **注 (2026-09-18)**: 当時の `/health` は DB 到達性を確認せず常に 200 を返していた。
 > 現在は DB へ到達できない場合 503 を返す。詳細は [`health-checks.md`](./health-checks.md) を参照。
+
+> **注 (2026-10-14)**: 上の「全サービス healthy」は**当時プローブしていた範囲**の結論である。
+> 当時の対象は 3 件（document / workflow / notification）だけで、ゲートウェイの上流 21 件の
+> うち 17 件を見ていなかった。現在は全上流を網羅し、`scripts/ci/check_health_coverage.py` が
+> 網羅を検査する。詳細は [`health-checks.md`](./health-checks.md) §集約エンドポイント。
 
 | `POST /api/v1/auth/login`(HTTPS) | ✅ JWT 発行(roles: admin) |
 | `GET /api/v1/users`(Bearer・HTTPS) | ✅ シード済みユーザーを Neon から返却 |
