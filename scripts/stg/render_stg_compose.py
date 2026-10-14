@@ -75,6 +75,7 @@ STG_PORTS: dict[tuple[str, int], int] = {
     ("safety", 8000): 19519,
     ("erp", 8000): 19520,
     ("security", 8000): 19521,
+    ("mcp", 8022): 19522,
     ("web", 3100): 19530,
     ("mobile", 3101): 19531,
     ("redis", 6379): 19540,

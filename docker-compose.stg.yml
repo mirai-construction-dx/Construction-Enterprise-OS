@@ -1126,6 +1126,52 @@ services:
       - python
       - -c
       - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  mcp:
+    build:
+      context: ./services/mcp
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-mcp
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      AUTH_SERVICE_URL: http://auth:8000
+      MCP_ENABLED: '1'
+      MCP_REQUIRE_AUDIENCE: '0'
+      MCP_AUDIENCE: api://ceos-mcp
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19522:8022
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8022/health')
   web:
     build:
       context: ./apps/web
