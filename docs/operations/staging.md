@@ -85,6 +85,8 @@ sudo pg_ctlcluster 18 infra_stg start
 ## 4. 日常操作
 
 ```bash
+sudo systemctl start ceos-stg    # systemd 経由で起動(infra/systemd/ceos-stg.service)
+sudo systemctl stop ceos-stg     # systemd 経由で停止(ボリュームは保持)
 scripts/stg/up.sh                 # 起動 + health 待ち
 scripts/stg/up.sh --build         # イメージ再ビルドして起動
 scripts/stg/down.sh               # 停止（ボリュームは保持）
@@ -204,6 +206,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → **別組織を要求しても返らない**（`MCDX-ADR-0004` のテナント分離）→ SQL で 1 行だけ削除、まで 6/6 PASS。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
 | **mobile の実行形態** | 完了 | 旧版は `output: 'export'` と書きながら `next dev`（開発サーバ）で配信しており、stg が本番の実行形態を練習していなかった（§9 D-1）。2 ステージビルドにして静的エクスポート `out/` を 依存ゼロの `serve.mjs` で配信する。smoke の S-10 が `x-ceos-static-export` で回帰検査する |
 | kibana の healthcheck | 完了 | 未定義で `status.sh` の healthy 判定対象外だった（§9 D-3）。公式イメージの `curl` で `/api/status` を叩く healthcheck を追加（start_period 180s）。**全 32 コンテナが healthy** になった |
+| **systemd 管理** | 完了 | `infra/systemd/ceos-stg.service` を追加し `/etc/systemd/system/` へ設置。`systemctl start/stop` で 32 コンテナの起動・停止を実測（停止後 0 個 → 起動後 32 個、smoke 12/12）。**enable は保留**（stg の DB クラスタが disabled のため、B-2 の決定と同時に判断する） |
 | **dev の compose 起動不能** | 完了 | `scripts/db/init/01-init.sql` が initdb 時点で `INSERT INTO auth.organizations` を実行しており、表はマイグレーションが作るため空 DB で必ず失敗していた（`psql -v ON_ERROR_STOP=1` → exit 3）。docker-entrypoint は `ON_ERROR_STOP=1` なので **dev の compose は初回起動できなかった**。DDL とシードを分離し（`scripts/db/seed/00-bootstrap.sql` / `make db-seed`）、あわせて ENUM 列（`org_type` / `org_status`）の暗黙キャスト不能も修正した |
 | **erp の基盤 DDL** | 完了 | `services/erp` は `MetaData(schema="erp")` のモデルを持つのに、`src/models/__init__.py` が空で metadata に登録されず、生成器の TARGETS からも漏れていた。そのため `erp` スキーマが stg に存在せず `/api/v1/erp/ledger/summary` が 500（`UndefinedTableError: erp.project_ledger`）。両方修正し 5 テーブルを作成、両エンドポイントが 200 になった |
 | **Web → API プロキシ** | 完了 | `apps/web` は `output: "standalone"` のため `rewrites()` が**ビルド時**に確定し、Docker の runtime `API_GATEWAY` が効かない。ビルド引数で渡さないと`http://localhost:9000` が焼き込まれ `/api/*` が **500** になる（2026-10-14 実測）。`build.args.API_GATEWAY` を追加して修正し、smoke の S-9 で回帰検査する |

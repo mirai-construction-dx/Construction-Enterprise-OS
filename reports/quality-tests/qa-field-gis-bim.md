@@ -2,7 +2,7 @@
 
 対象リポジトリ: `/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS`
 対象サービス: `services/field-dx`（現場DX）, `services/gis`（GIS空間検索）, `services/bim`（BIM/CIM・点群）
-準拠: [reports/quality-tests/CHARTER.md](reports/quality-tests/CHARTER.md)（全制約）
+準拠: [reports/quality-tests/CHARTER.md](CHARTER.md)（全制約）
 
 ---
 

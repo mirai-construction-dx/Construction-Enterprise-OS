@@ -36,7 +36,7 @@ Construction-Enterprise-OS（以下 CEOS）は、開発環境（`docker compose`
 | 環境 | 実行基盤 | 入口 | DB | 用途 |
 |---|---|---|---|---|
 | dev | 手元の `docker compose` | なし（localhost のみ） | compose 内 PostgreSQL 16 | 実装・単体テスト |
-| **stg** | **本ホストの systemd 管理下の compose スタック** | `https://construction-os-stg.mirai-dx-platform.com`（Cloudflare Access） | **ホスト PostgreSQL 18 クラスタ `18/infra_stg`（port 55438, loopback）の `ceos_stg`** | 結合検証・リリース前確認・ロールバック訓練 |
+| **stg** | **本ホストの systemd 管理下の compose スタック**（`infra/systemd/ceos-stg.service`） | `https://construction-os-stg.mirai-dx-platform.com`（Cloudflare Access） | **ホスト PostgreSQL 18 クラスタ `18/infra_stg`（port 55438, loopback）の `ceos_stg`** | 結合検証・リリース前確認・ロールバック訓練 |
 | prod | Cloudflare Pages + Tunnel | `https://construction-os.mirai-dx-platform.com` | ホスト PostgreSQL 18 | 本番 |
 
 ### 2. stg の system of record はホスト PostgreSQL 18（MCDX-ADR-0003 決定 1 に従う）
@@ -81,6 +81,24 @@ Construction-Enterprise-OS（以下 CEOS）は、開発環境（`docker compose`
 - `ENVIRONMENT=staging` は `development` / `test` のいずれでもないため、
   各サービスの「開発用既定鍵での起動禁止」「`/docs`・`/redoc` の無効化」が
   本番と同じように効く。stg で無効化を緩めない。
+
+## 付記: systemd unit と enable の扱い（2026-10-14 実測で追加）
+
+ADR 制定時点では「systemd 管理下」と書きながら、実体は `scripts/stg/up.sh` による
+**手動起動のみ**だった。`infra/systemd/ceos-stg.service` を追加し、正本をリポジトリに置いたうえで
+`/etc/systemd/system/` へ設置した。
+
+    sudo install -m 644 infra/systemd/ceos-stg.service /etc/systemd/system/ceos-stg.service
+    sudo systemctl daemon-reload
+    systemctl start ceos-stg      # scripts/stg/up.sh --no-wait
+    systemctl stop ceos-stg       # scripts/stg/down.sh（ボリュームは保持）
+
+**`systemctl enable` は行っていない。** ホスト再起動時に stg の DB クラスタ
+`postgresql@18-infra_stg.service` が起動しない設定（`UnitFileState=disabled`。
+`Mirai-Platform-Infra` の未決 B-2）であるため、先にスタックだけを自動起動すると
+起動時に失敗する。**B-2 の決定と同時に enable するか**を決める。
+そのため unit は DB クラスタに `Requires` を付けず `After`（順序）だけを指定している。
+DB が停止していれば `up.sh` が前提確認で非ゼロ終了し、systemd が `failed` として記録する。
 
 ## 影響
 
