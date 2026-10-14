@@ -103,6 +103,7 @@ scripts/stg/e2e_webui_stg.sh     # stg が配る WebUI 成果物をローカル�
 python3 scripts/stg/gen_release_manifest.py --check   # release 前提の充足状況
 scripts/stg/status.sh            # 状態の要約（異常があれば非ゼロ終了）
 scripts/stg/check_gateway_upstreams.sh  # ゲートウェイ全ルートの到達性
+python3 scripts/stg/check_mcp_e2e.py  # MCP の初期化・一覧・実呼び出し
 scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
@@ -196,6 +197,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
 | 状態監視 | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
+| **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **mobile の実行形態** | 完了 | 旧版は `output: 'export'` と書きながら `next dev`（開発サーバ）で配信しており、stg が本番の実行形態を練習していなかった（§9 D-1）。2 ステージビルドにして静的エクスポート `out/` を 依存ゼロの `serve.mjs` で配信する。smoke の S-10 が `x-ceos-static-export` で回帰検査する |
 | kibana の healthcheck | 完了 | 未定義で `status.sh` の healthy 判定対象外だった（§9 D-3）。公式イメージの `curl` で `/api/status` を叩く healthcheck を追加（start_period 180s）。**全 32 コンテナが healthy** になった |
 | **dev の compose 起動不能** | 完了 | `scripts/db/init/01-init.sql` が initdb 時点で `INSERT INTO auth.organizations` を実行しており、表はマイグレーションが作るため空 DB で必ず失敗していた（`psql -v ON_ERROR_STOP=1` → exit 3）。docker-entrypoint は `ON_ERROR_STOP=1` なので **dev の compose は初回起動できなかった**。DDL とシードを分離し（`scripts/db/seed/00-bootstrap.sql` / `make db-seed`）、あわせて ENUM 列（`org_type` / `org_status`）の暗黙キャスト不能も修正した |
