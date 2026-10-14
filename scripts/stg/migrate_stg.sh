@@ -94,6 +94,12 @@ else
 fi
 
 echo
+echo "== スキーマ権限の付与 =="
+if [ "$DRY_RUN" != "1" ]; then
+  "$REPO_ROOT/scripts/stg/grant_stg_privileges.sh"
+fi
+
+echo
 if [ ${#failed[@]} -gt 0 ]; then
   echo "失敗: ${#failed[@]} 件" >&2
   for f in "${failed[@]}"; do echo "  - $f" >&2; done

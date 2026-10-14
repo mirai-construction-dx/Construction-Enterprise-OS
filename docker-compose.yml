@@ -799,7 +799,9 @@ services:
       API_GATEWAY: http://gateway:9000
       NEXT_TELEMETRY_DISABLED: 1
     ports:
-      - "3100:3000"
+      # 2026-10-14: イメージは PORT=3100 で待ち受ける（apps/web/Dockerfile）。
+      # 旧設定 "3100:3000" はコンテナ側 3000 へ転送しており、必ず 502 になっていた。
+      - "3100:3100"
     depends_on:
       - gateway
     restart: unless-stopped
@@ -811,7 +813,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://localhost:3000', r => process.exit(r.statusCode === 200 ? 0 : 1))",
+          "require('http').get('http://localhost:3100', r => process.exit(r.statusCode === 200 ? 0 : 1))",
         ]
       interval: 30s
       timeout: 10s

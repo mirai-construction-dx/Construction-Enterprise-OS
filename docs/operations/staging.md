@@ -135,7 +135,9 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **DNS CNAME `construction-os-stg`** | **未完了（ブロッカー 1）** | 使用可能な資格情報に Zone→DNS→Edit が無く `10000: Authentication error` |
 | **CI ワークフローの設置** | **未完了（ブロッカー 2）** | ハーネスポリシーが `.github/workflows/**` への書込を DEPLOY(critical) として拒否。内容は `docs/operations/staging-deploy.workflow.yml` に確定済み |
 | Cloudflare Tunnel（API 公開） | 未着手 | Tunnel 作成と `cloudflared` unit が必要 |
-| 全 24 サービスの起動確認 | 進行中 | `auth` / `redis` / `db-bridge` は稼働確認済み |
+| 全スタックの起動 | 完了 | `scripts/stg/compose.sh up -d` で 31 コンテナが Up（29 healthy + kibana / 起動直後 2 件） |
+| スモークテスト | 完了 | `scripts/stg/smoke.sh` が **7/7 PASS**（gateway / auth / web / 401 / docs無効 / db-bridge / DB 到達） |
+| アプリロールのスキーマ権限 | 完了 | `scripts/stg/grant_stg_privileges.sh`（全 22 スキーマへ USAGE と DML） |
 | stg クラスタの自動起動 | 未対応（Infra 側） | `UnitFileState=disabled`。ホスト再起動後は手動起動が要る |
 
 ### 6.0 ブロッカー 1: DNS レコード作成（要: Zone→DNS→Edit 権限）
