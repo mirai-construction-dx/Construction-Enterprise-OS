@@ -1,6 +1,6 @@
 # Construction-Enterprise-OS 開発用 Makefile
 
-.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check repo-invariants
+.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage repo-invariants
 
 help: ## ヘルプ表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -68,7 +68,10 @@ schema-check: ## 基盤DDLがORMモデルと一致するか検証(乖離があ�
 session-check: ## get_db が正常終了時に commit するか検証(暗黙ロールバックによる書込み消失の防止)
 	python3 scripts/db/check_session_lifecycle.py
 
-repo-invariants: schema-check session-check ## サービス横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
+ddl-coverage: ## モデルを持つサービスが DDL の出所(migrations/ か alembic/)も持つか検証
+	python3 scripts/db/check_service_ddl_coverage.py
+
+repo-invariants: schema-check session-check ddl-coverage ## サービス横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
 	@echo "✅ リポジトリ不変条件 OK"
 
 # ============================================
