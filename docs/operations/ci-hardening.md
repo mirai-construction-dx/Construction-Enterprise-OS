@@ -1,90 +1,98 @@
 # CI 強化 手順書 — repo-invariants ゲートの追加
 
-対象: `.github/workflows/ci.yml`
+対象: `.github/workflows/repo-invariants.yml`（新規。設置待ちの定義は
+[`repo-invariants.workflow.yml`](./repo-invariants.workflow.yml)）
+
+- 最終更新: 2026-10-14（実測に合わせて全面改訂）
+- ローカルの正本: `make repo-invariants` / `make repo-invariants-ci`（`Makefile`）
 
 ## 背景
 
-`python-checks` はサービス単位のマトリクスで `generate_base_schema.py --check <service>` を
-実行しているが、次の 2 点は CI で検出できていない。
+`.github/workflows/` の 3 ワークフローは **`make` を一切呼んでいない**
+（2026-10-14 実測: `grep -rn "make " .github/workflows/*.yml` → 0 件）。
+そのため `make repo-invariants` の 6 検査は**ローカルでしか回っていない**。
+人が実行し忘れれば「気付かず緑」のまま main へ入る。
 
-1. **マトリクス未登録サービス / サービス横断の DDL 乖離**（`--check` を引数なしで全走査しないと拾えない）
-2. **`get_db` の commit 欠落による「書込み消失」**（API は 200/201 を返すのに永続化されない）
-3. **モデルを持つサービスの DDL 出所の欠落**（2026-10-14 追加）。
-   `services/erp` が `MetaData(schema="erp")` のモデルを持ちながら
-   `migrations/` も `alembic/` も持たず、生成器の `TARGETS` からも漏れていたため
-   基盤 DDL が一度も生成されず、staging で `UndefinedTableError` になっていた。
-   `generate_base_schema.py --check` は `TARGETS` に載っているものしか見ないため、
-   **`TARGETS` からの漏れ自体は検出できない**。
-4. **サービス・パッケージが CI のどこからも検査されていない状態**（2026-10-14 追加）。
-   各マトリクスは手書きの一覧で、機械的な同期検査が無い
-   （`ci.yml` のコメントにも "keep in sync when adding a service" とある）。
-
-後者は過去に `maintenance` / `security` / `vision` / `safety` で実際に発生した
-（Issue #137 / #152）。ローカルでは `make repo-invariants` で検出できるが、CI に
-ゲートが無いため再発を自動検知できない。
-
-## 現状の CI 構成
-
-| ジョブ | 内容 |
+| 検査 | CI での被覆（2026-10-14 実測） |
 |---|---|
-| `python-checks` (matrix) | ruff / mypy / pytest / `generate_base_schema.py --check <service>` |
-| `mcp-checks` | services/mcp の ruff / mypy / pytest |
-| `packages-checks` / `web-api-contract` / `frontend-checks` | 各領域 |
-| `security-scan` | pip-audit + Trivy |
-| `docker-build-*` | イメージビルド |
+| `schema-check` | **被覆あり（間接）**: `ci.yml` の `python-checks` マトリクスが `generate_base_schema.py --check <service>` をサービス単位で実行 |
+| `session-check` | **無し**（`get_db` の commit 欠落 = API は 201 を返すのに永続化されない） |
+| `ddl-coverage` | **無し**（モデルを持つサービスの DDL 出所の欠落。`services/erp` で実際に発生し staging が `UndefinedTableError` になった） |
+| `ci-coverage` | **無し**（マトリクスは手書き。`maintenance` / `security` / `vision` / `safety` で登録漏れが実際に起きた: Issue #137 / #152） |
+| `docs-links` | **無し**（追跡下 Markdown の相対リンク。2026-10-14 に 24 件のリンク切れを検出した） |
+| `stg-pages-upstream` | **無し**（stg の Pages が本番 API を向いていないか。2026-10-14 に越境欠陥を検出した） |
 
-`check_session_lifecycle.py`（repo-invariants の後半）を実行するジョブが無い。
+## CI に入れるもの / 入れないもの
+
+**入れる: 依存の軽い 5 検査**（`make repo-invariants-ci`）
+
+```
+session-check / ddl-coverage / ci-coverage / docs-links / stg-pages-upstream
+```
+
+必要な追加依存は **PyYAML だけ**（`ci-coverage` が使う）。他は標準ライブラリのみ。
+DB にも外部サービスにも接続しない。追加の secrets は不要。
+
+**入れない: `schema-check`**
+
+`scripts/db/generate_base_schema.py` は `emit_metadata()` で
+`sys.executable -c EMITTER <service>` をサービスごとに起動し、その中で
+`sqlalchemy` と `src.models`（＝各サービスの依存）を import する。
+素のランナーには sqlalchemy が無いため、`make repo-invariants` をそのまま実行すると
+**`schema-check` で必ず失敗する**。
+
+CI では `python-checks` マトリクスがサービス単位で同じ検査を行っており、
+**マトリクスへの登録漏れは `ci-coverage` が検出する**ため、全サービスの被覆は保たれる。
 
 ## 追加する変更（人間作業）
 
-`.github/workflows/ci.yml` の `python-checks` ジョブの直後（`mcp-checks` の直前）に、
-以下を追加する。
+### 手順 1: ワークフローを設置する
 
-```yaml
-  # ============================================
-  # リポジトリ不変条件 (matrix では検出できない「気付かず緑」を防ぐ)
-  # ============================================
-  # get_db の commit 欠落による「書込み消失」を静的に検出する（DB 不要）。
-  # サービス単位の python-checks では、他サービスや未登録サービスの漏れを拾えない。
-  repo-invariants:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-
-      - name: Repository invariants (DDL sync + session lifecycle + DDL coverage + CI coverage)
-        run: make repo-invariants
+```bash
+cp docs/operations/repo-invariants.workflow.yml .github/workflows/repo-invariants.yml
+git add .github/workflows/repo-invariants.yml
+git commit -m "ci: repo-invariants ゲートを追加する"
+git push origin <branch>   # 以降は通常の PR フロー（Required Checks PASS 後に squash 自動マージ）
 ```
 
-`make repo-invariants` は次を実行する（`Makefile`）。
+### 手順 2: Required status checks に追加する
 
-- `schema-check`: `python3 scripts/db/generate_base_schema.py --check`（全サービス走査）
-- `session-check`: `python3 scripts/db/check_session_lifecycle.py`（get_db の commit 欠落検出）
-- `ddl-coverage`: `python3 scripts/db/check_service_ddl_coverage.py`
-  （モデルを持つサービスが DDL の出所を持つこと、
-  `01-init.sql` がマイグレーションだけにあるスキーマを作らないこと）
-- `ci-coverage`: `python3 scripts/ci/check_coverage.py`
-  （各サービス・パッケージが CI のどこかで検査されていること）
+設置後の最初の実行で**実際に報告されたジョブ名を確認してから**
+ruleset `central-auto-merge` の `required_status_checks` へ `repo-invariants` を追加する。
 
-いずれも DB・外部サービスへ接続しない静的検査であり、追加の secrets は不要。
+順序が重要である。**存在しないチェック名を必須にすると全 PR が恒久的にブロックされる**
+（中央ポリシー §6「必須チェックは実在させる」）。
+
+CI ワークフローの変更およびブランチ保護設定の変更は、エージェントの
+self-evolution ポリシーゲートで拒否される（DEPLOY 相当の critical 操作）ため、人間が実施する。
+
+## 旧版の誤り（記録）
+
+2026-10-14 より前の本手順書には次の 2 つの誤りがあり、**そのとおりに実施すると
+CI ジョブが失敗していた**。
+
+| # | 旧版の記述 | 実測 |
+|---|---|---|
+| 1 | 検査を 4 件（schema-check / session-check / ddl-coverage / ci-coverage）と記載 | `docs-links`（ラウンド15 追加）と `stg-pages-upstream`（ラウンド18 追加）が抜けていた |
+| 2 | `run: make repo-invariants` を実行する | `schema-check` が sqlalchemy と各サービスの依存を要求するため、依存を入れないジョブでは**必ず失敗する**。PyYAML も未導入だった |
 
 ## 適用後の確認
 
-1. PR を作成し、`repo-invariants` ジョブが green になることを確認する
-   （現状の main ではローカル実行で `✅ リポジトリ不変条件 OK`）。
-2. ブランチ保護の Required status checks に `repo-invariants` を追加する
-   （Settings → Branches → Branch protection rules）。
-   - CI ワークフローの変更およびブランチ保護設定の変更は、エージェントの
-     self-evolution ポリシーゲートで拒否される（DEPLOY 相当の critical 操作）ため、
-     人間が実施する。
+1. PR を作成し、`repo-invariants` ジョブが green になることを確認する。
+2. 手順 2 のとおり Required checks へ追加し、以降の PR で必須になっていることを確認する。
+3. 陰性対照: 追跡下の Markdown に存在しない相対リンクを 1 つ足すと
+   `docs-links` が非ゼロで落ちることを PR 上で確認する
+   （ローカルでは `make repo-invariants-ci` で同様に確認できる）。
 
 ## 参考
 
-- ローカル実行: `make repo-invariants`
-- 検出器: `scripts/db/check_session_lifecycle.py`, `scripts/db/generate_base_schema.py`
+- ローカル実行（DB が要る 6 検査）: `env -u DATABASE_URL make repo-invariants`
+  - 環境に他システムの `DATABASE_URL` があると `schema-check` が落ちる。
+    `scripts/db/check_target_db.py` が DB 操作系のターゲットを守るが、
+    `schema-check` 自体は環境の URL を読むため `env -u DATABASE_URL` を付ける。
+- ローカル実行（依存の軽い 5 検査）: `make repo-invariants-ci`
+- 検出器: `scripts/db/check_session_lifecycle.py` /
+  `scripts/db/check_service_ddl_coverage.py` / `scripts/ci/check_coverage.py` /
+  `scripts/docs/check_links.py` / `scripts/stg/check_pages_upstream.py`
 - 品質テストランナー: `scripts/quality/run_quality_tests.sh`
   （各サービスの `tests/` に `test_quality_*.py` が含まれるため、`pytest tests/` で既に実行される）
