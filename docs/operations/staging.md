@@ -200,9 +200,9 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | 合成データ | 完了 | `seed_stg.sh` で users=1 / roles=7 / organizations=1（`notification.notification_templates` は 11 行をサービスが自動投入） |
 | **ログインの疎通** | 完了 | `POST /api/v1/auth/login` が gateway 経由で 200 + アクセストークン発行（実測） |
 | 復旧訓練（論理） | 完了 | `restore_drill.sh` — `ceos_stg` を別DBへ復元し、スキーマ 21 / テーブル 93 / 主要表の行数が一致。訓練用DBは削除済み |
-| ロールバック訓練 | 完了 | `scripts/stg/rollback_drill.sh` — 全 31 コンテナを停止し、同じリビジョンで復帰させ、health と smoke 10/10 を確認（2026-10-14）。**前リビジョンのイメージへ戻す訓練は digest 固定の release 工程が前提で未整備** |
-| **障害訓練（上流 1 サービス停止）** | 完了 | `scripts/stg/upstream_failure_drill.sh` — 対象（既定 `vision`）を止め、D-1 ゲートウェイは 200 のまま / D-2 集約ヘルスが**そのサービスだけ**を unhealthy と報告 / D-3 無関係な上流は 19ms で応答 / **D-4 停止した上流へは 504 を 3.0 秒で返す（ハングしない）** / D-5 他のコンテナは落ちない / D-6・D-7 復旧後に healthy とスモーク 12/12。`STG_DRILL_SERVICE` で対象を変えられる（`erp` でも実測済み）。§6.14 |
-| **障害訓練（DB 断）** | 完了 | `scripts/stg/failure_drill.sh` — `db-bridge` を止めて DB 到達不能を作り、`auth /health` が **503** に縮退（fail-closed）し、gateway は 200 のまま、再起動ループに入るコンテナは無く、復旧後に auth が自動で 200 に戻り smoke 12/12 が通ることを実測 |
+| ロールバック訓練 | 完了 | `scripts/stg/rollback_drill.sh` — 全 31 コンテナを停止し、同じリビジョンで復帰させ、health と smoke 10/10 を確認（2026-10-14）。**前リビジョンのイメージへ戻す訓練は digest 固定の release 工程が前提で未整備**。記録: `reports/staging/rollback-20261014.md` |
+| **障害訓練（上流 1 サービス停止）** | 完了 | `scripts/stg/upstream_failure_drill.sh` — 対象（既定 `vision`）を止め、D-1 ゲートウェイは 200 のまま / D-2 集約ヘルスが**そのサービスだけ**を unhealthy と報告 / D-3 無関係な上流は 19ms で応答 / **D-4 停止した上流へは 504 を 3.0 秒で返す（ハングしない）** / D-5 他のコンテナは落ちない / D-6・D-7 復旧後に healthy とスモーク 12/12。`STG_DRILL_SERVICE` で対象を変えられる（`erp` でも実測済み）。記録: `reports/staging/upstream-failure-20261014.md`。§6.14 |
+| **障害訓練（DB 断）** | 完了 | `scripts/stg/failure_drill.sh` — `db-bridge` を止めて DB 到達不能を作り、`auth /health` が **503** に縮退（fail-closed）し、gateway は 200 のまま、再起動ループに入るコンテナは無く、復旧後に auth が自動で 200 に戻り smoke 12/12 が通ることを実測。記録: `reports/staging/failure-20261014.md` |
 | WebUI 成果物の E2E | 完了 | `scripts/stg/e2e_webui_stg.sh` — Pages が配る単一 HTML をPages と同じ SPA フォールバックでローカル配信し、`mvp.spec.ts` + `crud.spec.ts` が **34 passed / 6 skipped / 0 failed**。**デプロイ前に成果物を検証する**経路になった（従来は本番 URL 直叩き） |
 | release マニフェスト | **NOT_READY（5 件）** | `gen_release_manifest.py --check` — RELEASE_TAG / SEMVER / ATTESTATION_WORKFLOW / IMAGE_DIGESTS / ITSM_CHANGE が未充足。`CORE_VERSION` と `DEPLOY_HOSTS` は充足。**創作せずに停止する**（Release は Human Gate） |
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
@@ -939,7 +939,33 @@ OK: … 実測した。                                          # exit 0
 | DB | ホスト PG18 の pgBackRest による PITR（Mirai-Platform-Infra `ops/stg-pg18.md`） |
 | 全部 | `scripts/stg/down.sh` → 前リビジョンで `scripts/stg/up.sh --build` |
 
-ロールバックは**訓練する**。実行記録は `reports/staging/rollback-YYYYMMDD.md` に残す。
+ロールバックは**訓練する**。実行記録は `reports/staging/` に残す（§6.15）。
+4 本の訓練（`rollback_drill.sh` / `failure_drill.sh` / `restore_drill.sh` /
+`upstream_failure_drill.sh`）それぞれに `<名前>-YYYYMMDD.md` を作る。
+
+### 6.15 訓練の実行記録（文書が定めた証跡が残っていなかった）
+
+`docs/operations/staging.md` は「実行記録は `reports/staging/rollback-YYYYMMDD.md` に
+残す」と定めていたが、**`reports/staging/` は一度も作られておらず、記録は 1 件も
+無かった**（2026-10-14 実測）。訓練そのものは実行されていた（§6 の表が実測を
+引用している）のに、**証跡が残っていない**。
+
+文書に書いてあるだけの運用は守られないので、記録を作り、**機械的に検査する**。
+
+| 訓練 | 記録（命名規則） |
+|---|---|
+| `rollback_drill.sh` | `reports/staging/rollback-YYYYMMDD.md` |
+| `failure_drill.sh` | `reports/staging/failure-YYYYMMDD.md` |
+| `restore_drill.sh` | `reports/staging/restore-YYYYMMDD.md` |
+| `upstream_failure_drill.sh` | `reports/staging/upstream-failure-YYYYMMDD.md` |
+
+検査: `scripts/stg/check_staging_guards.py` の **G-12**。`scripts/stg/*_drill.sh`
+それぞれに対応する記録が 1 件以上あることを要求する（訓練を足して記録を残さなければ
+ガードが落ちる）。記録の**中身の正しさ**は見ていない（それは訓練の出力と人間の確認）。
+
+2026-10-14 の記録: 4 本すべてを作成した。同日、静的 IP ＋ `extra_hosts` ＋
+接続タイムアウト分離（PR #198）を入れたため、`failure` / `restore` / `rollback` は
+**回帰確認**として再実行し、いずれも記録どおり PASS した。
 
 ## 8. 禁止事項
 
