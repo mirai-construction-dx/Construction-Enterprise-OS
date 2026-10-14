@@ -124,6 +124,25 @@ sys.exit(0 if tok else 1)
     echo "FAIL: S-7 認証情報が $ENV_FILE に無い（scripts/stg/seed_stg.sh を実行すること）" >&2
     fail=$((fail + 1))
   fi
+
+  # S-8 MCP サービスの公開ツールが契約（contracts/mcp-tools/ceos.json）と一致するか。
+  # services/mcp は実装も契約も存在したが compose に含まれておらず起動していなかった
+  # （2026-10-14 修正）。読み取り専用 5 ツールが契約どおり公開されていることを見る。
+  mcp_body="$(curl -sS --max-time 15 http://127.0.0.1:19522/health 2>/dev/null || true)"
+  if printf '%s' "$mcp_body" | python3 -c "
+import json, sys, pathlib
+d = json.load(sys.stdin)
+tools = sorted(d.get('registered_tools') or [])
+contract = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+want = sorted(t['name'] for t in contract['tools'])
+sys.exit(0 if tools == want and tools else 1)
+" "${REPO_ROOT}/contracts/mcp-tools/ceos.json" 2>/dev/null; then
+    echo "PASS: S-8 MCP の公開ツールが契約 ceos.json と一致する"
+    pass=$((pass + 1))
+  else
+    echo "FAIL: S-8 MCP の公開ツールが契約 ceos.json と一致しない" >&2
+    fail=$((fail + 1))
+  fi
 fi
 
 echo
