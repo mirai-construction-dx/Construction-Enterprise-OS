@@ -1,6 +1,6 @@
 # Construction-Enterprise-OS 開発用 Makefile
 
-.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links repo-invariants
+.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream repo-invariants
 
 help: ## ヘルプ表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -81,7 +81,10 @@ ci-coverage: ## 各サービス/パッケージが CI のどこかで検査さ�
 docs-links: ## 追跡下の Markdown のローカルリンクが解決するか検証
 	python3 scripts/docs/check_links.py
 
-repo-invariants: schema-check session-check ddl-coverage ci-coverage docs-links ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
+stg-pages-upstream: ## stg の Pages デプロイが本番 API を向いていないか検証(越境の防止)
+	python3 scripts/stg/check_pages_upstream.py
+
+repo-invariants: schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
 	@echo "✅ リポジトリ不変条件 OK"
 
 # ============================================

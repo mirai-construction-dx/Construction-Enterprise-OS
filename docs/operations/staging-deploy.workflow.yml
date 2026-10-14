@@ -18,6 +18,9 @@
 #   - **prod への反映は含めない**（MCDX-ADR-0004 決定 4 の Human Gate）。
 #   - 前提（DNS + Access）が未整備の間は fail closed で何もデプロイしない。
 #     保護されていない stg URL を公開しないため（ADR-0005 §3）。
+#   - **stg から prod へ越境させない。** 共有ソース `webui/functions` は本番 API を
+#     向いているので、`STG_API_UPSTREAM` へ描画し直してから配る（staging.md §6.5）。
+#     検査: `make stg-pages-upstream`（`scripts/stg/check_pages_upstream.py`）。
 ---
 name: Staging Deploy (stg)
 
@@ -44,6 +47,12 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   STG_HOST: construction-os-stg.mirai-dx-platform.com
+  # stg の API 入口。**本番 API を指してはならない**（ADR-0005 §3 / staging.md §8-5）。
+  # 家族パターン: `<name>-stg-api.mirai-dx-platform.com`。
+  # 共有ソース `webui/functions` は本番 API を向いているため、デプロイ時に
+  # `scripts/stg/render_pages_functions.py` でこの値へ描画し直す。
+  # 背景（2026-10-14 実測の越境欠陥）: docs/operations/staging.md §6.5
+  STG_API_UPSTREAM: https://construction-os-stg-api.mirai-dx-platform.com
 
 jobs:
   # ============================================================
@@ -110,10 +119,27 @@ jobs:
           cp "webui/Construction-Enterprise-OS---Standalone-_1_.html" ".deploy-webui/standalone-prototype.html"
           cp webui/brand-spec.md webui/DESIGN-HANDOFF.md webui/DESIGN-MANIFEST.json .deploy-webui/
           cp webui/index.html .deploy-webui/management-review-deck.html
-          cp -r webui/functions .deploy-webui/functions
+          # functions/ は**そのままコピーしない**。共有ソースは本番 API
+          # (construction-os-api.mirai-dx-platform.com) を向いており、そのまま配ると
+          # stg の画面が本番 API を叩く（2026-10-14 実測の越境欠陥）。
+          # STG_API_UPSTREAM へ描画し直し、本番ホストの残存があれば非ゼロで停止する。
+          python3 scripts/stg/render_pages_functions.py \
+            --src webui/functions \
+            --dst .deploy-webui/functions \
+            --upstream "$STG_API_UPSTREAM"
           # stg であることを画面上・機械的に取り違えないためのマーカー（prod には入れない）
           printf 'STAGING\n' > .deploy-webui/STAGING
           ls -la .deploy-webui/
+
+      - name: stg 成果物に本番の入口が無いことを確認する
+        run: |
+          set -uo pipefail
+          if grep -rn -e 'construction-os-api\.mirai-dx-platform\.com' \
+                       -e 'construction-os-mvp\?\.mirai-dx-platform\.com' .deploy-webui/ ; then
+            echo "::error::stg の成果物に本番の入口が残っている（stg から prod へ越境する）。"
+            exit 1
+          fi
+          echo "OK: 本番の入口は 0 件"
 
       - name: Deploy to Cloudflare Pages
         working-directory: .deploy-webui
