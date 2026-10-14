@@ -58,7 +58,25 @@ check() {
   fi
 }
 
-code() { curl -sS -o /dev/null -w '%{http_code}' --max-time 15 "$1" 2>/dev/null || echo "000"; }
+code() { curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000"; }
+
+# S-3 は「Web が配信できているか」を見る。Next.js は未認証の "/" を
+# ログインへ 307 で飛ばすことがあるため、200 だけを合格にしない。
+# 5xx と 000（無応答）は不合格とする。
+check_serving() {
+  local id="$1" desc="$2" url="$3" actual
+  actual="$(code "$url")"
+  case "$actual" in
+    2* | 3*)
+      echo "PASS: $id $desc (got=$actual)"
+      pass=$((pass + 1))
+      ;;
+    *)
+      echo "FAIL: $id $desc (2xx/3xx を期待したが got=$actual)" >&2
+      fail=$((fail + 1))
+      ;;
+  esac
+}
 
 echo "== stg スモークテスト =="
 echo "base: $BASE_URL"
@@ -70,7 +88,7 @@ if [ "$EXPECT_ACCESS" = "1" ]; then
 else
   check "S-1" "gateway /health" "200" "$(code "${BASE_URL}/health")"
   check "S-2" "gateway -> auth /api/v1/health/services" "200" "$(code "${BASE_URL}/api/v1/health/services")"
-  check "S-3" "web (19530)" "200" "$(code "http://127.0.0.1:19530/")"
+  check_serving "S-3" "web (19530) が配信している" "http://127.0.0.1:19530/"
   check "S-4" "認証なしの保護エンドポイントは 401" "401" "$(code "${BASE_URL}/api/v1/users")"
   # ENVIRONMENT=staging では docs_url/redoc_url/openapi_url が None になる（各 services/*/src/main.py）。
   check "S-5" "stg では /docs が無効" "404" "$(code "${BASE_URL}/docs")"

@@ -1148,7 +1148,7 @@ services:
       MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
       MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
     ports:
-    - 127.0.0.1:19530:3000
+    - 127.0.0.1:19530:3100
     depends_on:
     - gateway
     restart: unless-stopped
@@ -1159,7 +1159,7 @@ services:
       - CMD
       - node
       - -e
-      - 'require(''http'').get(''http://localhost:3000'', r => process.exit(r.statusCode === 200 ? 0 : 1))'
+      - 'require(''http'').get(''http://localhost:3100'', r => process.exit(r.statusCode === 200 ? 0 : 1))'
       interval: 30s
       timeout: 10s
       retries: 3
