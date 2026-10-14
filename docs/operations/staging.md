@@ -98,6 +98,7 @@ scripts/stg/smoke.sh              # スモークテスト
 scripts/stg/restore_drill.sh      # 復旧訓練（論理バックアップから別DBへ戻して照合）
 scripts/stg/e2e_stg.sh            # API の Playwright E2E を stg に向けて実行
 scripts/stg/rollback_drill.sh     # 停止→復帰のロールバック訓練
+scripts/stg/failure_drill.sh      # DB 到達不能時の縮退と復旧の訓練
 scripts/stg/e2e_webui_stg.sh     # stg が配る WebUI 成果物をローカルで E2E
 python3 scripts/stg/gen_release_manifest.py --check   # release 前提の充足状況
 scripts/stg/status.sh            # 状態の要約（異常があれば非ゼロ終了）
@@ -189,6 +190,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **ログインの疎通** | 完了 | `POST /api/v1/auth/login` が gateway 経由で 200 + アクセストークン発行（実測） |
 | 復旧訓練（論理） | 完了 | `restore_drill.sh` — `ceos_stg` を別DBへ復元し、スキーマ 21 / テーブル 93 / 主要表の行数が一致。訓練用DBは削除済み |
 | ロールバック訓練 | 完了 | `scripts/stg/rollback_drill.sh` — 全 31 コンテナを停止し、同じリビジョンで復帰させ、health と smoke 10/10 を確認（2026-10-14）。**前リビジョンのイメージへ戻す訓練は digest 固定の release 工程が前提で未整備** |
+| **障害訓練（DB 断）** | 完了 | `scripts/stg/failure_drill.sh` — `db-bridge` を止めて DB 到達不能を作り、`auth /health` が **503** に縮退（fail-closed）し、gateway は 200 のまま、再起動ループに入るコンテナは無く、復旧後に auth が自動で 200 に戻り smoke 12/12 が通ることを実測 |
 | WebUI 成果物の E2E | 完了 | `scripts/stg/e2e_webui_stg.sh` — Pages が配る単一 HTML をPages と同じ SPA フォールバックでローカル配信し、`mvp.spec.ts` + `crud.spec.ts` が **34 passed / 6 skipped / 0 failed**。**デプロイ前に成果物を検証する**経路になった（従来は本番 URL 直叩き） |
 | release マニフェスト | **NOT_READY（5 件）** | `gen_release_manifest.py --check` — RELEASE_TAG / SEMVER / ATTESTATION_WORKFLOW / IMAGE_DIGESTS / ITSM_CHANGE が未充足。`CORE_VERSION` と `DEPLOY_HOSTS` は充足。**創作せずに停止する**（Release は Human Gate） |
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
