@@ -47,10 +47,14 @@ web-dev: ## Webアプリ開発サーバー起動
 # ============================================
 # データベース
 # ============================================
-db-migrate: ## マイグレーション実行
+db-migrate: ## マイグレーション実行(全サービスの SQL + auth/workflow の alembic)
+	@# 2026-10-14: 旧実装は auth の alembic しか実行しておらず、README の手順どおりに
+	@# 進めても workflow と他 20 サービスの表が作られなかった。
+	@scripts/db/bootstrap_schema.sh "$${DATABASE_URL:?DATABASE_URL を設定してください}"
 	cd services/auth && alembic upgrade head
+	cd services/workflow && alembic upgrade head
 
-db-rollback: ## マイグレーションを1つ戻す
+db-rollback: ## マイグレーションを1つ戻す(auth のみ。他はサービス単位で実行する)
 	cd services/auth && alembic downgrade -1
 
 db-seed: ## 開発用シード投入(マイグレーション適用後に実行。冪等)

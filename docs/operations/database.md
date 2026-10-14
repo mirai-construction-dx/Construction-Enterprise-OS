@@ -33,6 +33,7 @@
 | 1 | `MCDX-ADR-0003` は本番 DB を **PostgreSQL 18** と定めるが、実際の本番は **16.14**。 | **未解消**。移行するか `Deviates-from` を宣言するかはオーナー判断（`MCDX-ADR-0003` 影響欄が「ローカル ADR に Deviates-from と移行期限を書く」と定めている） |
 | 2 | prod の Cloudflare Tunnel は systemd unit（`construction-os-api-cloudflared.service`）が **inactive/dead** で、代わりに systemd 管理外の `cloudflared` プロセスが動いている。 | **未解消**。ホスト再起動で API 公開が落ちる（unit を `enable --now` するか、手動プロセスをやめる） |
 | 3 | dev の DB は PostgreSQL **16**（compose のイメージ）。 | 設計どおり（dev は本番構成の再現を目的にしない）。stg はホスト PG18 を使う |
+| 4 | dev の postgres イメージ `postgis/postgis:16-3.4` に **pgvector が無い**ため、`services/ai/migrations/000_base_schema.sql` の `CREATE EXTENSION vector` が失敗する。`make db-migrate` は他の 22 ファイルを適用したうえで `ai` を失敗として報告する。 | **未解消**。PostGIS と pgvector を併せ持つ公式イメージは無い（`imresamu/postgis-pgvector:16-3.4` は取得不可を実測）。選択肢は ①init で apt により pgvector を入れる ②`pgvector/pgvector:pg16` にして PostGIS を入れる ③`ai` を dev では起動しない。stg はホスト PG18 に両方を導入済みで、この問題は無い |
 
 ## 3. ロールとスキーマの正本
 
