@@ -67,7 +67,11 @@ scripts/stg/bootstrap_stg_db.sh
 # 3. スキーマを適用（22 SQL マイグレーション + auth/workflow の alembic）
 scripts/stg/migrate_stg.sh
 
-# 4. スタック起動
+# 4. 合成データを投入（管理ユーザ・組織・ロール。stg はホスト PG なので
+#    scripts/db/init/01-init.sql の自動実行が無い。§4.1 参照）
+scripts/stg/seed_stg.sh
+
+# 5. スタック起動
 scripts/stg/up.sh
 ```
 
@@ -89,10 +93,38 @@ scripts/stg/compose.sh ps         # 状態
 scripts/stg/compose.sh logs -f gateway
 scripts/stg/compose.sh exec auth sh
 scripts/stg/migrate_stg.sh        # スキーマ適用（冪等）
+scripts/stg/seed_stg.sh           # 最小限の合成データ投入（管理ユーザ・ロール）
 scripts/stg/smoke.sh              # スモークテスト
+scripts/stg/restore_drill.sh      # 復旧訓練（論理バックアップから別DBへ戻して照合）
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
 ```
+
+### 4.1 シードが必要な理由
+
+開発環境では compose の postgres コンテナが
+`scripts/db/init/01-init.sql` を `docker-entrypoint-initdb.d` として自動実行する。
+**stg はホスト PostgreSQL 18 を使うため、この初期化は走らない。**
+`migrate_stg.sh` はスキーマだけを作るので、そのままでは `auth.users` が 0 行で
+ログインできず、E2E も通らない（2026-10-14 実測）。`seed_stg.sh` が
+`python -m src.seed` を実行して管理ユーザ・組織・ロールを投入する。
+
+> **注意（RFC 2606）**: `stg-admin@example.invalid` のような予約ドメインは
+> pydantic の `EmailStr`（email-validator）が special-use として **422** で拒否する。
+> stg の合成アカウントは `stg-admin@stg.mirai-dx-platform.com`
+> （プロジェクト自身のドメイン上に存在しないローカル部）を使う。実在の連絡先ではない。
+
+### 4.2 復旧訓練（`restore_drill.sh`）が行うこと / 行わないこと
+
+- **行う**: `ceos_stg` を `pg_dump -Fc` で論理バックアップし、別名の訓練用 DB へ
+  `pg_restore` して、スキーマ数・テーブル数・主要表の行数を本番（= stg）と突き合わせ、
+  訓練用 DB を削除する。**破壊的操作は行わない。**
+- **行わない**: `pgbackrest restore` は実行しない。あれは stanza の `pg1-path` を
+  書き換える破壊的操作であり、`18/infra_stg` クラスタは他システムの `mirai` DB と
+  共有している。誤ると稼働中のデータを失う。**PITR の復旧訓練はホスト管理者の
+  立会いの下で行う Human Gate の操作である**（§8）。
+- `pg_dump` は PATH 上の 17 系ではなく **クラスタと同じ 18 系**
+  (`/usr/lib/postgresql/18/bin`) を使う。17 系だとバージョン不一致で中断する（実測）。
 
 `db-bridge` は `network_mode: host` のため `construction-net` のサービス名解決に載らない。
 コンテナからは **ゲートウェイ IP `10.201.0.1:55438`** を使う（`DATABASE_URL` に埋め込み済み）。
@@ -124,20 +156,24 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 |---|---|---|
 | stg 設計の正本 | 完了 | `docs/architecture/ADR-0005-staging-environment.md` |
 | stg compose 生成と統制検査 | 完了 | `scripts/stg/check_staging_guards.py` 9/9 PASS |
-| ホスト PG18 `ceos_stg` | 完了 | 22 スキーマ / 93 テーブルを作成（`migrate_stg.sh` 全 22 SQL + auth/workflow の alembic が成功） |
+| ホスト PG18 `ceos_stg` | 完了 | 20 サービススキーマ / 93 テーブルを作成（`migrate_stg.sh` 全 22 SQL + auth/workflow の alembic が成功） |
 | postgis / pgvector | 完了 | `postgresql-18-postgis-3` / `postgresql-18-pgvector` を導入し `ceos_stg` へ CREATE EXTENSION（`roles.yaml` の宣言と一致した） |
 | db-bridge（loopback 転送） | 完了 | `10.201.0.1:55438` LISTEN / health healthy |
 | auth の DB 到達 | 完了 | `GET /health` → 200（DB 不通なら 503） |
 | stg 統制の実効性 | 完了 | `/docs`・`/redoc`・`/openapi.json` → 404、`/api/v1/users` → 401、開発用既定鍵では起動を拒否（実測） |
+| 合成データ | 完了 | `seed_stg.sh` で users=1 / roles=7 / organizations=1（`notification.notification_templates` は 11 行をサービスが自動投入） |
+| **ログインの疎通** | 完了 | `POST /api/v1/auth/login` が gateway 経由で 200 + アクセストークン発行（実測） |
+| 復旧訓練（論理） | 完了 | `restore_drill.sh` — `ceos_stg` を別DBへ復元し、スキーマ 21 / テーブル 93 / 主要表の行数が一致。訓練用DBは削除済み |
+| PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
 | Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / allow 1 件のみ・`bypass` 0 件） |
 | Pages カスタムドメインのバインディング | 作成済み（pending） | id `aa3ac4c2-a329-42eb-8bfd-3158d57934e7` / `verification_data.error_message="CNAME record not set"` |
 | **DNS CNAME `construction-os-stg`** | **未完了（ブロッカー 1）** | 使用可能な資格情報に Zone→DNS→Edit が無く `10000: Authentication error` |
 | **CI ワークフローの設置** | **未完了（ブロッカー 2）** | ハーネスポリシーが `.github/workflows/**` への書込を DEPLOY(critical) として拒否。内容は `docs/operations/staging-deploy.workflow.yml` に確定済み |
-| Cloudflare Tunnel（API 公開） | 未着手 | Tunnel 作成と `cloudflared` unit が必要 |
-| 全スタックの起動 | 完了 | `scripts/stg/compose.sh up -d` で 31 コンテナが Up（29 healthy + kibana / 起動直後 2 件） |
-| スモークテスト | 完了 | `scripts/stg/smoke.sh` が **7/7 PASS**（gateway / auth / web / 401 / docs無効 / db-bridge / DB 到達） |
-| アプリロールのスキーマ権限 | 完了 | `scripts/stg/grant_stg_privileges.sh`（全 22 スキーマへ USAGE と DML） |
+| Cloudflare Tunnel（API 公開） | 未着手 | Tunnel 作成と `cloudflared` unit が必要。ホストに `cloudflared` は導入済み（`/usr/local/bin/cloudflared`） |
+| 全スタックの起動 | 完了 | `scripts/stg/compose.sh up -d` で 31 コンテナが Up（30 healthy + kibana。kibana は healthcheck 未定義） |
+| スモークテスト | 完了 | `scripts/stg/smoke.sh` が **9/9 PASS**（gateway / auth / web / 401 / docs無効 / ログイン / トークン / db-bridge / DB 到達） |
+| アプリロールのスキーマ権限 | 完了 | `scripts/stg/grant_stg_privileges.sh`（全スキーマへ USAGE と DML） |
 | stg クラスタの自動起動 | 未対応（Infra 側） | `UnitFileState=disabled`。ホスト再起動後は手動起動が要る |
 
 ### 6.0 ブロッカー 1: DNS レコード作成（要: Zone→DNS→Edit 権限）

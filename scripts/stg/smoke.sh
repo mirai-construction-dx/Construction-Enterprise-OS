@@ -38,8 +38,13 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# 認証情報: パスワードはファイルから読む（コマンドラインへ値を出さない）。
+# メールアドレスは秘密ではないので定数。@example.invalid 等の RFC 2606 予約ドメインは
+# pydantic の EmailStr が special-use として 422 にするため使えない（2026-10-14 実測）。
+STG_SMOKE_ADMIN_EMAIL="stg-admin@stg.mirai-dx-platform.com"
+STG_SMOKE_ADMIN_PASSWORD=""
 if [ -f "$ENV_FILE" ]; then
-  # shellcheck disable=SC1090
+  STG_SMOKE_ADMIN_PASSWORD="$(grep -m1 '^STG_SMOKE_ADMIN_PASSWORD=' "$ENV_FILE" | cut -d= -f2- || true)"
   BASE_URL="${BASE_URL:-${STG_SMOKE_BASE_URL:-http://127.0.0.1:19500}}"
 fi
 BASE_URL="${BASE_URL:-http://127.0.0.1:19500}"
@@ -92,6 +97,33 @@ else
   check "S-4" "認証なしの保護エンドポイントは 401" "401" "$(code "${BASE_URL}/api/v1/users")"
   # ENVIRONMENT=staging では docs_url/redoc_url/openapi_url が None になる（各 services/*/src/main.py）。
   check "S-5" "stg では /docs が無効" "404" "$(code "${BASE_URL}/docs")"
+
+  # S-7 認証が DB まで通っているか（シード済み管理ユーザでログインする）。
+  # スキーマだけ戻ってデータが無い「気付かず緑」を防ぐ。
+  if [ -n "$STG_SMOKE_ADMIN_EMAIL" ] && [ -n "$STG_SMOKE_ADMIN_PASSWORD" ]; then
+    body="$(printf '{"email":"%s","password":"%s"}' "$STG_SMOKE_ADMIN_EMAIL" "$STG_SMOKE_ADMIN_PASSWORD")"
+    login_code="$(curl -sS -o /tmp/ceos-stg-login.json -w '%{http_code}' --max-time 20 \
+      -X POST "${BASE_URL}/api/v1/auth/login" -H 'Content-Type: application/json' -d "$body" 2>/dev/null || echo 000)"
+    check "S-7a" "管理ユーザでログインできる" "200" "$login_code"
+    # 応答は APIResponse[LoginResponse] なので data 配下に入る実装と
+    # 直下に入る実装の両方を受ける（どちらでも「トークンが発行された」ことを見る）。
+    if python3 -c "
+import json, sys
+d = json.load(open('/tmp/ceos-stg-login.json'))
+tok = d.get('access_token') or (d.get('data') or {}).get('access_token')
+sys.exit(0 if tok else 1)
+" 2>/dev/null; then
+      echo "PASS: S-7b アクセストークンが発行される"
+      pass=$((pass + 1))
+    else
+      echo "FAIL: S-7b アクセストークンが発行されない" >&2
+      fail=$((fail + 1))
+    fi
+    rm -f /tmp/ceos-stg-login.json
+  else
+    echo "FAIL: S-7 認証情報が $ENV_FILE に無い（scripts/stg/seed_stg.sh を実行すること）" >&2
+    fail=$((fail + 1))
+  fi
 fi
 
 echo
