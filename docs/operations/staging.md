@@ -13,11 +13,14 @@
         │  .github/workflows/staging-deploy.yml
         ▼
 Cloudflare Pages `construction-os-stg`
-  └─ https://construction-os-stg.mirai-dx-platform.com   ← Cloudflare Access で保護
-                                                          （未構成: §6 の残作業）
+  ├─ https://construction-os-stg.mirai-dx-platform.com   ← Cloudflare Access で保護
+  │                                                        （未構成: §6 の残作業）
+  └─ /api/* → Pages Functions → stg の API 入口（**本番を向けない**。§6.5）
+                 └─ https://construction-os-stg-api.mirai-dx-platform.com（未構成: §6.4）
+                      └─ Cloudflare Tunnel `construction-os-stg-api`（本番と別）
 
 本ホスト（staging スタック, docker compose）
-  ├─ gateway      127.0.0.1:19500   ← Cloudflare Tunnel の転送先（未構成）
+  ├─ gateway      127.0.0.1:19500   ← stg の API Tunnel の転送先（未構成）
   ├─ web          127.0.0.1:19530
   ├─ 22 サービス  127.0.0.1:19501-19521
   ├─ redis        127.0.0.1:19540
@@ -216,7 +219,8 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | Pages カスタムドメインのバインディング | 作成済み（pending） | id `aa3ac4c2-a329-42eb-8bfd-3158d57934e7` / `verification_data.error_message="CNAME record not set"` |
 | **DNS CNAME `construction-os-stg`** | **未完了（ブロッカー 1）** | 使用可能な資格情報に Zone→DNS→Edit が無く `10000: Authentication error` |
 | **CI ワークフローの設置** | **未完了（ブロッカー 2）** | ハーネスポリシーが `.github/workflows/**` への書込を DEPLOY(critical) として拒否。内容は `docs/operations/staging-deploy.workflow.yml` に確定済み |
-| Cloudflare Tunnel（API 公開） | 未着手 | Tunnel 作成と `cloudflared` unit が必要。ホストに `cloudflared` は導入済み（`/usr/local/bin/cloudflared`） |
+| **Pages から本番 API への越境** | 完了（欠陥を検出して修正） | 共有 `webui/functions` が本番 API を向いており、stg へそのまま配ると越境した（実測）。`scripts/stg/render_pages_functions.py` で描画し、`scripts/stg/check_pages_upstream.py` で不変条件化した。§6.5 |
+| Cloudflare Tunnel（API 公開） | 未着手 | Tunnel 作成と `cloudflared` unit が必要。ホストに `cloudflared` は導入済み（`/usr/local/bin/cloudflared`）。stg の API ホストは `construction-os-stg-api.mirai-dx-platform.com`（§6.4） |
 | 全スタックの起動 | 完了 | `scripts/stg/compose.sh up -d` で 31 コンテナが Up（30 healthy + kibana。kibana は healthcheck 未定義） |
 | スモークテスト | 完了 | `scripts/stg/smoke.sh` が **9/9 PASS**（gateway / auth / web / 401 / docs無効 / ログイン / トークン / db-bridge / DB 到達） |
 | **API E2E** | 完了 | `scripts/stg/e2e_stg.sh` — Playwright `e2e/api.spec.ts` が **16/16 PASS**（desktop/mobile）。この E2E が JWT 鍵の不整合（ログインは 200 だが認証付き API が 401）を検出した。§4.3 |
@@ -268,8 +272,63 @@ Mirai-Platform-Infra の `db/roles.yaml` は
 
 `docs/operations/deployment.md` §8 と同じ家族パターンで、
 `~/.cloudflared/construction-os-stg-api-config.yml` を作り、
-転送先を `http://127.0.0.1:19500` にする。既存の `construction-os-api` トンネルとは
-**別トンネル**にすること（stg と prod で入口を共有しない）。
+転送先を `http://127.0.0.1:19500`（stg の gateway）にする。
+既存の `construction-os-api` トンネルとは**別トンネル**にすること
+（stg と prod で入口を共有しない）。
+
+| 項目 | 値 |
+|---|---|
+| stg の API 公開ホスト | `construction-os-stg-api.mirai-dx-platform.com` |
+| 転送先 | `http://127.0.0.1:19500`（gateway。22 サービスへパスで振り分ける） |
+| トンネル名 | `construction-os-stg-api`（**本番の `construction-os-api` と別**） |
+| ローカル設定 | `~/.cloudflared/construction-os-stg-api-config.yml`（認証情報はリポジトリ外） |
+
+このホストは `staging-deploy.workflow.yml` の `STG_API_UPSTREAM` と
+**同じ値でなければならない**（`make stg-pages-upstream` の C-3 が検査する）。
+
+### 6.5 stg から本番 API への越境を塞ぐ（2026-10-14 実測の欠陥）
+
+`webui/functions/api/[[path]].ts`（Cloudflare Pages Function）は
+`/api/*` を**単一の固定アップストリーム**へ無条件に転送し、その値は**本番 API** である。
+
+```ts
+const target = new URL(`https://construction-os-api.mirai-dx-platform.com/api/${path}`);
+```
+
+prod の Pages（`construction-os-web`）と stg の Pages（`construction-os-stg`）は
+この 1 ファイルを共有する。したがって `staging-deploy.workflow.yml` が
+`webui/functions` をそのままコピーして `construction-os-stg` へ配ると、
+**stg の画面が本番 API を叩く**。実測（workflow と同一手順で組み立てた
+`.deploy-webui` に対して）:
+
+```
+$ grep -c construction-os-api.mirai-dx-platform.com .deploy-webui/functions/api/[[path]].ts
+2       # 本番 API ホスト
+$ grep -c construction-os-stg .deploy-webui/functions/api/[[path]].ts
+0       # stg ホスト
+```
+
+`ADR-0005` §3（stg と prod で入口を共有しない）と §8-5
+（stg から prod の DB・DNS・secret へ触れない）に反する。
+**preflight は DNS と Access しか見ないため、DNS ブロッカーが解けた瞬間に
+越境したまま「緑で」デプロイされ得た**（人の記憶では止まらない）。
+
+対策:
+
+| 層 | 対策 |
+|---|---|
+| デプロイ時 | `scripts/stg/render_pages_functions.py` が `STG_API_UPSTREAM` へ描画し直す。本番ホストを入口に指定すると**描画せずに終了コード 2**、描画後に本番ホストが残っても**出力を削除して終了コード 2** |
+| デプロイ定義 | `webui/functions` のベタコピーを廃止。描画ステップと「本番の入口が 0 件」の検査ステップを追加 |
+| 不変条件 | `make stg-pages-upstream`（`scripts/stg/check_pages_upstream.py`）。C-1〜C-6 を検査し、**陽性対照（stg 入口で描画 → 本番ホスト 0 件）と陰性対照（本番入口 → 拒否）を毎回実行する** |
+
+```bash
+# 手動でデプロイする場合も、functions/ をそのままコピーしない
+python3 scripts/stg/render_pages_functions.py \
+  --src webui/functions \
+  --dst .deploy-webui/functions \
+  --upstream https://construction-os-stg-api.mirai-dx-platform.com
+make stg-pages-upstream
+```
 
 ## 7. ロールバック
 
