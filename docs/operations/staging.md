@@ -102,6 +102,7 @@ scripts/stg/e2e_webui_stg.sh     # stg が配る WebUI 成果物をローカル�
 python3 scripts/stg/gen_release_manifest.py --check   # release 前提の充足状況
 scripts/stg/status.sh            # 状態の要約（異常があれば非ゼロ終了）
 scripts/stg/check_gateway_upstreams.sh  # ゲートウェイ全ルートの到達性
+scripts/stg/run_mcp_live_tests.sh    # CI が skip する上流結合テストを stg で実行
 scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
@@ -209,6 +210,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | スモークテスト | 完了 | `scripts/stg/smoke.sh` が **9/9 PASS**（gateway / auth / web / 401 / docs無効 / ログイン / トークン / db-bridge / DB 到達） |
 | **API E2E** | 完了 | `scripts/stg/e2e_stg.sh` — Playwright `e2e/api.spec.ts` が **16/16 PASS**（desktop/mobile）。この E2E が JWT 鍵の不整合（ログインは 200 だが認証付き API が 401）を検出した。§4.3 |
 | **MCP サービス** | 完了 | `services/mcp` は実装も契約 `contracts/mcp-tools/ceos.json` もあったが compose に無く起動していなかった。compose へ追加し、公開ツール 5 件が契約と一致することを S-8 で検査（読み取り専用 R0 のみ） |
+| **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
 | アプリロールのスキーマ権限 | 完了 | `scripts/stg/grant_stg_privileges.sh`（全スキーマへ USAGE と DML） |
 | stg クラスタの自動起動 | 未対応（Infra 側） | `UnitFileState=disabled`。ホスト再起動後は手動起動が要る |
 
