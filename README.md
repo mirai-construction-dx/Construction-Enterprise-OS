@@ -23,7 +23,8 @@
 | MVP プロトタイプ | https://construction-os-mvp.mirai-dx-platform.com | WebUI `webui/Construction-Enterprise-OS---CRUD.html`(正本スタイル+全ページCRUD) | ✅ 稼働・E2E は `e2e/*.spec.ts` 計28テスト(desktop/mobile の2プロジェクト) |
 | 本番 | https://construction-os.mirai-dx-platform.com | 同上(同一コンテンツ) | ✅ 稼働 |
 | Staging | https://construction-os-stg.mirai-dx-platform.com | 本番前の検証環境（Cloudflare Access で保護／DNS は未設定） | 🚧 構築中 — [設計](docs/architecture/ADR-0005-staging-environment.md)・[手順](docs/operations/staging.md) |
-| DB | Neon `construction-enterprise-os` | auth スキーマ(Migration+Seed 適用) | ✅ 空DB再実行可能 |
+| 本番 DB | ホスト PostgreSQL **16.14** / `construction_os` | systemd `construction-os-auth.service` の実行中プロセスの `DATABASE_URL` を実測。**3 スキーマ / 16 テーブルのみ**（全サービスは未配備） | ⚠️ `MCDX-ADR-0003` は PG18 を定めており差分あり — [database.md](docs/operations/database.md) |
+| Staging DB | ホスト PostgreSQL **18** / `ceos_stg` | 22 スキーマ / 98 テーブル | ✅ 構築済み |
 
 - **WebUI(CRUD 統合版)**: **OpenDesign 正本バンドルのスタイルを一切変更せず**、そのバンドルにデータ層+CRUD を統合(`webui/Construction-Enterprise-OS---CRUD.html`)。
   **全ページ(13 カテゴリ・約 90 ルート)の右側コンテンツで「データ取得・新規作成・編集・削除・検索」が操作可能**。
@@ -31,7 +32,7 @@
   auth API(`/api/v1/health`・`/api/v1/auth/*`)は実接続。他サービス API 未稼働のため同一インターフェースのローカルストアで代替(将来差し替え可)。
 - 設計正本: `webui/`(OpenDesign ハンドオフ、プロトタイプは `standalone-prototype.html` として保全)+ `docs/design/opendesign-spec.md`
 - 検証: `e2e/mvp.spec.ts`(9)+ `e2e/crud.spec.ts`(11)+ `e2e/api.spec.ts`(8)= **28 テスト**(Playwright、desktop/mobile の2プロジェクトで実行)
-- 運用: `docs/operations/deployment.md`・`docs/operations/neon-database.md`・`docs/operations/production-deploy-record.md`
+- 運用: `docs/operations/deployment.md`・`docs/operations/database.md`・`docs/operations/staging.md`・`docs/operations/production-deploy-record.md`
 
 ```mermaid
 graph TB
@@ -447,7 +448,8 @@ make test
 | [🎨 OpenDesign 設計仕様](docs/design/opendesign-spec.md)               | 画面構成14カテゴリ/約90ルート/6ロール/ブランド |
 | [📋 要件と MVP スコープ](docs/requirements/mvp-scope.md)               | OpenDesign との整合・未実装・残存リスク        |
 | [🌐 API 概要・エンドポイント一覧](docs/api/overview.md)                | Gateway ルーティング/全サービスAPI            |
-| [🗄️ Neon データベース運用](docs/operations/neon-database.md)           | 空検証DBへの Migration/Seed 再実行手順        |
+| [🗄️ データベース運用（dev/stg/prod）](docs/operations/database.md)     | 実測にもとづく環境別の DB と決定との差分      |
+| [🧪 Staging(stg) 環境](docs/operations/staging.md)                     | 構築・運用・検証・ロールバック手順            |
 | [🚀 デプロイ・ドメイン運用](docs/operations/deployment.md)             | Pages/Tunnel/DNS/ロールバック                 |
 | [✅ 完了条件チェックリスト](docs/operations/completion-checklist.md)   | Goal 完了条件と証拠の一覧                     |
 

@@ -1,3 +1,13 @@
+> # ⚠️ この文書は無効である（2026-10-14 追記）
+>
+> ここに書かれている Neon は **2026-09-13 の仕様改定で廃止**され、
+> 現在の本番 DB は**ホスト PostgreSQL** である（`construction-os-auth.service` の
+> 実行中プロセスの `DATABASE_URL` が `127.0.0.1:5432/construction_os` を指すことを実測）。
+> 採用決定は `MCDX-ADR-0003`、現行の実測は [`database.md`](./database.md) を参照すること。
+> 以下は**履歴としてのみ**残している。
+
+---
+
 # Neon データベース運用(検証DB・Migration・Seed)
 
 > 本プロジェクトの PostgreSQL は **Neon** を正本とします。

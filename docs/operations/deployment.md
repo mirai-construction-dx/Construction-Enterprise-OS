@@ -18,7 +18,7 @@
 |---|---|
 | フロントエンド | Cloudflare Pages(`construction-os-web` / `construction-os-mvp`) |
 | バックエンド API | FastAPI サービス群を docker-compose で稼働 + Cloudflare Tunnel で公開(CEOP 方式) |
-| データベース | Neon PostgreSQL(`construction-enterprise-os` プロジェクト / `lucky-art-65407624`) |
+| データベース | **ホスト PostgreSQL**（実測: PG 16.14 / `construction_os`）。`MCDX-ADR-0003` は PG18 を定めており差分あり — `database.md` 参照 |
 
 ## 3. 現在の構成(2026-08-18 実施済み)
 
@@ -56,7 +56,7 @@ CLOUDFLARE_API_TOKEN=*** CLOUDFLARE_ACCOUNT_ID=4f1e888469df7e0b896bb4e211b12633 
 
 - Pages: 直前の正常デプロイメントへ Rollback(Cloudflare API `POST /deployments/{id}/rollback` 対応済み)
 - Tunnel: コンテナのタグ指定による再起動
-- DB: Neon の Point-in-Time 復元 / ブランチ切り替え
+- DB: ホスト PostgreSQL。stg は pgBackRest（stanza `infra_stg`）で PITR 可能。本番の復旧手順は未確認（`database.md` §4）
 
 ## 6.5 Staging(stg)環境
 
@@ -85,7 +85,7 @@ CLOUDFLARE_API_TOKEN=*** CLOUDFLARE_ACCOUNT_ID=4f1e888469df7e0b896bb4e211b12633 
 | API 公開ホスト | `api.construction-os.mirai-dx-platform.com`(HTTP、エッジ証明書は未発行) |
 | トンネル名 | `construction-os-api`(ID: d844edf7-c62c-4098-b6d5-5ba58ea027a9) |
 | ローカル設定 | `~/.cloudflared/construction-os-api-config.yml`(認証情報はリポジトリ外) |
-| 転送先 | `http://127.0.0.1:18002`(auth サービス、Neon 接続) |
+| 転送先 | `http://127.0.0.1:18002`(auth サービス。**native systemd** `construction-os-auth.service`、`ENVIRONMENT=production`、DB はホスト PostgreSQL `construction_os`) |
 | 起動方法 | `cloudflared tunnel --config ~/.cloudflared/construction-os-api-config.yml run construction-os-api` |
 
 ### 8.2 Pages Function プロキシ(HTTPS 経由の API 公開)
@@ -110,7 +110,7 @@ CLOUDFLARE_API_TOKEN=*** CLOUDFLARE_ACCOUNT_ID=4f1e888469df7e0b896bb4e211b12633 
 > 現在は DB へ到達できない場合 503 を返す。詳細は [`health-checks.md`](./health-checks.md) を参照。
 
 | `POST /api/v1/auth/login`(環境変数 ADMIN_EMAIL の値) | ✅ JWT 発行(roles: admin) |
-| `GET /api/v1/users`(Bearer) | ✅ シード済み管理ユーザーを Neon から返却 |
+| `GET /api/v1/users`(Bearer) | ✅ シード済み管理ユーザーを返却（2026-08-18 時点の記録。当時は Neon 接続だったが現在はホスト PostgreSQL） |
 | `GET /api/v1/roles?organization_id=...`(Bearer) | ✅ 7ロール + 権限を返却 |
 | 認証なしアクセス | ✅ 401(認証ガード fail-closed) |
 | 誤パスワード | ✅ 401 |
