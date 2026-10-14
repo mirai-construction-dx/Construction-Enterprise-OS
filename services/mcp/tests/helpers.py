@@ -5,7 +5,6 @@ import time
 from typing import Any
 
 import jwt
-
 from src.services.upstream import UpstreamResult
 
 TEST_JWT_KEY = "test-only-mcp-key-0123456789abcdef"
@@ -20,15 +19,30 @@ INITIALIZE_PARAMS = {
 }
 
 
+def _configured_key() -> str:
+    """署名に使う鍵。テスト用の固定値ではなく**その環境の設定**に合わせる。
+
+    `conftest` は `JWT_PUBLIC_KEY` を `setdefault` で入れるため、CI やローカル
+    （鍵が未設定）では従来どおり `TEST_JWT_KEY` と一致する。
+    一方、stg のように実環境で `JWT_PUBLIC_KEY` が設定されている場合、
+    固定値で署名するとアプリ側の検証鍵と食い違い `INVALID_TOKEN` になる。
+    上流結合テスト（`live_upstream`）は**上流が起動している実環境でしか走らない**ため、
+    固定値のままだとその目的を果たせない（2026-10-14 実測）。
+    """
+    from src.config import get_settings
+
+    return get_settings().jwt_public_key
+
+
 def make_token(
     sub: str = "user-1",
     token_type: str = "user",
     *,
-    key: str = TEST_JWT_KEY,
+    key: str | None = None,
     expires_in: int = 3600,
     **extra: Any,
 ) -> str:
-    """テスト用 JWT を発行する。"""
+    """テスト用 JWT を発行する。`key` を省略すると環境の設定鍵で署名する。"""
     payload: dict[str, Any] = {
         "sub": sub,
         "type": token_type,
@@ -38,7 +52,7 @@ def make_token(
         "exp": int(time.time()) + expires_in,
     }
     payload.update(extra)
-    return jwt.encode(payload, key, algorithm="HS256")
+    return jwt.encode(payload, key or _configured_key(), algorithm="HS256")
 
 
 def mcp_headers(token: str | None = None) -> dict[str, str]:
