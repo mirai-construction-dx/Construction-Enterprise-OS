@@ -93,6 +93,27 @@ def main() -> int:
                 "（どちらの管理下か不明確になる）"
             )
 
+    # D-2: `scripts/db/init/01-init.sql` が作るスキーマは、サービスのマイグレーション
+    # （migrations/*.sql か alembic/）も作るものでなければならない。dev だけに存在する
+    # スキーマは dev と stg の食い違いを生む（2026-10-14 に master/project/quality/audit を
+    # 参照 0 件のため削除した。再発を防ぐ）。
+    init_sql = REPO / "scripts" / "db" / "init" / "01-init.sql"
+    if init_sql.exists():
+        init_schemas = set(re.findall(r"CREATE SCHEMA IF NOT EXISTS\s+([a-z_]+)", init_sql.read_text(encoding="utf-8")))
+        known: set[str] = set()
+        for path in (REPO / "services").glob("*/migrations/*.sql"):
+            known |= set(re.findall(r"CREATE SCHEMA IF NOT EXISTS\s+([a-z_]+)", path.read_text(encoding="utf-8", errors="replace")))
+        for path in (REPO / "services").glob("*/alembic/versions/*.py"):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            known |= set(re.findall(r"CREATE SCHEMA IF NOT EXISTS\s+([a-z_]+)", text))
+            known |= set(re.findall(r'schema\s*=\s*"([a-z_]+)"', text))
+        orphans = sorted(init_schemas - known)
+        if orphans:
+            failures.append(
+                f"D-2 01-init.sql: サービスのマイグレーションが作らないスキーマを作っている: {orphans}"
+                "（dev だけに存在するスキーマは dev と stg の食い違いを生む）"
+            )
+
     print(f"モデルと DDL を持つサービスを {checked} 件検査した。")
     if skipped_no_models:
         print(f"DB モデルを持たないため対象外: {' '.join(skipped_no_models)}")

@@ -9,6 +9,15 @@
 
 1. **マトリクス未登録サービス / サービス横断の DDL 乖離**（`--check` を引数なしで全走査しないと拾えない）
 2. **`get_db` の commit 欠落による「書込み消失」**（API は 200/201 を返すのに永続化されない）
+3. **モデルを持つサービスの DDL 出所の欠落**（2026-10-14 追加）。
+   `services/erp` が `MetaData(schema="erp")` のモデルを持ちながら
+   `migrations/` も `alembic/` も持たず、生成器の `TARGETS` からも漏れていたため
+   基盤 DDL が一度も生成されず、staging で `UndefinedTableError` になっていた。
+   `generate_base_schema.py --check` は `TARGETS` に載っているものしか見ないため、
+   **`TARGETS` からの漏れ自体は検出できない**。
+4. **サービス・パッケージが CI のどこからも検査されていない状態**（2026-10-14 追加）。
+   各マトリクスは手書きの一覧で、機械的な同期検査が無い
+   （`ci.yml` のコメントにも "keep in sync when adding a service" とある）。
 
 後者は過去に `maintenance` / `security` / `vision` / `safety` で実際に発生した
 （Issue #137 / #152）。ローカルでは `make repo-invariants` で検出できるが、CI に
@@ -47,7 +56,7 @@
         with:
           python-version: "3.12"
 
-      - name: Repository invariants (DDL sync + session lifecycle)
+      - name: Repository invariants (DDL sync + session lifecycle + DDL coverage + CI coverage)
         run: make repo-invariants
 ```
 
@@ -55,6 +64,11 @@
 
 - `schema-check`: `python3 scripts/db/generate_base_schema.py --check`（全サービス走査）
 - `session-check`: `python3 scripts/db/check_session_lifecycle.py`（get_db の commit 欠落検出）
+- `ddl-coverage`: `python3 scripts/db/check_service_ddl_coverage.py`
+  （モデルを持つサービスが DDL の出所を持つこと、
+  `01-init.sql` がマイグレーションだけにあるスキーマを作らないこと）
+- `ci-coverage`: `python3 scripts/ci/check_coverage.py`
+  （各サービス・パッケージが CI のどこかで検査されていること）
 
 いずれも DB・外部サービスへ接続しない静的検査であり、追加の secrets は不要。
 

@@ -812,6 +812,11 @@ services:
     environment:
       <<: *db-env
       AUTH_SERVICE_URL: http://auth:8000
+      # 2026-10-14: 上流（工程・原価・契約）の URL を渡していなかったため、
+      # 既定の http://localhost:8016 / :8020 が使われ、コンテナ内から到達できず
+      # tools/call が「上流サービスに到達できません。」を返していた（実測）。
+      CONSTRUCTION_SERVICE_URL: http://construction:8000
+      ERP_SERVICE_URL: http://erp:8000
       # MCP_ENABLED=0 でサーバー全体を停止する（fail-closed）。
       MCP_ENABLED: "1"
       # Phase 2 で 1 にする（aud=api://ceos-mcp 以外を拒否）。

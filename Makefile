@@ -1,6 +1,6 @@
 # Construction-Enterprise-OS 開発用 Makefile
 
-.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage repo-invariants
+.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage repo-invariants
 
 help: ## ヘルプ表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -53,8 +53,8 @@ db-migrate: ## マイグレーション実行
 db-rollback: ## マイグレーションを1つ戻す
 	cd services/auth && alembic downgrade -1
 
-db-seed: ## シードデータ投入
-	@echo "シードデータは Docker起動時に自動投入されます"
+db-seed: ## 開発用シード投入(マイグレーション適用後に実行。冪等)
+	scripts/db/seed_dev.sh "$${DATABASE_URL:?DATABASE_URL を設定してください}"
 
 schema-bootstrap: ## 空DBへ全SQLマイグレーションを適用 (DATABASE_URL 必須)
 	@scripts/db/bootstrap_schema.sh "$${DATABASE_URL:?DATABASE_URL を設定してください}"
@@ -71,7 +71,10 @@ session-check: ## get_db が正常終了時に commit するか検証(暗黙ロ�
 ddl-coverage: ## モデルを持つサービスが DDL の出所(migrations/ か alembic/)も持つか検証
 	python3 scripts/db/check_service_ddl_coverage.py
 
-repo-invariants: schema-check session-check ddl-coverage ## サービス横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
+ci-coverage: ## 各サービス/パッケージが CI のどこかで検査されているか検証
+	python3 scripts/ci/check_coverage.py
+
+repo-invariants: schema-check session-check ddl-coverage ci-coverage ## サービス横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
 	@echo "✅ リポジトリ不変条件 OK"
 
 # ============================================

@@ -66,6 +66,18 @@ sudo -n -u postgres psql -p "$PORT" -d "$DB_NAME" -q -c \
 echo "  OK: ${ADMIN_EMAIL}"
 
 echo
+echo
+echo "== 共通の開発用シード（組織・権限） =="
+# dev と同じ合成データ（scripts/db/seed/00-bootstrap.sql）を stg にも入れる。
+# 冪等（WHERE NOT EXISTS）。dev と stg で組織・権限の集合がずれないようにする。
+PORT="${STG_PG_PORT:-55438}"
+DB_NAME="${STG_DB_NAME:-ceos_stg}"
+for f in "${REPO_ROOT}"/scripts/db/seed/*.sql; do
+  [ -e "$f" ] || continue
+  echo "-- $(basename "$f")"
+  sudo -n -u postgres psql -p "$PORT" -d "$DB_NAME" -v ON_ERROR_STOP=1 -q <"$f"
+done
+
 echo "== 実測（auth.users / auth.roles） =="
 sudo -n -u postgres psql -p "$PORT" -d "$DB_NAME" -tAc \
   "SELECT 'users=' || (SELECT count(*) FROM auth.users) || ' roles=' || (SELECT count(*) FROM auth.roles) || ' organizations=' || (SELECT count(*) FROM auth.organizations)"

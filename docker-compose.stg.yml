@@ -1152,6 +1152,8 @@ services:
       JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
       ENVIRONMENT: staging
       AUTH_SERVICE_URL: http://auth:8000
+      CONSTRUCTION_SERVICE_URL: http://construction:8000
+      ERP_SERVICE_URL: http://erp:8000
       MCP_ENABLED: '1'
       MCP_REQUIRE_AUDIENCE: '0'
       MCP_AUDIENCE: api://ceos-mcp
