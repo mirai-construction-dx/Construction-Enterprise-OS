@@ -207,7 +207,8 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
-| **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → **別組織を要求しても返らない**（`MCDX-ADR-0004` のテナント分離）→ SQL で 1 行だけ削除、まで 6/6 PASS。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
+| **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → スコープ確認（B-5 / B-5b / B-5c）→ SQL で 1 行だけ削除。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
+| **テナント分離（本来の試験）** | 完了（欠陥を検出して作り直した） | 旧 B-5 は「別組織を要求しても返らない」を**分離の証拠として表示していたが、根拠が無かった**（使用トークンが `roles: ['admin']` で、`scope_org()` は admin に要求組織をそのまま返す設計。0 件は「他組織にデータが無い」だけ）。非 admin の経路は stg に該当ユーザーが居らず**一度も実行されていなかった**。`scripts/stg/check_tenant_isolation.py` を追加し、現場組織の非 admin ユーザーで T-1〜T-5（陽性対照つき）を実測。§6.8 |
 | **mobile の実行形態** | 完了 | 旧版は `output: 'export'` と書きながら `next dev`（開発サーバ）で配信しており、stg が本番の実行形態を練習していなかった（§9 D-1）。2 ステージビルドにして静的エクスポート `out/` を 依存ゼロの `serve.mjs` で配信する。smoke の S-10 が `x-ceos-static-export` で回帰検査する |
 | kibana の healthcheck | 完了 | 未定義で `status.sh` の healthy 判定対象外だった（§9 D-3）。公式イメージの `curl` で `/api/status` を叩く healthcheck を追加（start_period 180s）。**全 32 コンテナが healthy** になった |
 | **systemd 管理** | 完了 | `infra/systemd/ceos-stg.service` を追加し `/etc/systemd/system/` へ設置。`systemctl start/stop` で 32 コンテナの起動・停止を実測（停止後 0 個 → 起動後 32 個、smoke 12/12）。**enable は保留**（stg の DB クラスタが disabled のため、B-2 の決定と同時に判断する） |
@@ -419,6 +420,70 @@ $ sudo systemctl start ceos-stg-status
 DNS（ブロッカー 1）を解消した後、カスタムドメインが `pending` から進まない場合は、
 この ACME パスの許可（Access の `bypass` に `/.well-known/acme-challenge/*` を追加）を
 最初に疑うこと。**現時点では「文書化されたリスク」であって「実測した欠陥」ではない。**
+
+### 6.8 テナント分離は「測れていなかった」（2026-10-14 の検出）
+
+`check_business_roundtrip.py` の B-5 は
+「別組織を要求してもトークンの組織の行だけが返る」と表示し、`MCDX-ADR-0004` の
+テナント分離の証拠として扱われていた。**しかし根拠が無かった。**
+
+このスクリプトが使うのは stg の管理ユーザで、そのトークンは `roles: ['admin']` である。
+`services/erp/src/middleware/tenant.py` の `scope_org()` は
+**admin には要求された組織をそのまま返す**（クロス組織アクセスは設計）。
+したがって「他組織を要求 → 0 件」は「**他組織にデータが無い**」だけである。
+
+実測（2026-10-14、管理ユーザ）:
+
+| 要求 | 結果 | 意味 |
+|---|---|---|
+| パラメータ無し | 200 / 1 件（自分の行を含む） | 正常 |
+| 自分の組織を指定 | 200 / 1 件 | 正常 |
+| 他組織を指定 | 200 / **0 件** | **admin のクロス組織仕様が効いているだけ** |
+
+さらに B-5 の判定は**逆**だった。正しい実装（パラメータを無視して JWT の org を使う）なら
+自分の行が返るはずで、それを B-5 は「FAIL」としていた。
+
+**本来の分離は非 admin でしか測れない。** ところが stg には管理ユーザ 1 人しかおらず、
+非 admin の経路は**一度も実行されていなかった**（`auth.users` = 1 行）。
+つまり「分離を検証した」という記録は、**検証していないものを検証したと書いていた**。
+
+対策: `scripts/stg/check_tenant_isolation.py` を追加し、現場組織の非 admin ユーザーで実測する。
+
+| 検査 | 内容 |
+|---|---|
+| T-0 | 分離試験用の非 admin ユーザー（現場組織 / role なし）を冪等に用意する |
+| T-1 | 非 admin でログインでき、トークンに admin が含まれない |
+| T-2a | **陽性対照**: 管理ユーザの一覧には検体が含まれる（これが無いと T-2 は何も測っていない） |
+| T-2 | 本社組織の行が現場組織のユーザーに見えない |
+| T-3 | 他組織を要求すると **403 ORG_FORBIDDEN**（クエリ） |
+| T-4 | 他組織を指定した作成は **403 ORG_FORBIDDEN**（ボディ） |
+| T-5 | 後始末（検体を 1 行削除） |
+
+erp の台帳 API は権限チェックを持たず `get_current_user` と `scope_org()` / `create_org()`
+だけで守られているため、403 の理由が「権限不足」と混同されない（**エラーコードで判別する**）。
+
+実測（2026-10-14）:
+
+```
+$ python3 scripts/stg/check_tenant_isolation.py
+PASS: T-1 非 admin でログインできた（org=20000000-…-0004 / roles=[]）
+PASS: T-2a 管理ユーザの一覧には検体が含まれる（1 件）
+PASS: T-2 本社組織の行は見えない（現場組織のユーザーの一覧 0 件）
+PASS: T-3 他組織の要求は 403 ORG_FORBIDDEN で拒否された
+PASS: T-4 他組織への作成は 403 ORG_FORBIDDEN で拒否された
+PASS: T-5 検体を削除した
+OK: テナント分離を**非 admin の経路で**実測した（T-1〜T-5）。
+```
+
+**これが stg でテナント分離が実測できた最初の記録である。**
+
+限界（正直な記録）:
+
+- 対象は **erp の台帳 API のみ**。同じ `tenant.py` を持つ**18 サービス**は未検証である
+  （実装は 5 変種に分裂している。差分は `is_cross_org_admin` の `user.roles` と
+  `(user.roles or [])` だけで、各サービスの `TokenData` は常にリストを供給するため
+  **現時点で実害は無い**が、ドリフトを検出する仕組みは無い）。
+- 分離試験用ユーザーのパスワードは**合成の定数**である（stg 専用。実在の資格情報ではない）。
 
 ## 7. ロールバック
 
