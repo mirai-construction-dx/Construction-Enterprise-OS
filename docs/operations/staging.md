@@ -1,6 +1,7 @@
 # Staging（stg）環境 — 設計と運用手順
 
 - 正本: 本ファイル（手順）、`docs/architecture/ADR-0005-staging-environment.md`（決定）
+- リポジトリ間連携: `docs/operations/staging-integration.md`
 - 対象: Construction-Enterprise-OS（CEOS）
 - 最終更新: 2026-10-14
 
