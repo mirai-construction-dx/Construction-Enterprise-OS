@@ -1,7 +1,7 @@
 # 安全管理（safety）品質テスト報告（task-9 / 担当: qa-field-spatial）
 
 対象: `services/safety`（危険予知 hazards / 安全巡視 inspections / 事故 incidents）
-準拠: [reports/quality-tests/CHARTER.md](reports/quality-tests/CHARTER.md)（全制約）
+準拠: [reports/quality-tests/CHARTER.md](CHARTER.md)（全制約）
 参照実装: `services/workflow/src/api/cases.py`, `services/workflow/src/api/workflows.py`（task-9 指定）
 
 ---
