@@ -170,8 +170,10 @@ jobs:
       - name: stg のデプロイが存在することを確認する
         run: |
           set -uo pipefail
-          # pages.dev は Cloudflare の制約により Access の対象にできない。
-          # したがってここでは「デプロイが存在すること」だけを確認する。
+          # pages.dev は**既定では** Access の対象にならない（「Enable access policy」が
+          # 守るのはプレビューのみ。実測 2026-10-14）。ただし Cloudflare の Known issues には
+          # `*.pages.dev` を Access で守る手順が記載されている（staging.md §6.7）。
+          # ここでは「デプロイが存在すること」だけを見る。
           code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
             "https://construction-os-stg.pages.dev/STAGING" || echo 000)"
           echo "pages.dev /STAGING status: ${code}"

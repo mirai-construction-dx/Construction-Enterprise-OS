@@ -216,7 +216,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **Web → API プロキシ** | 完了 | `apps/web` は `output: "standalone"` のため `rewrites()` が**ビルド時**に確定し、Docker の runtime `API_GATEWAY` が効かない。ビルド引数で渡さないと`http://localhost:9000` が焼き込まれ `/api/*` が **500** になる（2026-10-14 実測）。`build.args.API_GATEWAY` を追加して修正し、smoke の S-9 で回帰検査する |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
-| Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / allow 1 件のみ・`bypass` 0 件） |
+| Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / policy 1 件: allow = メール 1 件 ＋ メールドメイン `mirai-const.co.jp` / `bypass` 0 件。2026-10-14 実測） |
 | Pages カスタムドメインのバインディング | 作成済み（pending） | id `aa3ac4c2-a329-42eb-8bfd-3158d57934e7` / `verification_data.error_message="CNAME record not set"` |
 | **DNS CNAME `construction-os-stg`** | **未完了（ブロッカー 1）** | 使用可能な資格情報に Zone→DNS→Edit が無く `10000: Authentication error` |
 | **CI ワークフローの設置** | **未完了（ブロッカー 2）** | ハーネスポリシーが `.github/workflows/**` への書込を DEPLOY(critical) として拒否。内容は `docs/operations/staging-deploy.workflow.yml` に確定済み |
@@ -380,6 +380,45 @@ $ sudo systemctl start ceos-stg-status
 # 陰性対照: status.sh が 3 を返す差し替えで monitor.sh が 3 を返す（握りつぶさない）
 # 陽性対照: 0 を返す差し替えで 0
 ```
+
+### 6.7 Pages の公開面（`*.pages.dev` と ACME）
+
+2026-10-14 に Cloudflare の公式文書と既存構成を突き合わせた結果である。
+
+**1. `*.pages.dev` は「既定では」Access の対象にならない（記述の是正）**
+
+`staging-deploy.workflow.yml` には「pages.dev は Cloudflare の制約により Access の対象にできない」
+と書いてあったが、これは**不正確**である。公式文書の表現は次のとおり。
+
+- プロジェクト設定の **Enable access policy** が守るのは**プレビューのみ**
+  （`373f31e2.<project>.pages.dev` のようなもの）。
+- **`*.pages.dev` 本体**を守る手順は Known issues に記載がある
+  （<https://developers.cloudflare.com/pages/platform/known-issues/#enable-access-on-your-pagesdev-domain>）:
+  `Enable access policy` → 作成された Access アプリの `Manage` → **Public hostname の Subdomain から
+  ワイルドカード `*` を削除**して保存 → プレビュー用のポリシーを作り直す。
+
+したがって `construction-os-stg.pages.dev` を公開のままにするのは**制約ではなく選択**である。
+守る場合の副作用: `*.pages.dev` に Access を掛けると**プレビューURLの保護が外れる**ため、
+手順どおり `*.<project>.pages.dev` のポリシーを作り直す必要がある。
+
+**2. カスタムドメインの検証には ACME パスの許可が要る（文書化されたリスク）**
+
+公式文書は「Cloudflare が `http://{domain}/.well-known/acme-challenge/*` を検証できないと
+カスタムドメインは verify されない。Access か Worker がそのパスを許可していること」と述べている。
+本 stg の Access アプリ（allow = メール 1 件 ＋ メールドメイン）には**そのパスを許可する設定が無い**。
+
+ただし**実測ではこれが障害になっていない**:
+
+| ドメイン | DNS | HTTP | Access の ACME 許可 |
+|---|---|---|---|
+| `3dgs-stg.mirai-dx-platform.com`（CSSP stg・稼働中の前例） | 解決する | **302**（Access が遮断） | **無し**（同じ構成） |
+| `construction-os-stg.mirai-dx-platform.com` | **解決しない** | 到達不能 | 無し |
+| `construction-os-stg.pages.dev` | 解決する | **522**（デプロイ未実施） | — |
+
+つまり CSSP stg は ACME 許可が無いまま動作している。**未解明のまま「問題ない」と断定しない。**
+DNS（ブロッカー 1）を解消した後、カスタムドメインが `pending` から進まない場合は、
+この ACME パスの許可（Access の `bypass` に `/.well-known/acme-challenge/*` を追加）を
+最初に疑うこと。**現時点では「文書化されたリスク」であって「実測した欠陥」ではない。**
 
 ## 7. ロールバック
 
