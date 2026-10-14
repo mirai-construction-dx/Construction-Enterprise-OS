@@ -402,8 +402,11 @@ cd services/gateway
 uvicorn src.main:app --host 0.0.0.0 --port 9000 --reload
 # → http://localhost:9000/docs
 
-# 5. DBマイグレーション
+# 5. DBマイグレーション（全サービスの SQL + auth/workflow の alembic）
 make db-migrate
+#    注意: dev の postgres イメージ (postgis/postgis:16-3.4) には pgvector が入っていないため、
+#    `ai` のマイグレーションだけは失敗する（他は適用される）。bootstrap_schema.sh が
+#    失敗したファイルを列挙して非ゼロで終了する。詳細は docs/operations/database.md §2。
 
 # 6. シードデータ投入（組織・権限 → 管理ユーザの順）
 #    組織・権限はマイグレーション適用後に流す（docker-entrypoint では流せない。理由は
