@@ -109,8 +109,8 @@ python3 scripts/stg/render_stg_compose.py --check
 
 ### 4.1 シードが必要な理由
 
-開発環境では compose の postgres コンテナが
-`scripts/db/init/01-init.sql` を `docker-entrypoint-initdb.d` として自動実行する。
+開発環境では compose の postgres コンテナが `scripts/db/init/01-init.sql` を
+`docker-entrypoint-initdb.d` として自動実行する（**スキーマ作成のみ**。§6 の dev 起動不能の項を参照）。
 **stg はホスト PostgreSQL 18 を使うため、この初期化は走らない。**
 `migrate_stg.sh` はスキーマだけを作るので、そのままでは `auth.users` が 0 行で
 ログインできず、E2E も通らない（2026-10-14 実測）。`seed_stg.sh` が
@@ -196,6 +196,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **mobile の実行形態** | 完了 | 旧版は `output: 'export'` と書きながら `next dev`（開発サーバ）で配信しており、stg が本番の実行形態を練習していなかった（§9 D-1）。2 ステージビルドにして静的エクスポート `out/` を 依存ゼロの `serve.mjs` で配信する。smoke の S-10 が `x-ceos-static-export` で回帰検査する |
 | kibana の healthcheck | 完了 | 未定義で `status.sh` の healthy 判定対象外だった（§9 D-3）。公式イメージの `curl` で `/api/status` を叩く healthcheck を追加（start_period 180s）。**全 32 コンテナが healthy** になった |
+| **dev の compose 起動不能** | 完了 | `scripts/db/init/01-init.sql` が initdb 時点で `INSERT INTO auth.organizations` を実行しており、表はマイグレーションが作るため空 DB で必ず失敗していた（`psql -v ON_ERROR_STOP=1` → exit 3）。docker-entrypoint は `ON_ERROR_STOP=1` なので **dev の compose は初回起動できなかった**。DDL とシードを分離し（`scripts/db/seed/00-bootstrap.sql` / `make db-seed`）、あわせて ENUM 列（`org_type` / `org_status`）の暗黙キャスト不能も修正した |
 | **erp の基盤 DDL** | 完了 | `services/erp` は `MetaData(schema="erp")` のモデルを持つのに、`src/models/__init__.py` が空で metadata に登録されず、生成器の TARGETS からも漏れていた。そのため `erp` スキーマが stg に存在せず `/api/v1/erp/ledger/summary` が 500（`UndefinedTableError: erp.project_ledger`）。両方修正し 5 テーブルを作成、両エンドポイントが 200 になった |
 | **Web → API プロキシ** | 完了 | `apps/web` は `output: "standalone"` のため `rewrites()` が**ビルド時**に確定し、Docker の runtime `API_GATEWAY` が効かない。ビルド引数で渡さないと`http://localhost:9000` が焼き込まれ `/api/*` が **500** になる（2026-10-14 実測）。`build.args.API_GATEWAY` を追加して修正し、smoke の S-9 で回帰検査する |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
@@ -279,8 +280,9 @@ Mirai-Platform-Infra の `db/roles.yaml` は
 5. stg から prod の DB・DNS・secret へ触れない。
 6. `docker-compose.stg.yml` を手で編集しない（生成物。`render_stg_compose.py` を直す）。
 
-## 9. stg で見つかったが未修正の設計課題
+## 9. stg で見つかった設計課題の記録
 
-| # | 内容 | 判断が要る理由 |
-|---|---|---|
-| D-2 | `scripts/db/init/01-init.sql` は開発用 compose の postgres コンテナ専用で、stg では実行されない（§4.1）。stg は `seed_stg.sh` で代替している。 | 将来 `01-init.sql` にスキーマやシードを足したとき、stg へ自動では反映されない。二重管理になっている。 |
+2026-10-14 時点で、stg の構築・検証を通じて検出した設計課題は**すべて解消済み**である
+（D-1 mobile の実行形態 / D-2 dev 初期化とシードの二重管理 / D-3 kibana の healthcheck。
+いずれも §6 の表に行がある）。再発防止は `make repo-invariants` と
+`scripts/stg/check_staging_guards.py` が担う。

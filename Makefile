@@ -53,8 +53,8 @@ db-migrate: ## マイグレーション実行
 db-rollback: ## マイグレーションを1つ戻す
 	cd services/auth && alembic downgrade -1
 
-db-seed: ## シードデータ投入
-	@echo "シードデータは Docker起動時に自動投入されます"
+db-seed: ## 開発用シード投入(マイグレーション適用後に実行。冪等)
+	scripts/db/seed_dev.sh "$${DATABASE_URL:?DATABASE_URL を設定してください}"
 
 schema-bootstrap: ## 空DBへ全SQLマイグレーションを適用 (DATABASE_URL 必須)
 	@scripts/db/bootstrap_schema.sh "$${DATABASE_URL:?DATABASE_URL を設定してください}"

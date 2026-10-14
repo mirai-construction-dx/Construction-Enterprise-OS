@@ -404,7 +404,10 @@ uvicorn src.main:app --host 0.0.0.0 --port 9000 --reload
 # 5. DBマイグレーション
 make db-migrate
 
-# 6. シードデータ投入
+# 6. シードデータ投入（組織・権限 → 管理ユーザの順）
+#    組織・権限はマイグレーション適用後に流す（docker-entrypoint では流せない。理由は
+#    scripts/db/seed/00-bootstrap.sql の冒頭コメント）
+make db-seed
 cd services/auth && python -m src.seed
 
 # 7. Web フロントエンド起動
