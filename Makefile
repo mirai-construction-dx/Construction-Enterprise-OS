@@ -1,6 +1,6 @@
 # Construction-Enterprise-OS 開発用 Makefile
 
-.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream repo-invariants repo-invariants-ci
+.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance repo-invariants repo-invariants-ci
 
 help: ## ヘルプ表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -90,17 +90,22 @@ docs-links: ## 追跡下の Markdown のローカルリンクが解決するか�
 stg-pages-upstream: ## stg の Pages デプロイが本番 API を向いていないか検証(越境の防止)
 	python3 scripts/stg/check_pages_upstream.py
 
-repo-invariants: schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
+tenant-conformance: ## 18 サービスの tenant ヘルパが同じ分離の振る舞いをするか検証
+	python3 scripts/security/check_tenant_helper_conformance.py
+
+repo-invariants: schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
 	@echo "✅ リポジトリ不変条件 OK"
 
-# CI 用（依存の軽い 5 検査だけを回す）。
+# CI 用（依存の軽い 6 検査だけを回す）。
 # schema-check は各サービスのモデルを import するため sqlalchemy と各サービスの
 # 依存が要る（scripts/db/generate_base_schema.py の emit_metadata が
 # `sys.executable -c EMITTER` をサービス単位で起動する）。素のランナーでは失敗するので
 # CI では python-checks マトリクスがサービス単位で担当する（ci.yml の
 # "Base schema DDL is in sync with models"）。
 # マトリクスへの登録漏れは ci-coverage が検出するため、全サービスの被覆は保たれる。
-repo-invariants-ci: session-check ddl-coverage ci-coverage docs-links stg-pages-upstream ## CI で回す不変条件(pyyaml のみに依存)
+# tenant-conformance は各サービスの src.middleware.tenant を import するため
+# fastapi / PyJWT / pydantic-settings が要る（docs/operations/repo-invariants.workflow.yml）。
+repo-invariants-ci: session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance ## CI で回す不変条件(軽量な依存のみ)
 	@echo "✅ CI 用のリポジトリ不変条件 OK（schema-check は python-checks が担当）"
 
 # ============================================

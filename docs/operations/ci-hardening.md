@@ -21,16 +21,19 @@
 | `ci-coverage` | **無し**（マトリクスは手書き。`maintenance` / `security` / `vision` / `safety` で登録漏れが実際に起きた: Issue #137 / #152） |
 | `docs-links` | **無し**（追跡下 Markdown の相対リンク。2026-10-14 に 24 件のリンク切れを検出した） |
 | `stg-pages-upstream` | **無し**（stg の Pages が本番 API を向いていないか。2026-10-14 に越境欠陥を検出した） |
+| `tenant-conformance` | **無し**（18 サービスに複製された `tenant.py` が同じ分離の振る舞いをするか。2026-10-14 追加） |
 
 ## CI に入れるもの / 入れないもの
 
-**入れる: 依存の軽い 5 検査**（`make repo-invariants-ci`）
+**入れる: 依存の軽い 6 検査**（`make repo-invariants-ci`）
 
 ```
-session-check / ddl-coverage / ci-coverage / docs-links / stg-pages-upstream
+session-check / ddl-coverage / ci-coverage / docs-links / stg-pages-upstream / tenant-conformance
 ```
 
-必要な追加依存は **PyYAML だけ**（`ci-coverage` が使う）。他は標準ライブラリのみ。
+必要な追加依存は **PyYAML**（`ci-coverage`）、**fastapi / PyJWT / pydantic-settings**
+（`tenant-conformance` が各サービスの `src.middleware.tenant` を import するため。
+`src/middleware/auth.py` と `src/config.py` が要求する外部依存の和集合。2026-10-14 実測）。
 DB にも外部サービスにも接続しない。追加の secrets は不要。
 
 **入れない: `schema-check`**
@@ -86,13 +89,14 @@ CI ジョブが失敗していた**。
 
 ## 参考
 
-- ローカル実行（DB が要る 6 検査）: `env -u DATABASE_URL make repo-invariants`
+- ローカル実行（DB が要る 7 検査）: `env -u DATABASE_URL make repo-invariants`
   - 環境に他システムの `DATABASE_URL` があると `schema-check` が落ちる。
     `scripts/db/check_target_db.py` が DB 操作系のターゲットを守るが、
     `schema-check` 自体は環境の URL を読むため `env -u DATABASE_URL` を付ける。
-- ローカル実行（依存の軽い 5 検査）: `make repo-invariants-ci`
+- ローカル実行（依存の軽い 6 検査）: `make repo-invariants-ci`
 - 検出器: `scripts/db/check_session_lifecycle.py` /
   `scripts/db/check_service_ddl_coverage.py` / `scripts/ci/check_coverage.py` /
-  `scripts/docs/check_links.py` / `scripts/stg/check_pages_upstream.py`
+  `scripts/docs/check_links.py` / `scripts/stg/check_pages_upstream.py` /
+  `scripts/security/check_tenant_helper_conformance.py`
 - 品質テストランナー: `scripts/quality/run_quality_tests.sh`
   （各サービスの `tests/` に `test_quality_*.py` が含まれるため、`pytest tests/` で既に実行される）
