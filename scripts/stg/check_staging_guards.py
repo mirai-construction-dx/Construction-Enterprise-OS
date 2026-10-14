@@ -12,6 +12,7 @@
   G-8  dev(compose) の ENVIRONMENT が staging へ書き換わっていない（stg が dev を汚染していない）。
   G-9  stg compose に**可変タグ**（`:latest` など）のイメージが無い（再現性。2026-10-14 追加）。
   G-10 stg compose の**全サービスに再起動方針**がある（長時間動く環境。2026-10-14 追加）。
+  G-11 上流の**名前解決を DNS に依存させていない**（静的 IP ＋ gateway の extra_hosts。2026-10-14 追加）。
 
 `SKIP` を作らない。判定できないものは FAIL として報告する（AGENTS.md「未確認を成功と書かない」）。
 
@@ -214,6 +215,83 @@ def check_restart_policy(stg: dict) -> None:
     )
 
 
+def _static_ip(service: dict) -> str | None:
+    """サービスの静的 IP を取り出す。無ければ None。
+
+    `networks` は 2 通りの書き方がある:
+      - マッピング形式（静的 IP あり）: {"construction-net": {"ipv4_address": "10.201.0.10"}}
+      - リスト形式（静的 IP なし）    : ["construction-net"]
+
+    2026-10-14 の実測: 前者だけを想定していたため、後者で `.get` が
+    リストに当たって **AttributeError で検査ごと落ちていた**（FAIL を報告せず、
+    トレースバックだけが出る）。形式を明示的に扱う。
+    """
+    networks = service.get("networks")
+    if isinstance(networks, dict):
+        entry = networks.get("construction-net")
+        if isinstance(entry, dict):
+            value = entry.get("ipv4_address")
+            return str(value) if value else None
+    return None
+
+
+def check_static_ip_and_hosts(stg: dict) -> None:
+    """上流の名前解決を DNS に依存させていないか（静的 IP ＋ extra_hosts）。
+
+    なぜ必要か（2026-10-14 実測）:
+        停止したコンテナの名前は Docker の DNS が答えられず、外部リゾルバへ
+        転送されて **約 16 秒**で失敗する（起動中の名前は 6ms）。
+        ゲートウェイは上流を名前で呼ぶため、上流が落ちると 1 リクエストごとに
+        16 秒待たされる。httpx の timeout は名前解決を制限しないので
+        タイムアウトを短くしても直らない。
+
+    検査:
+        - `db-bridge`（network_mode: host）以外の全サービスが静的 IP を持つ
+        - IP が重複していない
+        - ゲートウェイの `extra_hosts` が**全サービス**を網羅している
+          （これが無いと名前解決が DNS に戻り、16 秒が再発する）
+    """
+    services = stg["services"]
+    on_network = {name: s for name, s in services.items() if name != "db-bridge"}
+
+    missing_ip = [name for name, s in sorted(on_network.items()) if not _static_ip(s)]
+    record(
+        "G-11a static ipv4_address",
+        not missing_ip,
+        f"{len(on_network)} サービスすべてに静的 IP がある"
+        if not missing_ip
+        else f"静的 IP が無いサービス: {missing_ip}（名前解決が DNS に戻る）",
+    )
+
+    ips = [_static_ip(s) for s in on_network.values()]
+    duplicates = sorted({ip for ip in ips if ip and ips.count(ip) > 1})
+    record(
+        "G-11b unique ipv4_address",
+        not duplicates and all(ips),
+        "IP は一意" if not duplicates else f"IP が重複: {duplicates}",
+    )
+
+    gateway = services.get("gateway")
+    if gateway is None:
+        record("G-11c gateway extra_hosts", False, "gateway サービスが無い")
+        return
+    entries = {
+        entry.split(":", 1)[0]
+        for entry in (gateway.get("extra_hosts") or [])
+        if isinstance(entry, str) and ":" in entry
+    }
+    expected = set(on_network) - {"gateway"}
+    missing_hosts = sorted(expected - entries)
+    stale_hosts = sorted(entries - expected)
+    record(
+        "G-11c gateway extra_hosts",
+        not missing_hosts and not stale_hosts,
+        f"gateway は {len(entries)} サービスを /etc/hosts で解決する"
+        if not missing_hosts and not stale_hosts
+        else f"extra_hosts の不足: {missing_hosts} / 余剰: {stale_hosts}",
+    )
+
+
 def check_dev_not_polluted() -> None:
     base = yaml.safe_load(BASE_COMPOSE.read_text(encoding="utf-8"))
     environments = {
@@ -246,6 +324,7 @@ def main() -> int:
         check_service_guards()
         check_no_mutable_tags(stg)
         check_restart_policy(stg)
+        check_static_ip_and_hosts(stg)
         check_dev_not_polluted()
 
     failed = 0
