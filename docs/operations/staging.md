@@ -194,6 +194,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
 | 状態監視 | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
+| **Web → API プロキシ** | 完了 | `apps/web` は `output: "standalone"` のため `rewrites()` が**ビルド時**に確定し、Docker の runtime `API_GATEWAY` が効かない。ビルド引数で渡さないと`http://localhost:9000` が焼き込まれ `/api/*` が **500** になる（2026-10-14 実測）。`build.args.API_GATEWAY` を追加して修正し、smoke の S-9 で回帰検査する |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
 | Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / allow 1 件のみ・`bypass` 0 件） |

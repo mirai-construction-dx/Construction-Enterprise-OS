@@ -143,6 +143,13 @@ sys.exit(0 if tools == want and tools else 1)
     echo "FAIL: S-8 MCP の公開ツールが契約 ceos.json と一致しない" >&2
     fail=$((fail + 1))
   fi
+
+  # S-9 Web(Next.js) の /api/* がゲートウェイへプロキシできているか。
+  # apps/web は output: "standalone" のため rewrites() が**ビルド時**に確定する。
+  # Docker の runtime 環境変数は効かず、ビルド引数で渡さないと
+  # http://localhost:9000 が焼き込まれて /api/* が 500 になる（2026-10-14 実測）。
+  check "S-9" "web 経由で /api/v1/health/services が通る" "200" \
+    "$(code "http://127.0.0.1:19530/api/v1/health/services")"
 fi
 
 echo

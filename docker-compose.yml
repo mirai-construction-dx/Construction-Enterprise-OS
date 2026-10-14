@@ -832,6 +832,9 @@ services:
   web:
     build:
       context: ./apps/web
+      # rewrites() は standalone 出力ではビルド時に確定するため、ここで渡す必要がある。
+      args:
+        API_GATEWAY: http://gateway:9000
     container_name: construction-os-web
     environment:
       API_GATEWAY: http://gateway:9000

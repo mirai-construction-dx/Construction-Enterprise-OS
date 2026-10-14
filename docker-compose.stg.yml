@@ -1175,6 +1175,8 @@ services:
   web:
     build:
       context: ./apps/web
+      args:
+        API_GATEWAY: http://gateway:9000
     container_name: ceos-stg-web
     environment:
       API_GATEWAY: http://gateway:9000
