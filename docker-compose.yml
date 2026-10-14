@@ -167,7 +167,10 @@ services:
       - construction-net
 
   kafka:
-    image: bitnami/kafka:3.7
+    # 2026-10-14: Bitnami のイメージ配布先変更により `bitnami/kafka:3.7` は
+    # manifest unknown で pull できない（dev / stg の両方が起動不能だった）。
+    # 同一タグの移設先ミラーへ切り替える。環境変数 (KAFKA_CFG_*) とパスは互換。
+    image: bitnamilegacy/kafka:3.7
     container_name: construction-os-kafka
     environment:
       KAFKA_CFG_NODE_ID: 0

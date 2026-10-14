@@ -193,7 +193,7 @@ services:
     networks:
     - construction-net
   kafka:
-    image: bitnami/kafka:3.7
+    image: bitnamilegacy/kafka:3.7
     container_name: ceos-stg-kafka
     environment:
       KAFKA_CFG_NODE_ID: 0
