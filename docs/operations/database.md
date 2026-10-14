@@ -65,3 +65,41 @@ scripts/stg/seed_stg.sh         # 合成データ
 scripts/stg/up.sh               # スタック起動
 scripts/stg/status.sh           # 状態の要約
 ```
+
+## 6. DB 操作の安全装置（対象 DB の検査）
+
+`make db-migrate` / `db-seed` / `schema-bootstrap` / `db-rollback` は
+`DATABASE_URL` を**環境からそのまま**受け取る。したがって環境に別システムの値が
+置かれていると、**その DB へ CEOS の DDL・シードを適用してしまう**。
+
+実測（2026-10-14）: 本作業環境（DeepSeek Harness）はシェルへ自分の DB を注入する。
+
+```
+$ echo "$DATABASE_URL"
+postgresql://deepseek_harness:...@127.0.0.1:5435/deepseek_harness
+```
+
+この状態で `make repo-invariants` は `schema-check` が落ちて失敗し、
+`env -u DATABASE_URL make repo-invariants` では 6 検査すべて通過した
+（コードの欠陥ではなく、環境の取り違えである）。
+
+対策として `scripts/db/check_target_db.py` を各ターゲットの先頭で実行する（fail closed）。
+
+| 判定 | 内容 |
+|---|---|
+| 拒否 | `postgresql` 系以外のスキーム |
+| 拒否 | `FOREIGN_DATABASES`（`deepseek_harness` / `postgres` / `template0` / `template1` / `mirai` / `mirai_info`） |
+| 拒否 | `CEOS_DATABASES`（`construction_os` / `construction_os_test` / `ceos_`）に一致しない名前 |
+| 許可 | `CEOS_DB_ALLOW_ANY=1` を明示した場合（CEOS 以外の DB を意図して使うとき） |
+
+```bash
+# 拒否される（本作業環境の既定）
+$ make db-seed
+NG: 対象 DB を拒否した: データベース名 'deepseek_harness' は他システムのものである
+
+# CEOS の DB を明示する
+$ DATABASE_URL='postgresql+asyncpg://…@127.0.0.1:5432/construction_os' make db-seed
+```
+
+`CEOS_DATABASES` / `FOREIGN_DATABASES` は
+`scripts/db/check_target_db.py` の定数を正本とする（新しい環境の DB を増やしたら追記する）。
