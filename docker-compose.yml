@@ -789,6 +789,44 @@ services:
       <<: *python-healthcheck
 
   # ============================================================
+  # 🔌 MCP（読み取り専用ツール公開。ADR-0002 / 契約 contracts/mcp-tools/ceos.json）
+  # 2026-10-14: services/mcp は実装も契約も存在するのに compose に含まれておらず、
+  # dev / stg のどちらでも起動していなかった。読み取り専用（R0）の 5 ツールを
+  # 公開するためスタックに加える。
+  # ============================================================
+  mcp:
+    <<: *python-service
+    build:
+      context: ./services/mcp
+    container_name: construction-os-mcp
+    environment:
+      <<: *db-env
+      AUTH_SERVICE_URL: http://auth:8000
+      # MCP_ENABLED=0 でサーバー全体を停止する（fail-closed）。
+      MCP_ENABLED: "1"
+      # Phase 2 で 1 にする（aud=api://ceos-mcp 以外を拒否）。
+      MCP_REQUIRE_AUDIENCE: "0"
+      MCP_AUDIENCE: api://ceos-mcp
+    ports:
+      - "8022:8022"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8022/health')",
+        ]
+      <<: *python-healthcheck
+
+  # ============================================================
   # 🌐 Frontend Applications
   # ============================================================
   web:
