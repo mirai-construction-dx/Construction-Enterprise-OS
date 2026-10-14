@@ -514,6 +514,46 @@ H-10 で `mcp` / `workflow` / `auth` を宣言した（それぞれ理由はス�
   `sub` / `org` / `roles` / `scopes` を被交換トークンから引き継ぎ、権限を昇格させない）。
 - `gateway` / `notification` は `organization_id` を参照しない（組織単位のデータを持たない）。
 
+#### 67 のエンドポイントがヘルパを通しているかを AST で検査する
+
+18 個のヘルパが正しくても、**エンドポイントがそれを使っていなければ**意味がない。
+`scripts/security/check_org_query_scoping.py` が
+「クエリで `organization_id` を受ける関数」を構文木で探し、
+その名前の**すべての使用が `scope_org` / `create_org` の引数である**ことを要求する。
+
+実測（2026-10-14）:
+
+```
+$ python3 scripts/security/check_org_query_scoping.py
+Q-1 クエリで organization_id を受けるエンドポイント: 67 件
+  免除 auth:list_notification_recipients（internal）
+  免除 workflow:list_definitions（own-guard）
+  免除 workflow:list_instances（own-guard）
+Q-4 宣言された免除: 3 件（3 件が実在を確認）
+OK: クエリの organization_id はすべてスコープされている（67 件・免除 3 件）
+```
+
+**67 件すべてが規約どおり**だった。免除した 3 件は次の理由で、いずれも**宣言が実体と合うことを毎回検証する**（Q-4）。
+
+| 免除 | 種別 | 理由 |
+|---|---|---|
+| `workflow:list_definitions` / `list_instances` | `own-guard` | 独自の `_organization_id()` で JWT の org を取り、不一致を 403 `ORG_FORBIDDEN` で拒否する。関数ソースに `ORG_FORBIDDEN` が無ければ FAIL にする |
+| `auth:list_notification_recipients` | `internal` | `/internal/...` は組織を**指定して**利用者を引くサービス間 API。利用者向けの分離対象ではない |
+
+**検査が空回りしていないことを毎回確認する**（Q-2 陰性対照＝生の使用を検出できる、
+Q-3 陽性対照＝正しい使用を誤検出しない）。
+
+変異試験（実測）:
+
+| 変異 | 結果 |
+|---|---|
+| `document` の一覧で `scope_org(token_data, organization_id)` を `organization_id` に変える | **NG** — `Q-1 document:235 list_documents() が scope_org を通さずに使っている` |
+| 実在しない免除を宣言する | **NG** — `Q-4 宣言 document:list_documents が実在しない（免除が陳腐化している）` |
+
+限界: 見るのは**クエリ引数**だけである。リクエスト**本文**の `organization_id`
+（`body.organization_id`）は属性アクセスであり、正当な読み出し（レスポンス整形・
+保存値の参照）と区別が難しいため対象外にした。
+
 ## 7. ロールバック
 
 | 対象 | 手順 |
