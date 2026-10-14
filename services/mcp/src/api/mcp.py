@@ -20,7 +20,7 @@ from starlette.types import Receive, Scope, Send
 
 from ..config import Settings, get_settings
 from ..middleware.auth import authenticate_bearer
-from ..services import upstream
+from ..services import token_exchange, upstream
 from ..tools import (
     REGISTRY,
     ToolCallOutcome,
@@ -105,6 +105,9 @@ def create_mcp_server(
                 client=upstream.get_upstream_client(),
                 registry=registry,
                 settings=settings,
+                resolve_authorization=(
+                    token_exchange.get_token_exchanger().upstream_authorization
+                ),
             )
         except Exception:  # pragma: no cover - 予期しない障害の最終防衛線
             logger.exception("MCP tools/call で予期しない例外が発生しました")

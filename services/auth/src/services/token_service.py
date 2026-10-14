@@ -11,6 +11,9 @@ from ..schemas import TokenData
 
 settings = get_settings()
 
+# 本サービスが発行するトークンの iss（トークン交換の subject 検証でも使用）
+TOKEN_ISSUER = "construction-enterprise-os-auth"
+
 
 def create_access_token(
     *,
@@ -37,7 +40,7 @@ def create_access_token(
         "device_id": device_id,
         "iat": int(now.timestamp()),
         "exp": int(expires.timestamp()),
-        "iss": "construction-enterprise-os-auth",
+        "iss": TOKEN_ISSUER,
         "jti": str(uuid.uuid4()),
     }
     return jwt.encode(payload, settings.jwt_private_key, algorithm=settings.JWT_ALGORITHM)
@@ -61,7 +64,7 @@ def create_m2m_token(
         "scopes": scopes,
         "iat": int(now.timestamp()),
         "exp": int(expires.timestamp()),
-        "iss": "construction-enterprise-os-auth",
+        "iss": TOKEN_ISSUER,
         "jti": str(uuid.uuid4()),
     }
     return jwt.encode(payload, settings.jwt_private_key, algorithm=settings.JWT_ALGORITHM)

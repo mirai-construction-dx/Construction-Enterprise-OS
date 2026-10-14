@@ -1,0 +1,10 @@
+{
+  "id": "T-5e58b3c4-d7f9-470b-9493-fba5287769ce",
+  "subject": "Migrate no-auth simple GET sites to get<T>()",
+  "description": "dashboard/page, safety/page, dashboard/kpi, dashboard/field, dashboard/exec, gis/page, ai/inspection, ai/predictive, partner/portal, documents/page, erp/page, erp/budget, erp/invoices, erp/cost, projects/page, projects/reports, projects/wbs, iot/page, common/users, common/roles, common/master/prices, robotics/twin, workflows/page GET — wrap in try/catch preserving mock fallback.",
+  "status": "completed",
+  "activeForm": "Migrating no-auth GET sites",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f4317cdeeffeJ6BrcWayvJVuGA"
+}

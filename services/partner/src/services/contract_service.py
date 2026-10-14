@@ -97,6 +97,14 @@ def apply_contract_update(contract: Contract, update_data: dict) -> Contract:
     return contract
 
 
+class ContractStateError(ValueError):
+    """署名できない契約状態。"""
+
+
+# 署名してはならない状態（終端・取消）
+UNSIGNABLE_STATUSES = frozenset({"terminated", "expired", "cancelled"})
+
+
 async def sign_contract(
     db: AsyncSession,
     contract_id: uuid.UUID,
@@ -107,6 +115,13 @@ async def sign_contract(
     contract = await get_contract_by_id(db, contract_id, organization_id)
     if not contract:
         return None
+    if contract.status in UNSIGNABLE_STATUSES:
+        raise ContractStateError(
+            f"contract {contract_id} is {contract.status} and cannot be signed"
+        )
+    if contract.signed_at is not None:
+        # 先行署名を上書きしない（証跡の否認不能性を守る）
+        raise ContractStateError(f"contract {contract_id} is already signed")
 
     contract.status = "active"
     contract.signed_by_our = signed_by_our

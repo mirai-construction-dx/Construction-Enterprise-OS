@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -90,7 +95,9 @@ async def delete_datasource(
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
-    ds = await service.get_datasource(db, datasource_id, scope_org(user))
+    org = scope_org(user)
+    require_any_role(user, MANAGEMENT_ROLES)
+    ds = await service.get_datasource(db, datasource_id, org)
     if not ds:
         raise HTTPException(status_code=404, detail="データソースが見つかりません")
     await service.delete_datasource(db, ds)

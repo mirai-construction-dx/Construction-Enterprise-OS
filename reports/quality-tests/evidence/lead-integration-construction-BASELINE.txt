@@ -1,0 +1,343 @@
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+FFFFFFFFFFFFFFFF.F                                                       [100%]
+=================================== FAILURES ===================================
+____ TestListTenantIsolation.test_list_resources_does_not_leak_other_tenant ____
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x7ce243920230>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_list_resources_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/resources", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(RESOURCE_B) not in ids, "他テナントの資源が一覧に漏えいしている"
+E       AssertionError: 他テナントの資源が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0001' not in {'00000000-0000-0000-0000-0000000a0001', '00000000-0000-0000-0000-0000000b0001'}
+E        +  where '00000000-0000-0000-0000-0000000b0001' = str(UUID('00000000-0000-0000-0000-0000000b0001'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:181: AssertionError
+_ TestListTenantIsolation.test_list_resources_ignores_foreign_organization_query _
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x7ce2438bf470>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_list_resources_ignores_foreign_organization_query(self, client):
+        r = client.get(
+            f"{BASE}/resources",
+            params={"organization_id": str(ORG_B)},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(RESOURCE_B) not in ids, "クエリの organization_id で他テナントを指定できてしまう"
+E       AssertionError: クエリの organization_id で他テナントを指定できてしまう
+E       assert '00000000-0000-0000-0000-0000000b0001' not in {'00000000-0000-0000-0000-0000000b0001'}
+E        +  where '00000000-0000-0000-0000-0000000b0001' = str(UUID('00000000-0000-0000-0000-0000000b0001'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:191: AssertionError
+____ TestListTenantIsolation.test_list_schedules_does_not_leak_other_tenant ____
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x7ce2438bfef0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_list_schedules_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/schedules", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(SCHEDULE_B) not in ids, "他テナントの工程が一覧に漏えいしている"
+E       AssertionError: 他テナントの工程が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0002' not in {'00000000-0000-0000-0000-0000000b0002'}
+E        +  where '00000000-0000-0000-0000-0000000b0002' = str(UUID('00000000-0000-0000-0000-0000000b0002'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:197: AssertionError
+_____ TestListTenantIsolation.test_list_methods_does_not_leak_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestListTenantIsolation object at 0x7ce2438dc620>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_list_methods_does_not_leak_other_tenant(self, client):
+        r = client.get(f"{BASE}/methods", headers=headers_for_org_a())
+        assert r.status_code == 200, r.text
+        ids = {item["id"] for item in r.json()["items"]}
+>       assert str(METHOD_B) not in ids, "他テナントの施工計画書が一覧に漏えいしている"
+E       AssertionError: 他テナントの施工計画書が一覧に漏えいしている
+E       assert '00000000-0000-0000-0000-0000000b0003' not in {'00000000-0000-0000-0000-0000000a0002', '00000000-0000-0000-0000-0000000b0003'}
+E        +  where '00000000-0000-0000-0000-0000000b0003' = str(UUID('00000000-0000-0000-0000-0000000b0003'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:203: AssertionError
+______ TestIdTenantIsolation.test_get_resource_by_id_blocks_other_tenant _______
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x7ce2438dd100>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_get_resource_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/resources/{RESOURCE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント資源を取得できた: {r.status_code}"
+E       AssertionError: 他テナント資源を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:212: AssertionError
+_____ TestIdTenantIsolation.test_update_resource_by_id_blocks_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x7ce2438dc3b0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_update_resource_by_id_blocks_other_tenant(self, client):
+        r = client.put(
+            f"{BASE}/resources/{RESOURCE_B}",
+            json={"name": "改ざん"},
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナント資源を更新できた: {r.status_code}"
+E       AssertionError: 他テナント資源を更新できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:220: AssertionError
+_____ TestIdTenantIsolation.test_delete_resource_by_id_blocks_other_tenant _____
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x7ce2438deed0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_delete_resource_by_id_blocks_other_tenant(self, client):
+        r = client.delete(f"{BASE}/resources/{RESOURCE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント資源を削除できた: {r.status_code}"
+E       AssertionError: 他テナント資源を削除できた: 204
+E       assert 204 in (403, 404)
+E        +  where 204 = <Response [204 No Content]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:224: AssertionError
+______ TestIdTenantIsolation.test_get_schedule_by_id_blocks_other_tenant _______
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x7ce2438df410>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_get_schedule_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/schedules/{SCHEDULE_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント工程を取得できた: {r.status_code}"
+E       AssertionError: 他テナント工程を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:228: AssertionError
+_______ TestIdTenantIsolation.test_get_method_by_id_blocks_other_tenant ________
+
+self = <test_quality_tenant_isolation.TestIdTenantIsolation object at 0x7ce2438dfbc0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_get_method_by_id_blocks_other_tenant(self, client):
+        r = client.get(f"{BASE}/methods/{METHOD_B}", headers=headers_for_org_a())
+>       assert r.status_code in (403, 404), f"他テナント施工計画書を取得できた: {r.status_code}"
+E       AssertionError: 他テナント施工計画書を取得できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:232: AssertionError
+_ TestAggregateTenantIsolation.test_resource_cost_summary_does_not_leak_other_tenant _
+
+self = <test_quality_tenant_isolation.TestAggregateTenantIsolation object at 0x7ce243868920>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_resource_cost_summary_does_not_leak_other_tenant(self, client):
+        r = client.get(
+            f"{BASE}/projects/{PROJECT_B}/resource-cost-summary",
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code in (200, 403, 404)
+        if r.status_code == 200:
+>           assert r.json() == [], "他テナントの原価集計が漏えいしている"
+E           AssertionError: 他テナントの原価集計が漏えいしている
+E           assert [{'count': 1,...: '200000.0'}] == []
+E             
+E             Left contains one more item: {'count': 1, 'resource_type': 'labor', 'total_actual_cost': '0.0', 'total_planned_cost': '200000.0'}
+E             Use -v to get more diff
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:246: AssertionError
+__ TestAggregateTenantIsolation.test_critical_path_does_not_leak_other_tenant __
+
+self = <test_quality_tenant_isolation.TestAggregateTenantIsolation object at 0x7ce243862870>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_critical_path_does_not_leak_other_tenant(self, client):
+        r = client.get(
+            f"{BASE}/projects/{PROJECT_B}/critical-path", headers=headers_for_org_a()
+        )
+        assert r.status_code in (200, 403, 404)
+        if r.status_code == 200:
+>           assert r.json() == [], "他テナントのクリティカルパスが漏えいしている"
+E           AssertionError: 他テナントのクリティカルパスが漏えいしている
+E           assert [{'actual_end...': True, ...}] == []
+E             
+E             Left contains one more item: {'actual_end': None, 'actual_start': None, 'created_at': '2026-10-06T23:41:01.877519Z', 'critical_path': True, ...}
+E             Use -v to get more diff
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:254: AssertionError
+______ TestAggregateTenantIsolation.test_gantt_does_not_leak_other_tenant ______
+
+self = <test_quality_tenant_isolation.TestAggregateTenantIsolation object at 0x7ce2438f8260>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_gantt_does_not_leak_other_tenant(self, client):
+        r = client.get(
+            f"{BASE}/projects/{PROJECT_B}/gantt", headers=headers_for_org_a()
+        )
+        assert r.status_code in (200, 403, 404)
+        if r.status_code == 200:
+>           assert r.json() == [], "他テナントのガントデータが漏えいしている"
+E           AssertionError: 他テナントのガントデータが漏えいしている
+E           assert [{'actual_end...テスト工程B', ...}] == []
+E             
+E             Left contains one more item: {'actual_end': None, 'actual_start': None, 'critical_path': True, 'name': 'テスト工程B', ...}
+E             Use -v to get more diff
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:262: AssertionError
+___ TestCreateTenantSpoofing.test_create_resource_cannot_spoof_organization ____
+
+self = <test_quality_tenant_isolation.TestCreateTenantSpoofing object at 0x7ce2438f85f0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_create_resource_cannot_spoof_organization(self, client):
+        r = client.post(
+            f"{BASE}/resources",
+            json={
+                "organization_id": str(ORG_B),
+                "project_id": str(PROJECT_B),
+                "resource_type": "labor",
+                "name": "テスト偽装資源",
+                "unit": "人日",
+                "planned_quantity": "1",
+                "unit_cost": "1000",
+            },
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 201, r.text
+>       assert r.json()["organization_id"] == str(ORG_A), (
+            "リクエストボディの organization_id で他テナント領域へ作成できてしまう"
+        )
+E       AssertionError: リクエストボディの organization_id で他テナント領域へ作成できてしまう
+E       assert '00000000-000...-0000000000bb' == '00000000-000...-0000000000aa'
+E         
+E         - 00000000-0000-0000-0000-0000000000aa
+E         ?                                   ^^
+E         + 00000000-0000-0000-0000-0000000000bb
+E         ?                                   ^^
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:284: AssertionError
+_________ TestApproval.test_approve_method_of_other_tenant_is_blocked __________
+
+self = <test_quality_tenant_isolation.TestApproval object at 0x7ce2438f8bf0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_approve_method_of_other_tenant_is_blocked(self, client):
+        r = client.post(
+            f"{BASE}/methods/{METHOD_B}/approve",
+            json={"approved_by": str(_shared.USER_A)},
+            headers=headers_for_org_a(),
+        )
+>       assert r.status_code in (403, 404), f"他テナントの施工計画書を承認できた: {r.status_code}"
+E       AssertionError: 他テナントの施工計画書を承認できた: 200
+E       assert 200 in (403, 404)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:299: AssertionError
+__________ TestApproval.test_approver_is_derived_from_token_not_body ___________
+
+self = <test_quality_tenant_isolation.TestApproval object at 0x7ce2438f9190>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_approver_is_derived_from_token_not_body(self, client):
+        """承認者 approved_by は認証済みユーザーでなければならない（否認防止）。"""
+        forged = uuid.UUID("00000000-0000-0000-0000-00000000dead")
+        r = client.post(
+            f"{BASE}/methods/{OWN_METHOD_REVIEW}/approve",
+            json={"approved_by": str(forged)},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+>       assert r.json()["approved_by"] != str(forged), (
+            "リクエストボディの approved_by がそのまま承認者として記録される（承認者偽装）"
+        )
+E       AssertionError: リクエストボディの approved_by がそのまま承認者として記録される（承認者偽装）
+E       assert '00000000-0000-0000-0000-00000000dead' != '00000000-0000-0000-0000-00000000dead'
+E        +  where '00000000-0000-0000-0000-00000000dead' = str(UUID('00000000-0000-0000-0000-00000000dead'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:310: AssertionError
+_ TestCostCalculation.test_actual_quantity_zero_does_not_fall_back_to_planned __
+
+self = <test_quality_tenant_isolation.TestCostCalculation object at 0x7ce2438f97c0>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_actual_quantity_zero_does_not_fall_back_to_planned(self, client):
+        """実績数量 0 は 0 として扱う（planned へのフォールバックは誤り）。"""
+        r = client.put(
+            f"{BASE}/resources/{OWN_RESOURCE}",
+            json={"planned_quantity": "10", "actual_quantity": "0", "unit_cost": "20000"},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        total = r.json()["total_cost"]
+>       assert float(total) == 0.0, f"実績数量0で planned にフォールバックしている: total_cost={total}"
+E       AssertionError: 実績数量0で planned にフォールバックしている: total_cost=200000.00
+E       assert 200000.0 == 0.0
+E        +  where 200000.0 = float('200000.00')
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:329: AssertionError
+______ TestWbsTreeIsolation.test_tree_does_not_include_other_tenant_child ______
+
+self = <test_quality_tenant_isolation.TestWbsTreeIsolation object at 0x7ce2438fa360>
+client = <starlette.testclient.TestClient object at 0x7ce24370f170>
+
+    def test_tree_does_not_include_other_tenant_child(self, client):
+        r = client.get(
+            f"{BASE}/wbs/tree",
+            params={"project_id": str(PROJECT_A)},
+            headers=headers_for_org_a(),
+        )
+        assert r.status_code == 200, r.text
+        flat: list[str] = []
+    
+        def walk(nodes):
+            for n in nodes:
+                flat.append(n["id"])
+                walk(n.get("children") or [])
+    
+        walk(r.json())
+>       assert str(WBS_CHILD_B) not in flat, (
+            "他テナントの WBS 子ノードがツリーに混入している（親子の組織整合が未検証）"
+        )
+E       AssertionError: 他テナントの WBS 子ノードがツリーに混入している（親子の組織整合が未検証）
+E       assert '00000000-0000-0000-0000-0000000a0004' not in ['00000000-0000-0000-0000-0000000a0003', '00000000-0000-0000-0000-0000000a0004']
+E        +  where '00000000-0000-0000-0000-0000000a0004' = str(UUID('00000000-0000-0000-0000-0000000a0004'))
+
+scripts/quality/integration/construction/test_quality_tenant_isolation.py:371: AssertionError
+=============================== warnings summary ===============================
+../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCostCalculation::test_total_cost_is_reproducible
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_resources_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_resources_ignores_foreign_organization_query
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_schedules_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestListTenantIsolation::test_list_methods_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_update_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_delete_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_schedule_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_method_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_resource_cost_summary_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_critical_path_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_gantt_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCreateTenantSpoofing::test_create_resource_cannot_spoof_organization
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestApproval::test_approve_method_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestApproval::test_approver_is_derived_from_token_not_body
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCostCalculation::test_actual_quantity_zero_does_not_fall_back_to_planned
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestWbsTreeIsolation::test_tree_does_not_include_other_tenant_child
+17 failed, 1 passed, 1 warning in 10.35s

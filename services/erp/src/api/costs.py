@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    FINANCE_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
@@ -46,6 +51,7 @@ async def create_cost(
             raise HTTPException(status_code=404, detail="予算項目が見つかりません")
     data = body.model_dump()
     data["organization_id"] = org
+    data["created_by"] = UUID(current_user.sub)
     return await cost_service.create_cost(db, ledger_id, data)
 
 
@@ -98,8 +104,9 @@ async def approve_cost(
     cost = await cost_service.get_cost(db, cost_id, scope_org(current_user))
     if not cost:
         raise HTTPException(status_code=404, detail="原価明細が見つかりません")
+    require_any_role(current_user, FINANCE_ROLES)
     try:
-        return await cost_service.approve_cost(db, cost, body.approved_by)
+        return await cost_service.approve_cost(db, cost, UUID(current_user.sub))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

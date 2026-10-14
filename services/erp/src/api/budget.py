@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    FINANCE_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas.schemas import (
@@ -37,6 +42,7 @@ async def create_budget(
     if ledger.organization_id != org:
         # Only reachable by a cross-org admin: a budget must belong to its ledger's organization
         raise HTTPException(status_code=400, detail="予算項目の組織が工事台帳と一致しません")
+    require_any_role(current_user, FINANCE_ROLES)
     data = body.model_dump()
     data["organization_id"] = org
     return await budget_service.create_budget(db, ledger_id, data)
@@ -67,6 +73,7 @@ async def update_budget(
     budget = await budget_service.get_budget(db, budget_id, scope_org(current_user))
     if not budget:
         raise HTTPException(status_code=404, detail="予算項目が見つかりません")
+    require_any_role(current_user, FINANCE_ROLES)
     return await budget_service.update_budget(
         db, budget, body.model_dump(exclude_none=True)
     )

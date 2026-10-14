@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
     Numeric,
 )
@@ -153,6 +154,12 @@ class Evaluation(Base):
         Index("ix_evaluations_partner_id", "partner_id"),
         Index("ix_evaluations_project_id", "project_id"),
         Index("ix_evaluations_evaluator_id", "evaluator_id"),
+        UniqueConstraint(
+            "partner_id",
+            "project_id",
+            "evaluator_id",
+            name="uq_evaluations_partner_project_evaluator",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

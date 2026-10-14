@@ -169,7 +169,7 @@ export default function FinancePage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+        <div role="alert" aria-live="assertive" className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           {error}
         </div>
       )}

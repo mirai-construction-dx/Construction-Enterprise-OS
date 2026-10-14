@@ -1,0 +1,174 @@
+===== pytest: services/construction =====
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+............................x...x...xxx...........xxxxxxxx.xxxxxxxxx.xxx [ 91%]
+xxx.xxx                                                                  [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+48 passed, 31 xfailed, 1 warning in 5.53s
+===== pytest: services/erp =====
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+.........................................x.x.xx...x.x.x.x..x..x...x.x.x. [ 75%]
+x..x.x.x.x.x.x.x.x.x.x.x                                                 [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+71 passed, 25 xfailed, 1 warning in 5.23s
+===== pytest: services/document =====
+
+tests/test_quality_approval_flow.py::TestUploadValidation::test_oversized_upload_is_rejected_with_413
+tests/test_quality_approval_flow.py::TestUploadValidation::test_version_upload_oversize_is_rejected
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py:345: StarletteDeprecationWarning: 'HTTP_413_REQUEST_ENTITY_TOO_LARGE' is deprecated. Use 'HTTP_413_CONTENT_TOO_LARGE' instead.
+    return await dependant.call(**values)
+
+tests/test_quality_approval_flow.py::TestUploadValidation::test_invalid_document_type_is_rejected_with_422
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/routing.py:345: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    return await dependant.call(**values)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+97 passed, 4 xfailed, 4 warnings in 21.03s
+===== pytest: services/workflow =====
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+......................x................................................. [ 77%]
+.....................                                                    [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+92 passed, 1 xfailed, 1 warning in 4.39s
+===== pytest: services/field-dx =====
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_report_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_quality_accepts_foreign_org_in_body
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_progress_summary_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_quality_stats_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_quality_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_jwt_key_resolution_differs_from_other_services
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_progress_percent_above_100_is_accepted
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_progress_percent_negative_is_accepted
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_progress_percent_is_not_derived_from_quantities
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_quality_conformance_is_client_declared
+FAILED tests/test_quality_units_coordinates.py::TestCalculationAndBoundaryDefects::test_defect_undetermined_quality_check_lowers_conformance_rate
+22 failed, 38 passed, 2 warnings in 4.57s
+===== pytest: services/gis =====
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_infrastructure_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_hazard_zones_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_intersecting_zones_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_hazard_zone_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_hazard_zone_crosses_tenant
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_create_site_accepts_latitude_out_of_range
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_create_site_accepts_longitude_out_of_range
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_create_site_with_incomplete_point_returns_500
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_nearby_radius_has_no_geography_cast
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_inverted_bounding_box_is_accepted
+FAILED tests/test_quality_units_coordinates.py::TestCoordinateAndUnitDefects::test_defect_hazard_zone_risk_order_is_lexical_not_severity
+20 failed, 45 passed, 1 warning in 12.68s
+===== pytest: services/bim =====
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_element_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_list_pointclouds_is_not_tenant_scoped
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_get_pointcloud_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_update_pointcloud_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_delete_pointcloud_crosses_tenant
+FAILED tests/test_quality_tenant_isolation.py::TestTenantIsolationDefects::test_defect_create_pointcloud_accepts_foreign_org_in_body
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_elements_search_route_is_shadowed
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_model_version_is_not_assigned_or_required
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_pointcloud_has_no_version_field
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_pointcloud_has_no_source_model_linkage
+FAILED tests/test_quality_units_coordinates.py::TestVersionAndRoutingDefects::test_defect_pointcloud_has_no_source_provenance_field
+17 failed, 47 passed, 1 warning in 4.13s
+===== pytest: services/ai =====
+
+tests/test_quality_ai_input_boundary.py:246: AssertionError
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_quality_ai_input_boundary.py::TestEmbeddingTenantScope::test_delete_embeddings_is_organization_scoped
+FAILED tests/test_quality_ai_input_boundary.py::TestMaskingBeforeModelSend::test_pii_is_masked_before_sending_to_model
+2 failed, 35 passed, 1 warning in 3.27s
+===== pytest: services/vision =====
+/home/kensan/.local/lib/python3.12/site-packages/pytest_asyncio/plugin.py:247: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the fixture caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to function scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+......................                                                   [100%]
+=============================== warnings summary ===============================
+../../../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+22 passed, 1 warning in 2.67s
+===== integration (real PostgreSQL): 127.0.0.1:55432 =====
+----- integration: construction -----
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_update_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_delete_resource_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_schedule_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestIdTenantIsolation::test_get_method_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_resource_cost_summary_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_critical_path_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestAggregateTenantIsolation::test_gantt_does_not_leak_other_tenant
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCreateTenantSpoofing::test_create_resource_cannot_spoof_organization
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestApproval::test_approve_method_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestCostCalculation::test_actual_quantity_zero_does_not_fall_back_to_planned
+FAILED scripts/quality/integration/construction/test_quality_tenant_isolation.py::TestWbsTreeIsolation::test_tree_does_not_include_other_tenant_child
+16 failed, 2 passed, 1 warning in 9.11s
+----- integration: erp -----
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestLedgerTenantIsolation::test_list_ledgers_ignores_foreign_organization_query
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestLedgerTenantIsolation::test_get_ledger_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_list_costs_of_other_tenant_ledger_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_create_cost_in_other_tenant_ledger_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_update_cost_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_delete_cost_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCostTenantIsolation::test_approve_cost_of_other_tenant_is_blocked
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestInvoiceTenantIsolation::test_list_invoices_does_not_leak_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestInvoiceTenantIsolation::test_get_invoice_by_id_blocks_other_tenant
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestCreationSpoofing::test_create_ledger_cannot_spoof_organization
+FAILED scripts/quality/integration/erp/test_quality_tenant_isolation.py::TestApproverIdentity::test_approver_is_derived_from_token_not_body
+12 failed, 1 passed, 1 warning in 4.73s
+----- integration: workflow -----
+E        +  where 2 = len([200, 200])
+
+scripts/quality/integration/workflow/test_quality_concurrent_approval.py:111: AssertionError
+=============================== warnings summary ===============================
+../../../.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /home/kensan/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED scripts/quality/integration/workflow/test_quality_concurrent_approval.py::test_concurrent_approve_only_one_succeeds
+1 failed, 4 passed, 1 warning in 1.72s
+
+===== サマリ =====
+DEFECT services/construction (passed=48 / 未修正欠陥の証跡=31 — 成功ではない)
+DEFECT services/erp (passed=71 / 未修正欠陥の証跡=25 — 成功ではない)
+DEFECT services/document (passed=97 / 未修正欠陥の証跡=4 — 成功ではない)
+DEFECT services/workflow (passed=92 / 未修正欠陥の証跡=1 — 成功ではない)
+FAIL   services/field-dx (failed=22 passed=38 未修正欠陥の証跡=0)
+FAIL   services/gis (failed=20 passed=45 未修正欠陥の証跡=0)
+FAIL   services/bim (failed=17 passed=47 未修正欠陥の証跡=0)
+FAIL   services/ai (failed=2 passed=35 未修正欠陥の証跡=0)
+PASS   services/vision (passed=22)
+FAIL   integration/construction (failed=16 passed=2 未修正欠陥の証跡=0)
+FAIL   integration/erp (failed=12 passed=1 未修正欠陥の証跡=0)
+FAIL   integration/workflow (failed=1 passed=4 未修正欠陥の証跡=0)
+未修正欠陥の証跡(xfail 合計) = 61 / 未実行(SKIP) = 0
+判定: FAIL（失敗または未実行あり。xfail は欠陥の証跡であり成功ではない）
+exit=1

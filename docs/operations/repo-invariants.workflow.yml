@@ -1,0 +1,63 @@
+# このファイルは「設置待ち」の CI ワークフロー定義である
+#
+# 設置先: `.github/workflows/repo-invariants.yml`
+#
+# なぜここに置いてあるか:
+#   本セッションのハーネスポリシー（Self-Evolution Policy Gate）は
+#   `.github/workflows/**` への AI からの書込を `DEPLOY`（critical）として**常時拒否**する。
+#   CI 定義の変更は高影響であり、AI が単独で設置しないための統制である。
+#   したがって内容をここに確定させ、**オペレーターが次の 1 コマンドで設置する**。
+#
+#   cp docs/operations/repo-invariants.workflow.yml .github/workflows/repo-invariants.yml
+#   git add .github/workflows/repo-invariants.yml
+#   git commit -m "ci: repo-invariants ゲートを追加する"
+#   git push origin <branch>   # 以降は通常の PR フロー
+#
+# 設計: docs/operations/ci-hardening.md
+#   - ローカルの `make repo-invariants`（9 検査）のうち、**依存の軽い 8 検査**を回す。
+#   - **`schema-check` は入れない。** `scripts/db/generate_base_schema.py` は
+#     サービスごとに `sys.executable -c EMITTER` を起動してモデルを import するため、
+#     sqlalchemy と各サービスの依存が必要で、素のランナーでは必ず失敗する。
+#     CI では `python-checks` のマトリクスがサービス単位で担当している
+#     （ci.yml の "Base schema DDL is in sync with models"）。
+#     マトリクスへの登録漏れは `ci-coverage` が検出するので、全サービスの被覆は保たれる。
+#   - 検査は DB・外部サービスへ接続しない静的検査であり、追加の secrets は不要。
+---
+name: Repo invariants
+
+on:
+  push:
+    branches: [main, webui]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: repo-invariants-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  repo-invariants:
+    name: repo-invariants
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # tenant-conformance は各サービスの src.middleware.tenant を import する。
+      # そのため fastapi / PyJWT / pydantic-settings が要る（src/middleware/auth.py と
+      # src/config.py が要求する外部依存の和集合。2026-10-14 実測）。
+      # PyYAML は ci-coverage と health-coverage が使う。
+      - name: Install dependencies
+        run: pip install PyYAML==6.0.2 fastapi PyJWT pydantic-settings
+
+      # session-check / ddl-coverage / ci-coverage / docs-links /
+      # stg-pages-upstream / tenant-conformance / org-query-scoping / health-coverage
+      - name: Repository invariants
+        run: make repo-invariants-ci

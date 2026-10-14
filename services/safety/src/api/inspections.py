@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    INSPECTION_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -15,6 +20,7 @@ from ..schemas import (
     InspectionUpdate,
 )
 from ..services import safety_service
+from ..services.safety_service import InspectionResultReversalError
 
 router = APIRouter()
 
@@ -46,12 +52,13 @@ async def create_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
+    org_id = create_org(current_user, body.organization_id)
     inspection = await safety_service.create_inspection(
         db,
-        organization_id=create_org(current_user, body.organization_id),
+        organization_id=org_id,
         title=body.title,
         inspection_type=body.inspection_type,
-        inspector_id=body.inspector_id,
+        inspector_id=UUID(current_user.sub),
         project_id=body.project_id,
         site_id=body.site_id,
         inspection_date=body.inspection_date,
@@ -123,7 +130,7 @@ async def update_inspection(
         organization_id=scope_org(current_user),
         title=body.title,
         status=body.status,
-        inspector_id=body.inspector_id,
+        inspector_id=UUID(current_user.sub),
         inspection_date=body.inspection_date,
         location=body.location,
         findings=body.findings,
@@ -146,15 +153,23 @@ async def complete_inspection(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    inspection = await safety_service.complete_inspection(
-        db,
-        inspection_id,
-        organization_id=scope_org(current_user),
-        is_safe=body.is_safe,
-        findings=body.findings,
-        corrective_actions=body.corrective_actions,
-        score=body.score,
-    )
+    require_any_role(current_user, INSPECTION_ROLES)
+    try:
+        inspection = await safety_service.complete_inspection(
+            db,
+            inspection_id,
+            is_safe=body.is_safe,
+            actor_id=UUID(current_user.sub),
+            organization_id=scope_org(current_user),
+            findings=body.findings,
+            corrective_actions=body.corrective_actions,
+            score=body.score,
+        )
+    except InspectionResultReversalError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "INVALID_TRANSITION", "message": str(exc)},
+        ) from exc
     if not inspection:
         raise HTTPException(
             status_code=404,

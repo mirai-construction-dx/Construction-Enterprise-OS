@@ -17,7 +17,12 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..models import WorkflowAuditLog
 from ..models.base import get_db
 from ..schemas import (
@@ -47,11 +52,11 @@ from ..jobs.workload_notifications import notify_workload_alerts
 
 router = APIRouter()
 
-MANAGEMENT_ROLES = {"admin", "management"}
+_LEGACY_MANAGEMENT_ROLES = {"admin", "management"}
 
 
 def _require_management(current_user: TokenData) -> None:
-    if not MANAGEMENT_ROLES.intersection(current_user.roles):
+    if not _LEGACY_MANAGEMENT_ROLES.intersection(current_user.roles):
         raise HTTPException(
             status_code=403,
             detail={"code": "FORBIDDEN", "message": "管理部権限が必要です。"},
@@ -363,7 +368,7 @@ async def deactivate_definition(
     current_user: TokenData = Depends(get_current_user),
 ):
     organization_id = _organization_id(current_user)
-    _require_management(current_user)
+    require_any_role(current_user, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
     try:
         definition = await workflow_service.update_definition(
             db, definition_id, organization_id, {"is_active": False}

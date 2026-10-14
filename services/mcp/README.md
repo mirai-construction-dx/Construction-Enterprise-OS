@@ -73,8 +73,19 @@ CEOS が正本を持つ **工程・原価・契約** データを、Model Contex
 
 - `services/construction` と同じ JWT/OIDC パターン。Bearer トークン必須。
 - 欠落・不正・期限切れは `401`、ユーザートークン以外は `403`（ASGI ガードで強制）。
-- 呼び出し元の `Authorization` ヘッダーを上流サービスへそのまま転送し、
-  最終的な認可（組織・案件・ロール）は上流に委ねる。
+- **audience 分離（[ADR-0003](../../docs/architecture/ADR-0003-mcp-audience-token-exchange.md)）**:
+
+  | 受信トークン | `MCP_REQUIRE_AUDIENCE=0`（既定） | `MCP_REQUIRE_AUDIENCE=1` |
+  | --- | --- | --- |
+  | `aud=api://ceos-mcp` | 受理 → auth のトークン交換（RFC 8693）で上流用トークンを取得して上流を呼ぶ | 同左 |
+  | `aud` 無し（従来） | 受理 → そのまま上流へ転送 | `401` |
+  | 別の `aud` | `401` | `401` |
+
+- 交換はクライアント認証（`MCP_EXCHANGE_CLIENT_ID` / `MCP_EXCHANGE_CLIENT_SECRET`）で行い、
+  上流用トークンは `aud` 無し・`act.sub=<client_id>`・既定 5 分。交換の未設定・失敗・到達不能では
+  **上流を呼ばず** `UPSTREAM_AUTH_UNAVAILABLE` で拒否する（fail-closed）。交換は検証をすべて通過した
+  呼び出しでのみ行う。
+- 最終的な認可（組織・案件・ロール）は上流に委ねる。
 
 ## 5. キルスイッチ（fail-closed）
 
@@ -92,7 +103,8 @@ CEOS が正本を持つ **工程・原価・契約** データを、Model Contex
   logger `ceos_mcp.audit` へ INFO で記録する。
 - 応答本文（業務データ）は INFO では記録しない。
 - result_code: `OK` / `SERVER_DISABLED` / `TOOL_NOT_FOUND` / `TOOL_NOT_ALLOWED` /
-  `TOOL_ARGUMENT_INVALID` / `UPSTREAM_ERROR` / `UPSTREAM_UNAVAILABLE` / `INTERNAL_ERROR`。
+  `TOOL_ARGUMENT_INVALID` / `UPSTREAM_AUTH_UNAVAILABLE` / `UPSTREAM_ERROR` / `UPSTREAM_UNAVAILABLE` /
+  `INTERNAL_ERROR`。トークン・クライアント秘密は記録しない。
 
 ## 7. 設定（環境変数）
 
@@ -104,6 +116,11 @@ CEOS が正本を持つ **工程・原価・契約** データを、Model Contex
 | `ERP_SERVICE_URL` | `http://localhost:8020` |
 | `UPSTREAM_TIMEOUT_SECONDS` | `10.0` |
 | `MCP_STATELESS` | `1` |
+| `MCP_AUDIENCE` / `MCP_REQUIRE_AUDIENCE` | `api://ceos-mcp` / `0`（Phase 2 で `1`） |
+| `AUTH_SERVICE_URL` | `http://localhost:8000`（トークン交換先） |
+| `UPSTREAM_EXCHANGE_AUDIENCE` | `urn:ceos:upstream` |
+| `MCP_EXCHANGE_CLIENT_ID` / `MCP_EXCHANGE_CLIENT_SECRET` | 空（**Secrets で注入**。未設定時は `aud` 付きトークンの tools/call を拒否） |
+| `TOKEN_EXCHANGE_TIMEOUT_SECONDS` | `5.0` |
 
 ## 8. 実行と検証
 

@@ -1,0 +1,10 @@
+{
+  "id": "T-d162fceb-8395-4850-a478-454277d2bb07",
+  "subject": "#70: 依存の容易な脆弱性更新",
+  "description": "修正版がある依存（python-dotenv/python-multipart/python-jose/jinja2）を各サービスで更新し、pip-audit の検出を削減する。starlette は FastAPI 追従のため現状維持。feature ブランチ→PR。",
+  "status": "pending",
+  "activeForm": "#70 依存を更新中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

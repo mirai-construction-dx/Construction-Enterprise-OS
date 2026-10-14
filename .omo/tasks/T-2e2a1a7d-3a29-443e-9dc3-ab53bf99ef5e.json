@@ -1,0 +1,10 @@
+{
+  "id": "T-2e2a1a7d-3a29-443e-9dc3-ab53bf99ef5e",
+  "subject": "Run lint, typecheck, test, build and fix",
+  "description": "cd apps/web && pnpm lint && pnpm typecheck && pnpm test && pnpm build. Fix failures until all pass.",
+  "status": "completed",
+  "activeForm": "Running verification commands",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f4317cdeeffeJ6BrcWayvJVuGA"
+}

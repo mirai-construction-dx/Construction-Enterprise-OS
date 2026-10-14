@@ -302,6 +302,28 @@ def test_by_id_other_org_is_404_without_write(mock_jwt, method, path, body):
     db.commit.assert_not_awaited()
 
 
+# ── delete requires management role ──────────────────────────
+
+DELETE_ENDPOINTS = [
+    (f"/api/v1/gis/sites/{RECORD_ID}", _site()),
+    (f"/api/v1/gis/infrastructure/{RECORD_ID}", _infra()),
+    (f"/api/v1/gis/hazard-zones/{RECORD_ID}", _zone()),
+]
+
+
+@patch("src.middleware.auth.jwt")
+@pytest.mark.parametrize(("path", "record"), DELETE_ENDPOINTS)
+def test_delete_requires_management_role(mock_jwt, path, record):
+    """削除は admin / site_manager のみ。非管理ロールは対象が見つかっても 403。"""
+    mock_jwt.decode.return_value = _payload(roles=["site_worker"])
+    client, db = _client(record)
+    resp = client.delete(path, headers=AUTH)
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
+    db.delete.assert_not_awaited()
+    db.flush.assert_not_awaited()
+
+
 # ── create ───────────────────────────────────────────────────
 
 CREATES = [

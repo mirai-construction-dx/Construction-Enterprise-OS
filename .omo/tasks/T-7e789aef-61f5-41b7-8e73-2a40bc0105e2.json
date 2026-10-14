@@ -1,0 +1,10 @@
+{
+  "id": "T-7e789aef-61f5-41b7-8e73-2a40bc0105e2",
+  "subject": "Triage all 64 fetch sites by pattern",
+  "description": "Read every file with raw fetch, classify: simple GET (no auth), GET with authHeaders, POST/PUT/DELETE, multipart/streaming/custom Response. Produce migration plan per site.",
+  "status": "completed",
+  "activeForm": "Triaging fetch sites",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f4317cdeeffeJ6BrcWayvJVuGA"
+}

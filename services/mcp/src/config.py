@@ -6,6 +6,7 @@ MCP サービスは CEOS の工程・原価・契約データを **読み取り�
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,18 @@ class Settings(BaseSettings):
     MCP_SERVER_VERSION: str = "0.1.0"
     MCP_STATELESS: bool = True
 
+    # --- audience 分離とトークン交換（ADR-0003） ---
+    # aud=MCP_AUDIENCE のトークンは受理し、上流呼び出し時に auth で上流用へ交換する。
+    # MCP_REQUIRE_AUDIENCE=1 で aud 無し（従来）のトークンを拒否する（Phase 2）。
+    MCP_AUDIENCE: str = "api://ceos-mcp"
+    MCP_REQUIRE_AUDIENCE: bool = False
+    AUTH_SERVICE_URL: str = "http://localhost:8000"
+    UPSTREAM_EXCHANGE_AUDIENCE: str = "urn:ceos:upstream"
+    # クライアント資格情報は Secrets で注入する（ログ・応答へ出さない）
+    MCP_EXCHANGE_CLIENT_ID: str = ""
+    MCP_EXCHANGE_CLIENT_SECRET: SecretStr = SecretStr("")
+    TOKEN_EXCHANGE_TIMEOUT_SECONDS: float = 5.0
+
     # --- 上流 CEOS サービス ---
     CONSTRUCTION_SERVICE_URL: str = "http://localhost:8016"
     ERP_SERVICE_URL: str = "http://localhost:8020"
@@ -46,6 +59,14 @@ class Settings(BaseSettings):
         if self.JWT_PUBLIC_KEY:
             return self.JWT_PUBLIC_KEY
         return "dev-only-do-not-use-in-production"
+
+    @property
+    def token_exchange_configured(self) -> bool:
+        """上流用トークン交換のクライアント資格情報が設定されているか。"""
+        return bool(
+            self.MCP_EXCHANGE_CLIENT_ID
+            and self.MCP_EXCHANGE_CLIENT_SECRET.get_secret_value()
+        )
 
     @property
     def mcp_enabled(self) -> bool:

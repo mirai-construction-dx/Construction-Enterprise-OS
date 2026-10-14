@@ -1,0 +1,45 @@
+# Construction-Enterprise-OS — staging (stg) スタック
+#
+# 設計: docs/architecture/ADR-0005-staging-environment.md §1
+#   stg は「本ホストの systemd 管理下の compose スタック」である。
+#   2026-10-14 実測: 実体が scripts/stg/up.sh（手動起動）だけだったため unit を用意した。
+#
+# 設置（正本はこのファイル。手で /etc を編集しない）:
+#   sudo install -m 644 infra/systemd/ceos-stg.service /etc/systemd/system/ceos-stg.service
+#   sudo systemctl daemon-reload
+#
+# 起動: systemctl start ceos-stg      （scripts/stg/up.sh --no-wait を実行する）
+# 停止: systemctl stop ceos-stg       （scripts/stg/down.sh。ボリュームは保持）
+# 状態: systemctl status ceos-stg ／ scripts/stg/status.sh
+#
+# 注意（enable は保留）:
+#   `systemctl enable` していない。ホスト再起動時に stg の DB クラスタ
+#   `postgresql@18-infra_stg.service` が起動しない設定（UnitFileState=disabled。
+#   Mirai-Platform-Infra の未決 B-2）であり、先にスタックだけを自動起動すると
+#   起動時に失敗する。B-2 の決定後に enable するかを決める。
+#   そのため DB クラスタには Requires を付けず、順序（After）だけを指定する。
+#   DB が停止していれば up.sh が前提確認で非ゼロ終了し、systemd が failed として記録する
+#   （黙って起動したふりをしない）。
+
+[Unit]
+Description=Construction-Enterprise-OS staging stack (docker compose)
+Documentation=file:///home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/docs/operations/staging.md
+After=network-online.target docker.service postgresql@18-infra_stg.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=kensan
+Group=kensan
+# up.sh は ${HOME}/.config/ceos/stg.env を読むため HOME を明示する。
+Environment=HOME=/home/kensan
+WorkingDirectory=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS
+ExecStart=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/scripts/stg/up.sh --no-wait
+ExecStop=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/scripts/stg/down.sh
+TimeoutStartSec=900
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,29 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
+# 危険予知の語彙。リポジトリ内に正式な定義資料が無いため、実装と既存テスト
+# （tests/test_safety.py の reported→assessed→mitigated→closed）で使われている値から
+# 暫定の許可リストを構成する。**正式な語彙は人の確認が必要**。
+HAZARD_SEVERITIES = frozenset({"minor", "moderate", "severe", "catastrophic"})
+HAZARD_RISK_LEVELS = frozenset({"low", "medium", "high", "critical"})
+HAZARD_STATUSES = frozenset(
+    {"reported", "assessed", "in_progress", "mitigated", "resolved", "closed"}
+)
+# 終端状態。ここから差し戻す更新は拒否する（是正完了記録の取消を防ぐ）。
+HAZARD_TERMINAL_STATUSES = frozenset({"closed"})
+
+
+class HazardTransitionError(ValueError):
+    """許可されない状態遷移。"""
+
+
+class InspectionResultReversalError(ValueError):
+    """確定済み巡視の合否を巻き戻す再完了。"""
+
+
+INSPECTION_TERMINAL_STATUSES = frozenset({"passed", "failed"})
+
+
 # ═══════════════════════════════════════════════════════
 # Inspections
 # ═══════════════════════════════════════════════════════
@@ -121,19 +144,39 @@ async def complete_inspection(
     db: AsyncSession,
     inspection_id: UUID,
     is_safe: bool,
+    actor_id: UUID | None = None,
+    organization_id: UUID | None = None,
     findings: str | None = None,
     corrective_actions: str | None = None,
     score: int | None = None,
-    organization_id: UUID | None = None,
 ) -> SafetyInspection | None:
     inspection = await get_inspection_by_id(db, inspection_id, organization_id)
     if not inspection:
         return None
+    # 確定済みの合否を反転させる再完了は拒否する（是正記録の否認不能性を守る）。
+    # 同一結果での再送は冪等に受理し、未指定の項目は既存値を保持する。
+    if (
+        inspection.status in INSPECTION_TERMINAL_STATUSES
+        and inspection.is_safe is not None
+        and inspection.is_safe != is_safe
+    ):
+        raise InspectionResultReversalError(
+            f"inspection {inspection_id} is already finalized as "
+            f"{'passed' if inspection.is_safe else 'failed'}"
+        )
     inspection.is_safe = is_safe
     inspection.status = "passed" if is_safe else "failed"
-    inspection.findings = findings
-    inspection.corrective_actions = corrective_actions
-    inspection.score = score
+    if findings is not None:
+        inspection.findings = findings
+    if corrective_actions is not None:
+        inspection.corrective_actions = corrective_actions
+    if score is not None:
+        inspection.score = score
+    # 実行者と実施日の証跡を残す（ボディの値ではなくトークンの sub を使う）
+    if actor_id is not None:
+        inspection.inspector_id = actor_id
+    if inspection.inspection_date is None:
+        inspection.inspection_date = _utcnow().date()
     inspection.updated_at = _utcnow()
     await db.flush()
     return inspection
@@ -255,10 +298,13 @@ async def get_hazard_by_id(
 async def get_open_hazards(
     db: AsyncSession, organization_id: UUID | None = None
 ) -> list[HazardReport]:
-    stmt = select(HazardReport).where(HazardReport.status.notin_(["closed"]))
+    stmt = (
+        select(HazardReport)
+        .where(HazardReport.status.notin_(["resolved", "closed"]))
+        .order_by(HazardReport.created_at.desc())
+    )
     if organization_id is not None:
         stmt = stmt.where(HazardReport.organization_id == organization_id)
-    stmt = stmt.order_by(HazardReport.created_at.desc())
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
@@ -283,8 +329,12 @@ async def update_hazard(
     if description is not None:
         hazard.description = description
     if status is not None:
+        if hazard.status in HAZARD_TERMINAL_STATUSES and status != hazard.status:
+            raise HazardTransitionError(
+                f"status '{hazard.status}' is terminal; cannot transition to '{status}'"
+            )
         hazard.status = status
-        if status == "closed":
+        if status in ("resolved", "closed"):
             hazard.resolved_at = _utcnow()
     if risk_level is not None:
         hazard.risk_level = risk_level

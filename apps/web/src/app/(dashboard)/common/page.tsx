@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { get, ApiError } from "@/lib/api-client";
+import { normalizeServices, type ServiceHealth } from "@/lib/service-health";
 
 const CATEGORIES = [
   {
@@ -92,13 +93,6 @@ const COLOR_MAP: Record<string, { bg: string; icon: string; btn: string }> = {
   },
 };
 
-type ServiceStatus = {
-  name: string;
-  status: string;
-  latency?: string;
-  version?: string;
-};
-
 const SERVICES_DISPLAY = [
   {
     name: "PostgreSQL",
@@ -122,7 +116,7 @@ const SERVICES_DISPLAY = [
 ];
 
 export default function CommonPage() {
-  const [services, setServices] = useState<ServiceStatus[]>([]);
+  const [services, setServices] = useState<ServiceHealth[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -133,18 +127,10 @@ export default function CommonPage() {
         services?: Record<string, unknown>[];
         data?: Record<string, unknown>[];
       }>("/health/services");
-      const rawServices: Record<string, unknown>[] =
-        json?.services ?? json?.data ?? [];
-      setServices(
-        Array.isArray(rawServices)
-          ? rawServices.map((s: Record<string, unknown>) => ({
-              name: String(s.name ?? ""),
-              status: String(s.status ?? "operational"),
-              latency: s.latency ? String(s.latency) : undefined,
-              version: s.version ? String(s.version) : undefined,
-            }))
-          : [],
-      );
+      // 語彙の写像とレイテンシの取り出しは lib/service-health.ts が持つ
+      // （テストで固定してある。page.tsx に直書きしていた頃に
+      //  "healthy" を「警告」と表示する食い違いが残っていた）。
+      setServices(normalizeServices(json));
       setError(null);
     } catch (err) {
       setError(
@@ -204,7 +190,7 @@ export default function CommonPage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-700">
+        <div role="alert" aria-live="assertive" className="rounded-xl border border-danger-500/30 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           {error}
         </div>
       )}
@@ -229,7 +215,15 @@ export default function CommonPage() {
           {services.map((svc) => {
             const display = getServiceDisplay(svc.name);
             const type = display?.type ?? "";
-            const latency = svc.latency ?? display?.latency ?? "";
+            // レイテンシは API の**実測値だけ**を出す。
+            // 2026-10-14 実測: API のフィールド名は latency_ms だが、以前は latency を
+            // 読んでいたため常に空だった（レイテンシが一度も表示されていなかった）。
+            // 下の display?.latency へのフォールバックは、SERVICES_DISPLAY の名前
+            // （PostgreSQL 等）が API のサービス名（auth 等）と一致しないため
+            // 実際には効いていない（残置のモック）。
+            const latency = svc.latency ?? "";
+            // 語彙の写像は lib/service-health.ts が持つ（テストで固定）。
+            const health = svc.level;
             return (
               <div
                 key={svc.name}
@@ -237,7 +231,7 @@ export default function CommonPage() {
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-2 h-2 rounded-full ${svc.status === "running" || svc.status === "operational" ? "bg-green-500" : "bg-yellow-500"}`}
+                    className={`w-2 h-2 rounded-full ${health === "healthy" ? "bg-green-500" : health === "degraded" ? "bg-yellow-500" : "bg-danger-500"}`}
                   />
                   <span className="text-sm font-medium text-gray-900">
                     {svc.name}
@@ -250,13 +244,17 @@ export default function CommonPage() {
                       レイテンシ: {latency}
                     </span>
                   )}
-                  {svc.status === "running" || svc.status === "operational" ? (
+                  {health === "healthy" ? (
                     <span className="flex items-center gap-1 text-green-700 text-xs font-medium">
                       <CheckCircle className="w-4 h-4" /> 正常稼働
                     </span>
-                  ) : (
+                  ) : health === "degraded" ? (
                     <span className="flex items-center gap-1 text-yellow-700 text-xs font-medium">
                       <AlertTriangle className="w-4 h-4" /> 警告
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-danger-700 text-xs font-medium">
+                      <AlertTriangle className="w-4 h-4" /> 停止
                     </span>
                   )}
                 </div>

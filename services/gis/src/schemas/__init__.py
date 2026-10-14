@@ -4,9 +4,57 @@ from datetime import date, datetime
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 T = TypeVar("T")
+
+# ============================================
+# GeoJSON 座標検証（WGS84 / EPSG:4326 前提）
+# ============================================
+_SUPPORTED_GEOMETRY_TYPES = {"Point", "Polygon", "LineString", "MultiPoint"}
+_LON_MIN, _LON_MAX = -180.0, 180.0
+_LAT_MIN, _LAT_MAX = -90.0, 90.0
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _validate_position(pos: Any) -> None:
+    """GeoJSON 座標要素 [経度, 緯度] を検証する（WGS84 範囲）。"""
+    if not isinstance(pos, (list, tuple)) or len(pos) < 2:
+        raise ValueError("GeoJSON 座標は [経度, 緯度] の2要素が必要です。")
+    lng, lat = pos[0], pos[1]
+    if not _is_number(lng):
+        raise ValueError("経度は数値である必要があります。")
+    if not _is_number(lat):
+        raise ValueError("緯度は数値である必要があります。")
+    if lng < _LON_MIN or lng > _LON_MAX:
+        raise ValueError("経度は -180 から 180 の範囲である必要があります。")
+    if lat < _LAT_MIN or lat > _LAT_MAX:
+        raise ValueError("緯度は -90 から 90 の範囲である必要があります。")
+
+
+def _validate_geometry_coordinates(geom_type: str, coordinates: Any) -> None:
+    """既知のジオメトリ型について座標範囲を検証する。"""
+    if geom_type not in _SUPPORTED_GEOMETRY_TYPES:
+        # 未知の型は geojson_to_wkt 側で拒否する（スキーマでは通過させる）。
+        return
+    if geom_type == "Point":
+        _validate_position(coordinates)
+    elif geom_type in ("LineString", "MultiPoint"):
+        if not isinstance(coordinates, (list, tuple)):
+            raise ValueError("LineString/MultiPoint の coordinates は座標列である必要があります。")
+        for pos in coordinates:
+            _validate_position(pos)
+    elif geom_type == "Polygon":
+        if not isinstance(coordinates, (list, tuple)):
+            raise ValueError("Polygon の coordinates はリングの列である必要があります。")
+        for ring in coordinates:
+            if not isinstance(ring, (list, tuple)):
+                raise ValueError("Polygon のリングは座標列である必要があります。")
+            for pos in ring:
+                _validate_position(pos)
 
 
 # ============================================
@@ -38,6 +86,11 @@ class MetaInfo(BaseModel):
 class GeoJSONGeometry(BaseModel):
     type: str  # Point / Polygon / LineString / MultiPoint
     coordinates: Any  # 型はジオメトリによって異なる
+
+    @model_validator(mode="after")
+    def _validate_coordinates(self) -> "GeoJSONGeometry":
+        _validate_geometry_coordinates(self.type, self.coordinates)
+        return self
 
 
 # ============================================

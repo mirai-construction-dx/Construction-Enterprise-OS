@@ -1,0 +1,10 @@
+{
+  "id": "T-6cd61252-5e4b-4384-b7d6-4fba85c4ac78",
+  "subject": "バッチ2: WBS の案件・組織認可",
+  "description": "construction WBS API に organization_id/project 所属の照合を追加。クライアント指定の organization_id を信用しない。テスト追加。feature ブランチ→PR。",
+  "status": "pending",
+  "activeForm": "WBS認可を実装中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

@@ -4,10 +4,16 @@ from math import ceil
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from geoalchemy2 import Geography
+from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models import ConstructionSite
 from ..models.base import get_db
@@ -174,13 +180,13 @@ async def find_nearby_sites(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """指定座標から半径radius_m以内の現場を検索 (ST_DWithin)"""
+    """指定座標から半径radius_m以内の現場を検索 (ST_DWithin / geography)"""
     org = scope_org(token_data, organization_id)
     point_wkt = f"SRID=4326;POINT({lng} {lat})"
     query = select(ConstructionSite).where(
         func.ST_DWithin(
-            ConstructionSite.location,
-            func.ST_GeomFromText(point_wkt),
+            cast(ConstructionSite.location, Geography(srid=4326)),
+            cast(func.ST_GeomFromText(point_wkt), Geography(srid=4326)),
             radius_m,
         )
     )
@@ -206,6 +212,15 @@ async def find_sites_in_area(
     db: AsyncSession = Depends(get_db),
 ):
     """バウンディングボックス内の現場を検索 (ST_Intersects)"""
+    if min_lat > max_lat or min_lng > max_lng:
+        # 逆転した bbox は自己交差 POLYGON となり検索結果が不定になるため拒否する。
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "code": "INVALID_BBOX",
+                "message": "min は max 以下である必要があります。",
+            },
+        )
     org = scope_org(token_data, organization_id)
     bbox_wkt = (
         f"SRID=4326;POLYGON(({min_lng} {min_lat}, {max_lng} {min_lat}, "
@@ -287,6 +302,7 @@ async def delete_site(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "NOT_FOUND", "message": "工事現場が見つかりません。"},
         )
+    require_any_role(token_data, MANAGEMENT_ROLES)
     await db.delete(site)
     await db.flush()
     return _api_response(data={"deleted": True})

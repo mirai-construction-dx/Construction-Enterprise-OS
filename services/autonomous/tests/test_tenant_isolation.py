@@ -429,6 +429,32 @@ def test_admin_by_id_is_not_org_filtered(
     assert spy.await_args.kwargs["organization_id"] is None
 
 
+# ── delete role enforcement (RBAC) ───────────────────────────
+
+# (method, path, router module, service function)
+DELETE_PATHS = [
+    ("delete", f"/agents/{RID}", "agents", "delete_agent"),
+    ("delete", f"/digital-twins/{RID}", "digital_twins", "delete_twin"),
+    ("delete", f"/simulations/{RID}", "simulations", "delete_simulation"),
+    ("delete", f"/operations/{RID}", "operations", "delete_operation"),
+    ("delete", f"/marine-robots/{RID}", "marine_robots", "delete_marine_robot"),
+]
+
+
+@pytest.mark.parametrize(("method", "path", "module", "fn"), DELETE_PATHS)
+def test_delete_requires_management_role(monkeypatch, method, path, module, fn):
+    """削除は admin / site_manager のみ（RBAC ロールモデル）。非管理ロールは 403。"""
+    spy = _spy(monkeypatch, module, fn, True)
+    client, db = make_client(make_user(roles=["site_supervisor"]))
+
+    resp = _call(client, method, path, None)
+
+    assert resp.status_code == 403
+    assert detail_code(resp) == "FORBIDDEN"
+    spy.assert_not_awaited()
+    db.execute.assert_not_awaited()
+
+
 def test_same_org_emergency_stop_still_works(monkeypatch):
     from .tenant_support import record
 

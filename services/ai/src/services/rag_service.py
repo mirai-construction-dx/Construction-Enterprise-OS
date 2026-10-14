@@ -91,10 +91,15 @@ class RAGService:
             temperature = temperature if temperature is not None else 0.7
             max_tokens = max_tokens or 2000
 
-        from jinja2 import Template
-        user_prompt = Template(user_template).render(
-            query=query, chunks=context_chunks
-        )
+        from .prompt_service import render_user_template
+
+        try:
+            user_prompt = render_user_template(
+                user_template, {"query": query, "chunks": context_chunks}
+            )
+        except ValueError:
+            logger.exception("RAG テンプレートの評価に失敗しました")
+            user_prompt = user_template
 
         messages = [
             {"role": "system", "content": system_prompt},

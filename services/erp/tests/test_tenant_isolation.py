@@ -527,6 +527,7 @@ def test_admin_nested_create_must_match_ledger_org():
 
 
 def test_approve_does_not_update_other_org_budget_or_ledger():
+    # D9: 他テナントの予算を参照した原価の承認は拒否され、予算・台帳へ実績は加算されない。
     cost = CostItem(
         id=uuid.uuid4(),
         organization_id=ORG_A,
@@ -559,7 +560,7 @@ def test_approve_does_not_update_other_org_budget_or_ledger():
         f"{BASE}/costs/{cost.id}/approve", json={"approved_by": str(uuid.uuid4())}
     )
 
-    assert resp.status_code == 200
-    assert cost.status == "approved"
+    assert resp.status_code in (400, 422)
+    assert cost.status == "pending"  # 拒否され、承認されない
     assert float(foreign_budget.actual_amount) == 0
     assert float(foreign_ledger.actual_cost) == 0

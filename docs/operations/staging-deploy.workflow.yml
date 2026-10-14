@@ -1,0 +1,183 @@
+# このファイルは「設置待ち」の CI ワークフロー定義である
+#
+# 設置先: `.github/workflows/staging-deploy.yml`
+#
+# なぜここに置いてあるか:
+#   本セッションのハーネスポリシー（Self-Evolution Policy Gate）は
+#   `.github/workflows/**` への書き込みを `DEPLOY`（critical）として**常時拒否**する。
+#   CI 定義の変更は高影響であり、AI が単独で設置しないための統制である。
+#   したがって内容をここに確定させ、**オペレーターが次の 1 コマンドで設置する**。
+#
+#   cp docs/operations/staging-deploy.workflow.yml .github/workflows/staging-deploy.yml
+#   git add .github/workflows/staging-deploy.yml
+#   git commit -m "ci(stg): staging への自動デプロイを追加する"
+#   git push origin <branch>   # 以降は通常の PR フロー（Required Checks PASS 後に squash 自動マージ）
+#
+# 設計: docs/architecture/ADR-0005-staging-environment.md §4
+#   - main へ入った内容を stg へ反映する。人の承認は要らない。
+#   - **prod への反映は含めない**（MCDX-ADR-0004 決定 4 の Human Gate）。
+#   - 前提（DNS + Access）が未整備の間は fail closed で何もデプロイしない。
+#     保護されていない stg URL を公開しないため（ADR-0005 §3）。
+#   - **stg から prod へ越境させない。** 共有ソース `webui/functions` は本番 API を
+#     向いているので、`STG_API_UPSTREAM` へ描画し直してから配る（staging.md §6.5）。
+#     検査: `make stg-pages-upstream`（`scripts/stg/check_pages_upstream.py`）。
+---
+name: Staging Deploy (stg)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'webui/**'
+      - 'apps/web/**'
+      - 'services/**'
+      - 'packages/**'
+      - 'docker-compose.stg.yml'
+      - 'scripts/stg/**'
+      - '.github/workflows/staging-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  STG_HOST: construction-os-stg.mirai-dx-platform.com
+  # stg の API 入口。**本番 API を指してはならない**（ADR-0005 §3 / staging.md §8-5）。
+  # 家族パターン: `<name>-stg-api.mirai-dx-platform.com`。
+  # 共有ソース `webui/functions` は本番 API を向いているため、デプロイ時に
+  # `scripts/stg/render_pages_functions.py` でこの値へ描画し直す。
+  # 背景（2026-10-14 実測の越境欠陥）: docs/operations/staging.md §6.5
+  STG_API_UPSTREAM: https://construction-os-stg-api.mirai-dx-platform.com
+
+jobs:
+  # ============================================================
+  # 前提検査（fail closed）
+  # ============================================================
+  preflight:
+    name: stg preflight (DNS + Access)
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Staging の公開入口が保護されているか確認する
+        id: check
+        run: |
+          set -uo pipefail
+          echo "対象: https://${STG_HOST}/"
+
+          # 1) DNS が解決するか
+          if ! getent hosts "${STG_HOST}" >/dev/null 2>&1; then
+            echo "::error::DNS が未設定: ${STG_HOST} が解決しない。"
+            echo "  CNAME construction-os-stg -> construction-os-stg.pages.dev (proxied) を作成すること。"
+            echo "  手順: docs/operations/staging.md §6.1"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "OK: DNS が解決する"
+
+          # 2) Cloudflare Access が未認証を遮断しているか（302 でログインへ飛ぶ）
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://${STG_HOST}/" || echo 000)"
+          echo "HTTP status (未認証): ${code}"
+          if [ "$code" != "302" ]; then
+            echo "::error::${STG_HOST} が Access で保護されていない（302 ではなく ${code}）。"
+            echo "  保護されていない staging を公開しない（ADR-0005 §3）。"
+            echo "  Access アプリの policy を確認すること: docs/operations/staging.md §6"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "OK: Access が未認証を遮断している"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+  # ============================================================
+  # WebUI を Cloudflare Pages へデプロイ
+  # ============================================================
+  deploy-pages:
+    name: deploy webui to Pages (construction-os-stg)
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+
+      - name: Install wrangler
+        run: npm i -g wrangler@4
+
+      - name: Prepare deploy directory
+        run: |
+          mkdir -p .deploy-webui
+          cp "webui/Construction-Enterprise-OS---CRUD.html" .deploy-webui/index.html
+          cp "webui/Construction-Enterprise-OS---Standalone-_1_.html" ".deploy-webui/standalone-prototype.html"
+          cp webui/brand-spec.md webui/DESIGN-HANDOFF.md webui/DESIGN-MANIFEST.json .deploy-webui/
+          cp webui/index.html .deploy-webui/management-review-deck.html
+          # functions/ は**そのままコピーしない**。共有ソースは本番 API
+          # (construction-os-api.mirai-dx-platform.com) を向いており、そのまま配ると
+          # stg の画面が本番 API を叩く（2026-10-14 実測の越境欠陥）。
+          # STG_API_UPSTREAM へ描画し直し、本番ホストの残存があれば非ゼロで停止する。
+          python3 scripts/stg/render_pages_functions.py \
+            --src webui/functions \
+            --dst .deploy-webui/functions \
+            --upstream "$STG_API_UPSTREAM"
+          # stg であることを画面上・機械的に取り違えないためのマーカー（prod には入れない）
+          printf 'STAGING\n' > .deploy-webui/STAGING
+          ls -la .deploy-webui/
+
+      - name: stg 成果物に本番の入口が無いことを確認する
+        run: |
+          set -uo pipefail
+          if grep -rn -e 'construction-os-api\.mirai-dx-platform\.com' \
+                       -e 'construction-os-mvp\?\.mirai-dx-platform\.com' .deploy-webui/ ; then
+            echo "::error::stg の成果物に本番の入口が残っている（stg から prod へ越境する）。"
+            exit 1
+          fi
+          echo "OK: 本番の入口は 0 件"
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: .deploy-webui
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: wrangler pages deploy . --project-name construction-os-stg --branch main
+
+  # ============================================================
+  # デプロイ後のスモーク
+  # ============================================================
+  smoke:
+    name: stg smoke
+    needs: [preflight, deploy-pages]
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 公開入口が Access で保護されたままか確認する
+        run: |
+          set -uo pipefail
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://${STG_HOST}/" || echo 000)"
+          echo "HTTP status: ${code}"
+          if [ "$code" != "302" ]; then
+            echo "::error::デプロイ後に Access の遮断が外れた（status=${code}）。"
+            exit 1
+          fi
+
+      - name: stg のデプロイが存在することを確認する
+        run: |
+          set -uo pipefail
+          # pages.dev は**既定では** Access の対象にならない（「Enable access policy」が
+          # 守るのはプレビューのみ。実測 2026-10-14）。ただし Cloudflare の Known issues には
+          # `*.pages.dev` を Access で守る手順が記載されている（staging.md §6.7）。
+          # ここでは「デプロイが存在すること」だけを見る。
+          code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 \
+            "https://construction-os-stg.pages.dev/STAGING" || echo 000)"
+          echo "pages.dev /STAGING status: ${code}"
+          if [ "$code" != "200" ]; then
+            echo "::error::stg のデプロイが確認できない（status=${code}）。"
+            exit 1
+          fi

@@ -290,7 +290,10 @@ def _call(client, method, path, body):
 @pytest.mark.parametrize(("method", "path", "body", "code"), BY_ID_CASES)
 def test_by_id_other_org_is_not_found_and_not_written(method, path, body, code):
     # The org-scoped lookup finds nothing for a record owned by ORG_B.
-    client, db = _client(_user(), None)
+    # 削除（DELETE）は admin/site_manager ロールを要求するため、ロール検査を
+    # 通過しつつ組織スコープ（非横断）を維持する site_manager を使う。
+    roles = ["site_manager"] if method == "delete" else None
+    client, db = _client(_user(roles=roles), None)
     resp = _call(client, method, path, body)
     assert resp.status_code == 404
     assert resp.json()["detail"]["code"] == code
@@ -308,6 +311,22 @@ def test_by_id_fails_closed_without_valid_org(method, path, body, _nf, org, code
     resp = _call(client, method, path, body)
     assert resp.status_code == 403
     assert resp.json()["detail"]["code"] == code
+    db.execute.assert_not_awaited()
+    _assert_no_write(db)
+
+
+# ── delete requires management role ─────────────────────────
+
+DELETE_PATHS = ["rules", "tasks", "triggers"]
+
+
+@pytest.mark.parametrize("resource", DELETE_PATHS)
+def test_delete_requires_management_role(resource):
+    """削除（DELETE）は admin/site_manager ロールを要求する（fail-closed）。"""
+    client, db = _client(_user())  # roles=["member"]（非管理ロール）
+    resp = client.delete(f"{BASE}/{resource}/{uuid.uuid4()}")
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
     db.execute.assert_not_awaited()
     _assert_no_write(db)
 
