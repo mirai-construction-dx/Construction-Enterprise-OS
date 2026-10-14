@@ -10,6 +10,7 @@
   G-6  stg compose が開発用 postgres / timescaledb を起動しない。
   G-7  全サービスが ENVIRONMENT != development/test で開発用既定鍵を拒否する（guard が残っている）。
   G-8  dev(compose) の ENVIRONMENT が staging へ書き換わっていない（stg が dev を汚染していない）。
+  G-9  stg compose に**可変タグ**（`:latest` など）のイメージが無い（再現性。2026-10-14 追加）。
 
 `SKIP` を作らない。判定できないものは FAIL として報告する（AGENTS.md「未確認を成功と書かない」）。
 
@@ -158,6 +159,36 @@ def check_service_guards() -> None:
     )
 
 
+def check_no_mutable_tags(stg: dict) -> None:
+    """stg compose のイメージが可変タグ（:latest など）を指していないか。
+
+    なぜ必要か（2026-10-14 実測）:
+        `minio/minio:latest` が dev と stg の両方にあり、stg はそれを配っていた。
+        `latest` は再現しない。**同じ手順で作り直しても別の環境になる**ため、
+        「staging で検証した」という記録の意味が失われる。
+        （稼働していた実体は RELEASE.2025-09-07T16-13-09Z だった。）
+
+    何を可変とみなすか:
+        `latest` / タグ無し。`redis:7-alpine` のようなバージョンタグは可変ではあるが、
+         digest 固定は release 工程（IMAGE_DIGESTS）の領分であり、ここでは要求しない。
+    """
+    mutable: list[str] = []
+    for name, service in sorted(stg["services"].items()):
+        image = service.get("image")
+        if not image:
+            continue  # ローカルビルド（build:）はタグを持たない
+        tag = image.rsplit("/", 1)[-1]
+        if ":" not in tag or tag.endswith(":latest"):
+            mutable.append(f"{name}={image}")
+    record(
+        "G-9 no mutable image tags",
+        not mutable,
+        f"{len(stg['services'])} サービスのうち最新タグ 0 件"
+        if not mutable
+        else f"可変タグ: {mutable}",
+    )
+
+
 def check_dev_not_polluted() -> None:
     base = yaml.safe_load(BASE_COMPOSE.read_text(encoding="utf-8"))
     environments = {
@@ -188,6 +219,7 @@ def main() -> int:
         check_database_target(stg)
         check_replaced_services_absent(stg)
         check_service_guards()
+        check_no_mutable_tags(stg)
         check_dev_not_polluted()
 
     failed = 0

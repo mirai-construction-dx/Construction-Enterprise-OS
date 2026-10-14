@@ -157,7 +157,12 @@ services:
       - construction-net
 
   minio:
-    image: minio/minio:latest
+    # 2026-10-14: `latest` をやめた。可変タグは再現性を壊す（同じ手順で作り直しても
+    # 別の環境になる）。staging は同じイメージを配っていたため、stg の検証記録の意味が
+    # 失われる。稼働していた実体のバージョンをタグにした（挙動は変わらない）。
+    # 実体の digest: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # 検査: scripts/stg/check_staging_guards.py の G-9
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: construction-os-minio
     command: server /data --console-address ":9001"
     environment:
