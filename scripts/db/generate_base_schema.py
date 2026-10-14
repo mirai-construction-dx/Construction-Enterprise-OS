@@ -29,6 +29,10 @@ TARGETS = [
     "autonomous",
     "bim",
     "construction",
+    # 2026-10-14: erp は models に MetaData(schema="erp") を持つのに TARGETS から漏れており、
+    # migrations/000_base_schema.sql が一度も生成されていなかった（stg で
+    # UndefinedTableError: erp.project_ledger が実測された）。
+    "erp",
     "field-dx",
     "gis",
     "iot",
