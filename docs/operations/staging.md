@@ -100,6 +100,7 @@ scripts/stg/e2e_stg.sh            # API の Playwright E2E を stg に向けて�
 scripts/stg/rollback_drill.sh     # 停止→復帰のロールバック訓練
 scripts/stg/e2e_webui_stg.sh     # stg が配る WebUI 成果物をローカルで E2E
 python3 scripts/stg/gen_release_manifest.py --check   # release 前提の充足状況
+scripts/stg/status.sh            # 状態の要約（異常があれば非ゼロ終了）
 scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
@@ -190,6 +191,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | WebUI 成果物の E2E | 完了 | `scripts/stg/e2e_webui_stg.sh` — Pages が配る単一 HTML をPages と同じ SPA フォールバックでローカル配信し、`mvp.spec.ts` + `crud.spec.ts` が **34 passed / 6 skipped / 0 failed**。**デプロイ前に成果物を検証する**経路になった（従来は本番 URL 直叩き） |
 | release マニフェスト | **NOT_READY（5 件）** | `gen_release_manifest.py --check` — RELEASE_TAG / SEMVER / ATTESTATION_WORKFLOW / IMAGE_DIGESTS / ITSM_CHANGE が未充足。`CORE_VERSION` と `DEPLOY_HOSTS` は充足。**創作せずに停止する**（Release は Human Gate） |
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
+| 状態監視 | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
 | Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / allow 1 件のみ・`bypass` 0 件） |
