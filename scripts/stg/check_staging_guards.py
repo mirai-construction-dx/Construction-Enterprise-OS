@@ -13,6 +13,7 @@
   G-9  stg compose に**可変タグ**（`:latest` など）のイメージが無い（再現性。2026-10-14 追加）。
   G-10 stg compose の**全サービスに再起動方針**がある（長時間動く環境。2026-10-14 追加）。
   G-11 上流の**名前解決を DNS に依存させていない**（静的 IP ＋ gateway の extra_hosts。2026-10-14 追加）。
+  G-12 訓練スクリプトに**実行記録**がある（reports/staging/。2026-10-14 追加）。
 
 `SKIP` を作らない。判定できないものは FAIL として報告する（AGENTS.md「未確認を成功と書かない」）。
 
@@ -292,6 +293,40 @@ def check_static_ip_and_hosts(stg: dict) -> None:
     )
 
 
+def check_drill_records() -> None:
+    """訓練スクリプトに**実行記録**があるか。
+
+    なぜ必要か（2026-10-14 の実測）:
+        `docs/operations/staging.md` は「ロールバックは訓練する。実行記録は
+        `reports/staging/rollback-YYYYMMDD.md` に残す」と定めていたが、
+        **`reports/staging/` は一度も作られておらず、記録は 1 件も無かった**。
+        訓練は実行されていた（§6 の表が実測を引用している）のに、証跡が残っていない。
+        文書に書いてあるだけの運用は守られないので、機械的に検査する。
+
+    規則:
+        `scripts/stg/<name>_drill.sh` に対して
+        `reports/staging/<name の _ を - にしたもの>-*.md` が 1 件以上あること。
+    """
+    drill_dir = ROOT / "scripts" / "stg"
+    record_dir = ROOT / "reports" / "staging"
+    drills = sorted(drill_dir.glob("*_drill.sh"))
+    if not drills:
+        record("G-12 drill records", False, "訓練スクリプトが 1 つも無い（検査が空回りしている）")
+        return
+    missing: list[str] = []
+    for path in drills:
+        prefix = path.stem.replace("_drill", "").replace("_", "-")
+        if not sorted(record_dir.glob(f"{prefix}-*.md")):
+            missing.append(f"{path.name} → reports/staging/{prefix}-*.md")
+    record(
+        "G-12 drill records",
+        not missing,
+        f"{len(drills)} 本の訓練すべてに実行記録がある"
+        if not missing
+        else f"記録が無い訓練: {missing}（文書が定めた証跡が残っていない）",
+    )
+
+
 def check_dev_not_polluted() -> None:
     base = yaml.safe_load(BASE_COMPOSE.read_text(encoding="utf-8"))
     environments = {
@@ -325,6 +360,7 @@ def main() -> int:
         check_no_mutable_tags(stg)
         check_restart_policy(stg)
         check_static_ip_and_hosts(stg)
+        check_drill_records()
         check_dev_not_polluted()
 
     failed = 0
