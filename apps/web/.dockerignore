@@ -1,0 +1,22 @@
+# ローカルの node_modules / ビルド成果物をビルドコンテキストへ入れない。
+# 2026-10-14: これが無いとホストの node_modules が混入し、`COPY . .` が
+# "cannot replace to directory .../node_modules/@types/node with file" で失敗する。
+# また .next を入れるとビルダーステージの `npm run build` と競合する。
+node_modules
+.next
+out
+dist
+build
+.turbo
+npm-debug.log*
+yarn-error.log*
+.pnpm-store
+.git
+.gitignore
+Dockerfile
+.dockerignore
+*.log
+*.tsbuildinfo
+coverage
+test-results
+playwright-report
