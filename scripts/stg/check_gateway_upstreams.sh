@@ -107,6 +107,10 @@ VERIFIED=(
   "/api/v1/health/services"
   "/api/v1/users"
   "/api/v1/roles"
+  # erp は 2026-10-14 まで models が metadata に登録されず基盤 DDL が存在しなかった。
+  # 生成器の TARGETS 漏れと空の models/__init__.py を修正したので回帰検査に入れる。
+  "/api/v1/erp/ledger/summary"
+  "/api/v1/erp/invoices"
   "/api/v1/documents"
   "/api/v1/workflow/definitions"
   "/api/v1/gis/sites"
