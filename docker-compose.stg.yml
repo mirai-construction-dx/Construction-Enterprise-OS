@@ -1,0 +1,1218 @@
+# ==============================================================================
+# Construction-Enterprise-OS — STAGING (stg) stack
+#
+# このファイルは生成物である。直接編集しない。
+#   生成: python3 scripts/stg/render_stg_compose.py
+#   検証: python3 scripts/stg/render_stg_compose.py --check
+#   起動: scripts/stg/up.sh
+#   設計: docs/architecture/ADR-0005-staging-environment.md / docs/operations/staging.md
+#
+# 方針:
+#   - system of record はホスト PostgreSQL 18 クラスタ `18/infra_stg`（localhost:55438）。
+#     開発用 postgres / timescaledb コンテナは stg では起動しない。
+#   - 公開ポートはすべて 127.0.0.1:19xxx。LAN へ開かない。外部公開は Cloudflare のみ。
+#   - ENVIRONMENT=staging（development/test 以外）なので開発用既定鍵では起動しない。
+# ==============================================================================
+name: ceos-stg
+services:
+  db-bridge:
+    image: alpine/socat@sha256:a6be4c0262b339c53ddad723cdd178a1a13271e1137c65e27f90a08c16de02b8
+    container_name: ceos-stg-db-bridge
+    network_mode: host
+    restart: unless-stopped
+    command:
+    - TCP-LISTEN:55438,bind=10.201.0.1,fork,reuseaddr
+    - TCP:127.0.0.1:55438
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - nc -w 3 127.0.0.1 55438 </dev/null
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+  redis:
+    image: redis:7-alpine
+    container_name: ceos-stg-redis
+    command: redis-server --appendonly yes
+    ports:
+    - 127.0.0.1:19540:6379
+    volumes:
+    - redisdata:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+    - construction-net
+    environment:
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ceos-stg-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19541:5672
+    - 127.0.0.1:19542:15672
+    volumes:
+    - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test:
+      - CMD
+      - rabbitmq-diagnostics
+      - ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+    - construction-net
+  elasticsearch:
+    image: elasticsearch:8.14.0
+    container_name: ceos-stg-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19544:9200
+    volumes:
+    - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -sf http://localhost:9200/_cluster/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+    - construction-net
+  kibana:
+    image: kibana:8.14.0
+    container_name: ceos-stg-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19545:5601
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+    - construction-net
+  minio:
+    image: minio/minio:latest
+    container_name: ceos-stg-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19546:9000
+    - 127.0.0.1:19547:9001
+    volumes:
+    - miniodata:/data
+    healthcheck:
+      test:
+      - CMD
+      - mc
+      - ready
+      - local
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+    - construction-net
+  kafka:
+    image: bitnamilegacy/kafka:3.7
+    container_name: ceos-stg-kafka
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19543:9092
+    volumes:
+    - kafkadata:/bitnami/kafka
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+    - construction-net
+  gateway:
+    build:
+      context: ./services/gateway
+    restart: unless-stopped
+    networks: &id001
+    - construction-net
+    container_name: ceos-stg-gateway
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      GATEWAY_PORT: 9000
+      UPSTREAM_SERVICES: "{\"^/api/v1/health\": \"http://auth:8000\",\n \"^/api/v1/auth\": \"http://auth:8000\",\n \"^/api/v1/users\"\
+        : \"http://auth:8000\",\n \"^/api/v1/roles\": \"http://auth:8000\",\n \"^/api/v1/permissions\": \"http://auth:8000\"\
+        ,\n \"^/api/v1/api-clients\": \"http://auth:8000\",\n \"^/api/v1/audit-logs\": \"http://auth:8000\",\n \"^/api/v1/documents\"\
+        : \"http://document:8000\",\n \"^/api/v1/cases\": \"http://workflow:8000\",\n \"^/api/v1/workflow\": \"http://workflow:8000\"\
+        ,\n \"^/api/v1/gis\": \"http://gis:8000\",\n \"^/api/v1/iot\": \"http://iot:8000\",\n \"^/api/v1/ai\": \"http://ai:8000\"\
+        ,\n \"^/api/v1/construction\": \"http://construction:8000\",\n \"^/api/v1/analytics\": \"http://analytics:8000\",\n\
+        \ \"^/api/v1/integrations\": \"http://platform:8000\",\n \"^/api/v1/erp\": \"http://erp:8000\",\n \"^/api/v1/safety\"\
+        : \"http://safety:8000\",\n \"^/api/v1/bim\": \"http://bim:8000\",\n \"^/api/v1/notification\": \"http://notification:8000\"\
+        ,\n \"^/api/v1/partner\": \"http://partner:8000\",\n \"^/api/v1/automation\": \"http://automation:8000\",\n \"^/api/v1/autonomous\"\
+        : \"http://autonomous:8000\",\n \"^/api/v1/vision\": \"http://vision:8000\",\n \"^/api/v1/ocr(?:/|$$)\": \"http://vision:8000\"\
+        ,\n \"^/api/v1/vectors(?:/|$$)\": \"http://vision:8000\",\n \"^/api/v1/advanced\": \"http://advanced:8000\",\n \"\
+        ^/api/v1/field\": \"http://field-dx:8000\",\n \"^/api/v1/maintenance\": \"http://maintenance:8000\",\n \"^/api/v1/security\"\
+        : \"http://security:8000\"}"
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19500:9000
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:9000/health')
+  auth:
+    build:
+      context: ./services/auth
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-auth
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      HEALTH_SERVICE_URLS: '{"document":"http://document:8000/health","workflow":"http://workflow:8000/health","notification":"http://notification:8000/health"}'
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19501:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  security:
+    build:
+      context: ./services/security
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-security
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19521:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  notification:
+    build:
+      context: ./services/notification
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-notification
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      NEO_ENABLED: ${NEO_ENABLED:-false}
+      NEO_API_URL: ${NEO_API_URL:-}
+      NEO_API_KEY: ${NEO_API_KEY:-}
+      NEO_TIMEOUT_SECONDS: ${NEO_TIMEOUT_SECONDS:-5}
+      NEO_WEBHOOK_SECRET: ${NEO_WEBHOOK_SECRET:-}
+      WORKFLOW_SERVICE_URL: http://workflow:8000
+      WORKFLOW_INTERNAL_JOB_API_KEY: ${WORKFLOW_INTERNAL_JOB_API_KEY:-}
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19517:8000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  document:
+    build:
+      context: ./services/document
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-document
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      CANONICAL_STORAGE_ROOT: /var/lib/construction-os/canonical
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      ONEDRIVE_ENABLED: ${ONEDRIVE_ENABLED:-false}
+      ONEDRIVE_TENANT_ID: ${ONEDRIVE_TENANT_ID:-}
+      ONEDRIVE_CLIENT_ID: ${ONEDRIVE_CLIENT_ID:-}
+      ONEDRIVE_CLIENT_SECRET: ${ONEDRIVE_CLIENT_SECRET:-}
+      ONEDRIVE_DRIVE_ID: ${ONEDRIVE_DRIVE_ID:-}
+      ONEDRIVE_ROOT_PATH: ${ONEDRIVE_ROOT_PATH:-Mirai-Site-Admin-Workflow}
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    volumes:
+    - document-canonical:/var/lib/construction-os/canonical
+    ports:
+    - 127.0.0.1:19502:8000
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  gis:
+    build:
+      context: ./services/gis
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-gis
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19504:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  iot:
+    build:
+      context: ./services/iot
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-iot
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19505:8000
+    depends_on:
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  ai:
+    build:
+      context: ./services/ai
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-ai
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19506:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  bim:
+    build:
+      context: ./services/bim
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-bim
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19508:8000
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  analytics:
+    build:
+      context: ./services/analytics
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-analytics
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19514:8000
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  vision:
+    build:
+      context: ./services/vision
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-vision
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19511:8000
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  workflow:
+    build:
+      context: ./services/workflow
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-workflow
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      NOTIFICATION_SERVICE_URL: http://notification:8000
+      NOTIFICATION_INTERNAL_API_KEY: ${NOTIFICATION_INTERNAL_API_KEY:-}
+      AUTH_SERVICE_URL: http://auth:8000
+      AUTH_INTERNAL_API_KEY: ${AUTH_INTERNAL_API_KEY:-}
+      INTERNAL_JOB_API_KEY: ${WORKFLOW_INTERNAL_JOB_API_KEY:-}
+      DOCUMENT_SERVICE_URL: http://document:8000
+      DOCUMENT_INTERNAL_API_KEY: ${DOCUMENT_INTERNAL_API_KEY:-}
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19503:8000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  platform:
+    build:
+      context: ./services/platform
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-platform
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19512:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  partner:
+    build:
+      context: ./services/partner
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-partner
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19518:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  automation:
+    build:
+      context: ./services/automation
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-automation
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19515:8000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  construction:
+    build:
+      context: ./services/construction
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-construction
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19516:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  erp:
+    build:
+      context: ./services/erp
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-erp
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19520:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  safety:
+    build:
+      context: ./services/safety
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-safety
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19519:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  field-dx:
+    build:
+      context: ./services/field-dx
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-field-dx
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19507:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  maintenance:
+    build:
+      context: ./services/maintenance
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-maintenance
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19509:8000
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  autonomous:
+    build:
+      context: ./services/autonomous
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-autonomous
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19510:8000
+    depends_on:
+      kafka:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  advanced:
+    build:
+      context: ./services/advanced
+    restart: unless-stopped
+    networks: *id001
+    container_name: ceos-stg-advanced
+    environment:
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19513:8000
+    depends_on:
+      ai:
+        condition: service_started
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/health')
+  web:
+    build:
+      context: ./apps/web
+    container_name: ceos-stg-web
+    environment:
+      API_GATEWAY: http://gateway:9000
+      NEXT_TELEMETRY_DISABLED: 1
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19530:3000
+    depends_on:
+    - gateway
+    restart: unless-stopped
+    networks:
+    - construction-net
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - -e
+      - 'require(''http'').get(''http://localhost:3000'', r => process.exit(r.statusCode === 200 ? 0 : 1))'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+  mobile:
+    build:
+      context: ./apps/mobile
+    container_name: ceos-stg-mobile
+    environment:
+      API_GATEWAY: http://gateway:9000
+      NEXT_TELEMETRY_DISABLED: 1
+      ENVIRONMENT: staging
+      DEBUG: 'false'
+      DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
+      JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
+      JWT_PRIVATE_KEY: ${STG_JWT_PRIVATE_KEY:?set STG_JWT_PRIVATE_KEY (see .env.stg.example)}
+      JWT_SECRET_KEY: ${STG_JWT_SECRET_KEY:?set STG_JWT_SECRET_KEY (see .env.stg.example)}
+      INTERNAL_API_KEY: ${STG_INTERNAL_API_KEY:-}
+      RABBITMQ_URL: ${STG_RABBITMQ_URL:-amqp://ceos_stg:${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${STG_RABBITMQ_DEFAULT_USER:-ceos_stg}
+      RABBITMQ_DEFAULT_PASS: ${STG_RABBITMQ_DEFAULT_PASS:?set STG_RABBITMQ_DEFAULT_PASS}
+      MINIO_ROOT_USER: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_ROOT_PASSWORD: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+      MINIO_ACCESS_KEY: ${STG_MINIO_ROOT_USER:-ceos_stg}
+      MINIO_SECRET_KEY: ${STG_MINIO_ROOT_PASSWORD:?set STG_MINIO_ROOT_PASSWORD}
+    ports:
+    - 127.0.0.1:19531:3101
+    depends_on:
+    - gateway
+    restart: unless-stopped
+    networks:
+    - construction-net
+    healthcheck:
+      test:
+      - CMD
+      - node
+      - -e
+      - 'require(''http'').get(''http://localhost:3101'', r => process.exit(r.statusCode === 200 ? 0 : 1))'
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+networks:
+  construction-net:
+    driver: bridge
+    ipam:
+      config:
+      - subnet: 10.201.0.0/24
+        gateway: 10.201.0.1
+volumes:
+  redisdata: null
+  rabbitdata: null
+  esdata: null
+  miniodata: null
+  kafkadata: null
+  document-canonical: null

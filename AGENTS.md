@@ -30,6 +30,13 @@ scripts/quality/run_quality_tests.sh --integration # 実 PostgreSQL 統合のみ
 # モデルとマイグレーション DDL の乖離検出（CI で必須）
 python3 scripts/db/generate_base_schema.py --check <service>
 
+# Staging (stg) — 本番前の検証環境。設計は docs/operations/staging.md
+scripts/stg/up.sh                             # 起動（ホスト PostgreSQL 18 / ceos_stg を使う）
+scripts/stg/smoke.sh                          # スモークテスト
+scripts/stg/down.sh                           # 停止
+python3 scripts/stg/check_staging_guards.py   # stg の統制検査（dev ポート露出・既定鍵の混入など）
+python3 scripts/stg/render_stg_compose.py     # docker-compose.stg.yml を再生成（手編集しない）
+
 # サービス横断の不変条件（matrix では検出できない「気付かず緑」を防ぐ）
 make repo-invariants    # = schema-check（対象漏れ検出） + session-check（セッション確定）
 python3 scripts/db/check_session_lifecycle.py   # get_db の commit 欠落＝書込み消失を検出
