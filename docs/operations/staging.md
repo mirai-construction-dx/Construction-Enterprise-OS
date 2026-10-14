@@ -208,6 +208,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **状態監視（常設）** | 完了 | 上記は「誰かが叩いたときだけ」走っており、**timer は 1 つも無かった**（2026-10-14 実測: `systemctl list-timers --all \| grep -i ceos` → 0 件）。`scripts/stg/monitor.sh` と `infra/systemd/ceos-stg-status.{service,timer}` を追加し、5 分ごとに検査するようにした。§6.6 |
 | **監視の通知経路** | 口を用意（送信先は未設定） | 失敗は journald と systemd の `failed` に残るだけで**誰にも届かなかった**。`CEOS_STG_ALERT_WEBHOOK` があれば初回と 1 時間ごとに POST し、無ければその事実をログに明示する。**現時点で送信先は未設定**である。§6.11 |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
+| **集約ヘルスの網羅** | 完了（欠陥を検出して修正） | `GET /api/v1/health/services` は **3 件しか見ていなかった**のに「全サービス healthy」と表示されていた（21 上流のうち 17 は対象外）。stg で `vision` を止めても `overall: healthy` のままだった。全上流（20 ＋ auth 自身 = 21）へ広げ、`scripts/ci/check_health_coverage.py`（`make health-coverage`）で網羅を検査する。§6.12 |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
 | **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → スコープ確認（B-5 / B-5b / B-5c）→ SQL で 1 行だけ削除。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
@@ -708,6 +709,66 @@ curl: (7) Failed to connect        # プロキシを使わないと初めて失�
   journald と `status.log` に残るだけで、人へは届かない。
   上の手順で送信先を設定すれば機能する（本番の webhook はこの環境から検証していない）。
 - 通知の宛先・文面・エスカレーションは**運用の設計判断**であり、ここでは口を用意しただけである。
+
+### 6.12 集約ヘルスが「全サービス」と言いながら 3 件しか見ていなかった
+
+`GET /api/v1/health/services`（auth サービス）は `HEALTH_SERVICE_URLS` に並べた先だけを
+プローブし、その範囲で `overall` を返す。2026-10-14 の実測では、その中身は
+**3 件（document / workflow / notification）だけ**で、**ゲートウェイの上流 21 件のうち
+17 件を見ていなかった**。
+
+にもかかわらず:
+
+| 提示していたもの | 記述 |
+|---|---|
+| `docs/operations/deployment.md` | 「✅ **全サービス** healthy(auth 12ms 等)」 |
+| `docs/operations/api-auth-db-verification.md` | 「✅ **全サービス** healthy」 |
+| `apps/web` のダッシュボード（`common/page.tsx`） | この endpoint を表示する |
+
+——と、**「全サービス」として提示されていた**。見ていないサービスが落ちても
+`overall: healthy` のままなので、**緑を見て安心する**構造になっていた
+（§6.10「落ちても誰も起こさない」の裏返しで、「落ちても緑に見える」）。
+
+**実測（stg）**:
+
+| 操作 | 修正前 | 修正後 |
+|---|---|---|
+| `vision` を停止する | `overall: healthy` のまま（vision は対象外） | `overall: **unhealthy**` / `vision: unhealthy (2024ms)` |
+| 復旧する | — | `overall: healthy` に戻る |
+
+対策:
+
+1. `docker-compose.yml` の `auth.HEALTH_SERVICE_URLS` を **3 件 → 20 件**
+   （ゲートウェイの全上流から `auth` 自身を除いたもの）へ広げた。
+   `auth` 自身は従来どおり DB 到達性で判定する。
+2. `scripts/ci/check_health_coverage.py` を追加し、**ゲートウェイの上流と
+   ヘルス対象の差**を機械的に検査する（`make health-coverage` /
+   `make repo-invariants`）。上流に無いホストの混入（残骸）も検出する。
+3. 古い検証記録には「当時プローブしていた範囲の結論である」注記を付けた
+   （記録を書き換えず、誤読を防ぐ）。
+
+実測（2026-10-14）:
+
+```
+$ curl -sS http://127.0.0.1:19500/api/v1/health/services
+overall: healthy / サービス数: 21
+名前: auth, advanced, ai, analytics, automation, autonomous, bim, construction,
+      document, erp, field-dx, gis, iot, maintenance, notification, partner,
+      platform, safety, security, vision, workflow
+
+$ python3 scripts/ci/check_health_coverage.py
+C-1 ゲートウェイの上流: 21 件 / C-2 auth が実際に叩く先: 20 件
+C-3 見ていない上流: 0 件 / C-4 上流に無いホスト: 0 件
+OK: ゲートウェイの全上流を網羅している（20 + 自身 = 21 サービス）
+```
+
+変異試験: `vision` を一覧から落とすと C-3 が `['vision']` を名指しして非ゼロ終了、
+上流に無い `retired` を混ぜると C-4 が検出する。復元後に md5 一致を確認済み。
+
+限界: この endpoint が見るのは**各サービスの `/health`（DB 到達性）だけ**である
+（スキーマの有無・依存先の状態・非同期処理の滞留は対象外。`health-checks.md` 参照）。
+全上流を 2 秒タイムアウトで並列にプローブするため、**多数が停止しているときは
+応答に約 2 秒かかる**（実測: 1 件停止で 2024ms）。
 
 ## 7. ロールバック
 

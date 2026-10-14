@@ -14,7 +14,7 @@
 #   git push origin <branch>   # 以降は通常の PR フロー
 #
 # 設計: docs/operations/ci-hardening.md
-#   - ローカルの `make repo-invariants`（8 検査）のうち、**依存の軽い 7 検査**を回す。
+#   - ローカルの `make repo-invariants`（9 検査）のうち、**依存の軽い 8 検査**を回す。
 #   - **`schema-check` は入れない。** `scripts/db/generate_base_schema.py` は
 #     サービスごとに `sys.executable -c EMITTER` を起動してモデルを import するため、
 #     sqlalchemy と各サービスの依存が必要で、素のランナーでは必ず失敗する。
@@ -53,11 +53,11 @@ jobs:
       # tenant-conformance は各サービスの src.middleware.tenant を import する。
       # そのため fastapi / PyJWT / pydantic-settings が要る（src/middleware/auth.py と
       # src/config.py が要求する外部依存の和集合。2026-10-14 実測）。
-      # PyYAML は ci-coverage が使う。
+      # PyYAML は ci-coverage と health-coverage が使う。
       - name: Install dependencies
         run: pip install PyYAML==6.0.2 fastapi PyJWT pydantic-settings
 
       # session-check / ddl-coverage / ci-coverage / docs-links /
-      # stg-pages-upstream / tenant-conformance / org-query-scoping
+      # stg-pages-upstream / tenant-conformance / org-query-scoping / health-coverage
       - name: Repository invariants
         run: make repo-invariants-ci
