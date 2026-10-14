@@ -14,7 +14,7 @@
 #   git push origin <branch>   # 以降は通常の PR フロー
 #
 # 設計: docs/operations/ci-hardening.md
-#   - ローカルの `make repo-invariants`（7 検査）のうち、**依存の軽い 6 検査**を回す。
+#   - ローカルの `make repo-invariants`（8 検査）のうち、**依存の軽い 7 検査**を回す。
 #   - **`schema-check` は入れない。** `scripts/db/generate_base_schema.py` は
 #     サービスごとに `sys.executable -c EMITTER` を起動してモデルを import するため、
 #     sqlalchemy と各サービスの依存が必要で、素のランナーでは必ず失敗する。
@@ -58,6 +58,6 @@ jobs:
         run: pip install PyYAML==6.0.2 fastapi PyJWT pydantic-settings
 
       # session-check / ddl-coverage / ci-coverage / docs-links /
-      # stg-pages-upstream / tenant-conformance
+      # stg-pages-upstream / tenant-conformance / org-query-scoping
       - name: Repository invariants
         run: make repo-invariants-ci

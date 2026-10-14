@@ -10,7 +10,7 @@
 
 `.github/workflows/` の 3 ワークフローは **`make` を一切呼んでいない**
 （2026-10-14 実測: `grep -rn "make " .github/workflows/*.yml` → 0 件）。
-そのため `make repo-invariants` の 6 検査は**ローカルでしか回っていない**。
+そのため `make repo-invariants` の 8 検査は**ローカルでしか回っていない**。
 人が実行し忘れれば「気付かず緑」のまま main へ入る。
 
 | 検査 | CI での被覆（2026-10-14 実測） |
@@ -22,13 +22,15 @@
 | `docs-links` | **無し**（追跡下 Markdown の相対リンク。2026-10-14 に 24 件のリンク切れを検出した） |
 | `stg-pages-upstream` | **無し**（stg の Pages が本番 API を向いていないか。2026-10-14 に越境欠陥を検出した） |
 | `tenant-conformance` | **無し**（18 サービスに複製された `tenant.py` が同じ分離の振る舞いをするか。2026-10-14 追加） |
+| `org-query-scoping` | **無し**（67 のエンドポイントがクエリの `organization_id` をテナントヘルパに通しているか。AST で検査。2026-10-14 追加） |
 
 ## CI に入れるもの / 入れないもの
 
-**入れる: 依存の軽い 6 検査**（`make repo-invariants-ci`）
+**入れる: 依存の軽い 7 検査**（`make repo-invariants-ci`）
 
 ```
-session-check / ddl-coverage / ci-coverage / docs-links / stg-pages-upstream / tenant-conformance
+session-check / ddl-coverage / ci-coverage / docs-links / stg-pages-upstream /
+tenant-conformance / org-query-scoping
 ```
 
 必要な追加依存は **PyYAML**（`ci-coverage`）、**fastapi / PyJWT / pydantic-settings**
@@ -89,14 +91,15 @@ CI ジョブが失敗していた**。
 
 ## 参考
 
-- ローカル実行（DB が要る 7 検査）: `env -u DATABASE_URL make repo-invariants`
+- ローカル実行（DB が要る 8 検査）: `env -u DATABASE_URL make repo-invariants`
   - 環境に他システムの `DATABASE_URL` があると `schema-check` が落ちる。
     `scripts/db/check_target_db.py` が DB 操作系のターゲットを守るが、
     `schema-check` 自体は環境の URL を読むため `env -u DATABASE_URL` を付ける。
-- ローカル実行（依存の軽い 6 検査）: `make repo-invariants-ci`
+- ローカル実行（依存の軽い 7 検査）: `make repo-invariants-ci`
 - 検出器: `scripts/db/check_session_lifecycle.py` /
   `scripts/db/check_service_ddl_coverage.py` / `scripts/ci/check_coverage.py` /
   `scripts/docs/check_links.py` / `scripts/stg/check_pages_upstream.py` /
-  `scripts/security/check_tenant_helper_conformance.py`
+  `scripts/security/check_tenant_helper_conformance.py` /
+  `scripts/security/check_org_query_scoping.py`
 - 品質テストランナー: `scripts/quality/run_quality_tests.sh`
   （各サービスの `tests/` に `test_quality_*.py` が含まれるため、`pytest tests/` で既に実行される）
