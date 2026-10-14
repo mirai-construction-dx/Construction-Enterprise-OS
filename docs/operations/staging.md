@@ -188,7 +188,8 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | 項目 | 状態 | 根拠 |
 |---|---|---|
 | stg 設計の正本 | 完了 | `docs/architecture/ADR-0005-staging-environment.md` |
-| stg compose 生成と統制検査 | 完了 | `scripts/stg/check_staging_guards.py` 9/9 PASS |
+| stg compose 生成と統制検査 | 完了 | `scripts/stg/check_staging_guards.py` **10/10 PASS**（G-9 を追加。§6.9） |
+| **イメージの再現性** | 完了（欠陥を検出して修正） | `minio/minio:latest` を dev と stg が配っていた。**可変タグは再現性を壊す**（同じ手順で作り直しても別の環境になる）。稼働していた実体（`RELEASE.2025-09-07T16-13-09Z`）に固定し、G-9 で可変タグを禁止した。§6.9 |
 | ホスト PG18 `ceos_stg` | 完了 | 20 サービススキーマ / 93 テーブルを作成（`migrate_stg.sh` 全 22 SQL + auth/workflow の alembic が成功） |
 | postgis / pgvector | 完了 | `postgresql-18-postgis-3` / `postgresql-18-pgvector` を導入し `ceos_stg` へ CREATE EXTENSION（`roles.yaml` の宣言と一致した） |
 | db-bridge（loopback 転送） | 完了 | `10.201.0.1:55438` LISTEN / health healthy |
@@ -553,6 +554,52 @@ Q-3 陽性対照＝正しい使用を誤検出しない）。
 限界: 見るのは**クエリ引数**だけである。リクエスト**本文**の `organization_id`
 （`body.organization_id`）は属性アクセスであり、正当な読み出し（レスポンス整形・
 保存値の参照）と区別が難しいため対象外にした。
+
+### 6.9 イメージの再現性（可変タグの排除）
+
+2026-10-14 の実測で、`docker-compose.yml`（正本）と `docker-compose.stg.yml`（生成物）の
+両方に **`minio/minio:latest`** があった。`latest` は**可変**であり、
+**同じ手順で作り直しても別の環境になる**。staging の役割は
+「本番前に同じものをもう一度試すこと」であるため、これは目的そのものを損なう。
+
+実測（2026-10-14）:
+
+| 項目 | 値 |
+|---|---|
+| stg compose のイメージ指定 | 7 件（`db-bridge` は digest 固定、他はバージョンタグ、`minio` だけ `latest`） |
+| 稼働していた MinIO の実体 | `minio/minio:latest` → `minio version RELEASE.2025-09-07T16-13-09Z (commit-id=07c3a429…)` |
+| その RepoDigest | `minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e` |
+
+対策:
+
+1. `docker-compose.yml` の `minio` を**稼働していた実体のバージョン**
+   （`minio/minio:RELEASE.2025-09-07T16-13-09Z`）へ固定した。**挙動は変わらない**
+   （付与したタグが稼働中イメージと同じ ID であることを実測して確認）。
+2. `scripts/stg/check_staging_guards.py` に **G-9**（可変タグの禁止）を追加した。
+
+再作成の実測（固定が「見た目だけ」でないことの確認）:
+
+```
+$ scripts/stg/compose.sh up -d minio
+ Container ceos-stg-minio  Recreated / Started
+$ docker ps --filter name=ceos-stg-minio
+ ceos-stg-minio  minio/minio:RELEASE.2025-09-07T16-13-09Z  Up (healthy)
+$ scripts/stg/status.sh
+ OK: 32 コンテナ / スモーク 12/12 / 22 schemas / 98 tables / pgBackRest ok   # exit 0
+```
+
+負の対照: `docker-compose.yml` を `:latest` に戻して再生成すると
+**`FAIL: G-9 … 可変タグ: ['minio=minio/minio:latest']`** で非ゼロ終了する。
+
+限界（正直な記録）:
+
+- G-9 が禁じるのは `latest` とタグ無しだけである。`redis:7-alpine` のような
+  **バージョンタグも可変**だが、digest 固定は release 工程（マニフェストの
+  `IMAGE_DIGESTS` = 未充足）の領分であり、ここでは要求していない。
+  現時点で digest 固定なのは `db-bridge`（`alpine/socat@sha256:…`）のみ。
+- 本環境からは Docker レジストリへ到達できず（`pull access denied`）、
+  固定タグが上流に存在することを**ここでは検証していない**。
+  ホストには同一イメージへ付けたタグがあるため再作成は成立する。
 
 ## 7. ロールバック
 
