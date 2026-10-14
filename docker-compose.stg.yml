@@ -155,6 +155,14 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -s -f http://localhost:5601/api/status >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
     networks:
     - construction-net
   minio:
