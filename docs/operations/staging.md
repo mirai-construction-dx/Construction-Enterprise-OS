@@ -210,6 +210,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **集約ヘルスの網羅** | 完了（欠陥を検出して修正） | `GET /api/v1/health/services` は **3 件しか見ていなかった**のに「全サービス healthy」と表示されていた（21 上流のうち 17 は対象外）。stg で `vision` を止めても `overall: healthy` のままだった。全上流（20 ＋ auth 自身 = 21）へ広げ、`scripts/ci/check_health_coverage.py`（`make health-coverage`）で網羅を検査する。§6.12 |
 | **ダッシュボードの状態表示** | 完了（欠陥を検出して修正） | 画面は `"running"` / `"operational"` だけを正常として扱っていたため、API が返す `"healthy"` が**「警告」と黄色**で表示されていた。レイテンシも API の `latency_ms` ではなく存在しない `latency` を読んでいたため**一度も表示されていなかった**。写像を `lib/service-health.ts` へ切り出して 12 テストで固定した。§6.13 |
+| **上流 1 サービスの停止** | 実測（課題を 1 件記録） | `vision` 停止中も `gis` は 22ms で応答し、**巻き込みは無い**（良好）。ただし**停止した上流への要求は 502 を返すまで 16.1 秒**かかる。原因は HTTP タイムアウトではなく**名前解決**（停止したコンテナは Docker DNS が答えられず外部リゾルバへ転送されて約 16 秒でタイムアウトする）。`UPSTREAM_TIMEOUT_SECONDS`（本ラウンドで設定化）を 5 秒にしても 16 秒は変わらないことを実測。対策案 3 つを記録し、実施は次ラウンド以降とした。§6.14 |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
 | **業務 API の往復** | 完了 | `scripts/stg/check_business_roundtrip.py` — 管理ユーザでログインし、`POST /api/v1/erp/ledger` で合成台帳を作成 → 読み戻し → 集計反映 → スコープ確認（B-5 / B-5b / B-5c）→ SQL で 1 行だけ削除。再実行しても残留行 0 件。**これまで業務サービスへの書込みは一度も通っていなかった** |
@@ -813,6 +814,56 @@ $ 変異試験: toHealthLevel から "healthy" の判定を外す（旧実装へ
   別の情報源が要る（この endpoint はアプリケーションサービスしか返さない）。
 - 画面の**実描画**（ブラウザ）では確認していない。確認したのは
   「API の応答」「写像の単体テスト」「型・lint・テスト」までである。
+
+### 6.14 上流 1 サービスの停止（縮退の実測）
+
+`scripts/stg/failure_drill.sh` は **DB 到達不能**（`db-bridge` 断）だけを扱っていた。
+上流の**業務サービスが 1 つ落ちた**ときの挙動を実測した（2026-10-14）。
+
+| 観点 | 実測 | 判定 |
+|---|---|---|
+| 巻き込み（カスケード） | `vision` 停止中も `gis` のルートは **22ms で応答** | **良好**。ゲートウェイは上流 1 つの停止に巻き込まれない |
+| ゲートウェイ自身 | `/health` は 200 のまま | 良好 |
+| 検知 | 集約ヘルスが `overall: unhealthy` / `vision: unhealthy (2024ms)` | 良好（§6.12 の修正後） |
+| **停止した上流への応答** | **16.1 秒待って 502**（`BAD_GATEWAY`） | **課題**（下記） |
+| 復旧 | `start` で 22ms 応答に戻り、集約ヘルスも `healthy` に復帰 | 良好 |
+
+#### 16 秒の正体は HTTP タイムアウトではない（DNS である）
+
+ゲートウェイの上流タイムアウトは `ProxyService` の既定値 **30.0 秒にハードコード**され、
+環境ごとに変えられなかった（テスト名は `uses configured timeout` と言っていたが、
+実際は既定値を書いているだけで `settings` を変えても追随しなかった）。
+そこで `UPSTREAM_TIMEOUT_SECONDS` として**設定へ出した**（既定 30.0 で挙動は不変）。
+
+**しかしこれを 5 秒にしても 16 秒は変わらなかった**（実測）。原因は HTTP ではなく
+**名前解決**である:
+
+```
+# vision を停止した状態で、gateway コンテナ内から
+getaddrinfo("vision", 8000)  → gaierror: Temporary failure in name resolution  16149ms
+connect(("vision", 8000), 1) → 同じ gaierror                                   16127ms
+
+# 起動中の名前（gis）は 6ms で解決する
+```
+
+`/etc/resolv.conf` は Docker の `127.0.0.11`（`ExtServers: [192.168.245.11, 118.238.201.33]`）。
+**起動中のコンテナは Docker DNS が即答するが、停止したコンテナは Docker DNS が答えられず
+外部リゾルバへ転送され、そこでタイムアウトする**（約 16 秒）。
+httpx の `timeout` はこの名前解決を制限しない。
+
+**つまり「タイムアウトを短くする」では直らない。** 現時点で取れる道は次のとおりで、
+いずれも設計判断を伴うため**このラウンドでは実施していない**（記録のみ）。
+
+| 案 | 内容 | 副作用 |
+|---|---|---|
+| 上流を**静的 IP** で持つ | compose で固定 IP を振り、ゲートウェイの `UPSTREAM_SERVICES` を IP にする。DNS を使わないので接続拒否で即 502 | compose と生成器の変更が大きい。IP 台帳の管理が要る |
+| `extra_hosts` で名前を固定する | 各サービスに `extra_hosts: ["vision:10.201.0.x"]` | 同上（生成器が IP を払い出す必要がある） |
+| 起動時に解決して**キャッシュ**する | httpx の標準 API では DNS だけを差し替えられないため、アプリ側の実装が要る | リゾルバの自前実装。TTL と再解決の設計が要る |
+
+限界: この実測は **1 サービス（`vision`）の停止**についてである。複数同時停止・
+ネットワーク分断・コンテナの `OOMKilled` は未実施である。
+`scripts/stg/upstream_failure_drill.sh` として自動化するのは次ラウンド以降とする
+（今ラウンドは手順の実測と原因の特定まで）。
 
 ## 7. ロールバック
 
