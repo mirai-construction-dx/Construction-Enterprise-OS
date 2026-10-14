@@ -51,12 +51,12 @@
 
 | 担当 | 役割（Goal / Scope / 完了条件 / 期待Output を明示して起動） | 成果物 | Lead による検証 |
 |---|---|---|---|
-| `qa-construction` | 施工管理フロー。write scope = `services/construction/{tests,src}` | 追加テスト 3 ファイル、修正 2 ファイル、[qa-construction.md](reports/quality-tests/qa-construction.md) | ✅ 差分レビュー / 単体・統合再実行 |
-| `qa-erp` | 原価管理フロー。write scope = `services/erp/{tests,src}` | 追加テスト 3 ファイル、src 差分ゼロ、[qa-erp.md](reports/quality-tests/qa-erp.md) | ✅ 既存テストの固定挙動を実読で確認 |
-| `qa-docs-approval` | 文書管理＋承認ワークフロー。write scope = 両サービスの `{tests,src}` | 追加テスト 4 ファイル、修正 1 ファイル、[qa-document-workflow.md](reports/quality-tests/qa-document-workflow.md) | ✅ 差分レビュー（緩和なしを確認）/ 統合で WF-1 を再現 |
-| `qa-field-spatial` | 現場DX・GIS・BIM。write scope = 3 サービスの `{tests,src}` | 追加テスト 6 ファイル、src 差分ゼロ、[qa-field-gis-bim.md](reports/quality-tests/qa-field-gis-bim.md) | ⚠️ テストの一部を Lead が強化（§7） |
-| `qa-ai-boundary`（読取専用） | AI 入力境界・機密・人間確認のレビュー。write scope = レポート 1 ファイルのみ | [qa-ai-boundary.md](reports/quality-tests/qa-ai-boundary.md) | ✅ **Critical 所見を Lead が実行テストで独立再現** |
-| `qa-crossaudit`（読取専用） | 全 22 サービス 463 ルートのテナント分離・認可棚卸し | [qa-crossaudit.md](reports/quality-tests/qa-crossaudit.md) | ✅ 反証観点（Gateway / RLS）を SubAgent が独立確認 |
+| `qa-construction` | 施工管理フロー。write scope = `services/construction/{tests,src}` | 追加テスト 3 ファイル、修正 2 ファイル、[qa-construction.md](qa-construction.md) | ✅ 差分レビュー / 単体・統合再実行 |
+| `qa-erp` | 原価管理フロー。write scope = `services/erp/{tests,src}` | 追加テスト 3 ファイル、src 差分ゼロ、[qa-erp.md](qa-erp.md) | ✅ 既存テストの固定挙動を実読で確認 |
+| `qa-docs-approval` | 文書管理＋承認ワークフロー。write scope = 両サービスの `{tests,src}` | 追加テスト 4 ファイル、修正 1 ファイル、[qa-document-workflow.md](qa-document-workflow.md) | ✅ 差分レビュー（緩和なしを確認）/ 統合で WF-1 を再現 |
+| `qa-field-spatial` | 現場DX・GIS・BIM。write scope = 3 サービスの `{tests,src}` | 追加テスト 6 ファイル、src 差分ゼロ、[qa-field-gis-bim.md](qa-field-gis-bim.md) | ⚠️ テストの一部を Lead が強化（§7） |
+| `qa-ai-boundary`（読取専用） | AI 入力境界・機密・人間確認のレビュー。write scope = レポート 1 ファイルのみ | [qa-ai-boundary.md](qa-ai-boundary.md) | ✅ **Critical 所見を Lead が実行テストで独立再現** |
+| `qa-crossaudit`（読取専用） | 全 22 サービス 463 ルートのテナント分離・認可棚卸し | [qa-crossaudit.md](qa-crossaudit.md) | ✅ 反証観点（Gateway / RLS）を SubAgent が独立確認 |
 | SubAgent #1（reviewer） | Critical 所見の独立検証（報告書を信じず実コードを実読） | 応答テキスト（9 クレーム全件「確認済み」、誤検出 0、訂正 2 件） | ✅ Lead が採用し §6/§7 に反映 |
 | SubAgent #2（reviewer, 敵対的） | 追加テストと修正の敵対的レビュー（偽陽性・緩和・skip の探索） | 応答テキスト（High 2 / Medium 6 の指摘） | ✅ 指摘を Lead が修正（§7） |
 
@@ -96,7 +96,7 @@ scripts/quality/run_quality_tests.sh --strict              # xfail が 1 件で�
 cd services/<name> && python3 -m pytest tests/ -q -p no:cacheprovider
 ```
 
-証跡: [lead-portable-runner-final.txt](reports/quality-tests/evidence/lead-portable-runner-final.txt)
+証跡: [lead-portable-runner-final.txt](evidence/lead-portable-runner-final.txt)
 
 #### 統合検証用 PostgreSQL の起動（再現手順）
 
@@ -136,10 +136,10 @@ docker rm -f ceos-quality-pg
 | integration/erp | 12 failed / 1 passed | 台帳・原価・請求の越境 CRUD/承認、作成時テナント偽装、承認者偽装 / 金額量子化は PASS |
 | integration/workflow | 1 failed / 4 passed | **並行承認の二重成功を再現** / 逐次二重承認拒否・ロール不足拒否・存在しないステップ拒否・他テナント拒否は PASS |
 
-証跡: [lead-integration-construction-BASELINE.txt](reports/quality-tests/evidence/lead-integration-construction-BASELINE.txt) /
-[lead-integration-erp-BASELINE.txt](reports/quality-tests/evidence/lead-integration-erp-BASELINE.txt) /
-[lead-integration-workflow-BASELINE.txt](reports/quality-tests/evidence/lead-integration-workflow-BASELINE.txt) /
-[lead-WF1-concurrent-approval.txt](reports/quality-tests/evidence/lead-WF1-concurrent-approval.txt)
+証跡: [lead-integration-construction-BASELINE.txt](evidence/lead-integration-construction-BASELINE.txt) /
+[lead-integration-erp-BASELINE.txt](evidence/lead-integration-erp-BASELINE.txt) /
+[lead-integration-workflow-BASELINE.txt](evidence/lead-integration-workflow-BASELINE.txt) /
+[lead-WF1-concurrent-approval.txt](evidence/lead-WF1-concurrent-approval.txt)
 
 ### 5.4 重点確認の網羅状況
 
@@ -290,12 +290,12 @@ assert しており、D3（承認者偽装）の修正にはこの既存テス�
 
 | 種別 | パス |
 |---|---|
-| 憲章（全 Agent 共通制約） | [CHARTER.md](reports/quality-tests/CHARTER.md) |
-| エージェント共通指示（Claude Code / Codex / OpenCode） | [AGENTS.md](AGENTS.md) |
-| ポータブルランナー | [run_quality_tests.sh](scripts/quality/run_quality_tests.sh) |
-| 実 DB 統合テスト（Lead 所有） | [scripts/quality/integration/](scripts/quality/integration/) |
-| フロー別報告 | [qa-construction.md](reports/quality-tests/qa-construction.md) / [qa-erp.md](reports/quality-tests/qa-erp.md) / [qa-document-workflow.md](reports/quality-tests/qa-document-workflow.md) / [qa-field-gis-bim.md](reports/quality-tests/qa-field-gis-bim.md) / [qa-ai-boundary.md](reports/quality-tests/qa-ai-boundary.md) / [qa-crossaudit.md](reports/quality-tests/qa-crossaudit.md) |
-| 実行証跡 | [reports/quality-tests/evidence/](reports/quality-tests/evidence/) |
+| 憲章（全 Agent 共通制約） | [CHARTER.md](CHARTER.md) |
+| エージェント共通指示（Claude Code / Codex / OpenCode） | [AGENTS.md](../../AGENTS.md) |
+| ポータブルランナー | [run_quality_tests.sh](../../scripts/quality/run_quality_tests.sh) |
+| 実 DB 統合テスト（Lead 所有） | [scripts/quality/integration/](../../scripts/quality/integration) |
+| フロー別報告 | [qa-construction.md](qa-construction.md) / [qa-erp.md](qa-erp.md) / [qa-document-workflow.md](qa-document-workflow.md) / [qa-field-gis-bim.md](qa-field-gis-bim.md) / [qa-ai-boundary.md](qa-ai-boundary.md) / [qa-crossaudit.md](qa-crossaudit.md) |
+| 実行証跡 | [reports/quality-tests/evidence/](evidence) |
 
 ### 変更差分サマリ（`git diff --stat`）
 

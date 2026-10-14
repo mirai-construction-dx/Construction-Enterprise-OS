@@ -13,7 +13,7 @@
 | `contracts/` | MCP ツール定義・Harness-Core 固定参照 |
 | `docs/` | 要件・アーキテクチャ・API・運用手順 |
 | `scripts/` | 運用・検証スクリプト（`scripts/quality/` は品質テスト） |
-| `reports/quality-tests/` | 品質テストの証跡・欠陥報告（Git 管理外） |
+| `reports/quality-tests/` | 品質テストの証跡・欠陥報告（**Git 管理下**。2026-10-14 時点で 21 件を追跡。`.gitignore` に `reports/` の除外は無い） |
 
 ## 2. 主要コマンド
 
