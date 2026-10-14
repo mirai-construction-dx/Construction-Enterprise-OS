@@ -275,3 +275,11 @@ Mirai-Platform-Infra の `db/roles.yaml` は
 4. **stg に実データ（顧客・個人・現場）を入れない。** 合成データのみ（`AGENTS.md` §4.4）。
 5. stg から prod の DB・DNS・secret へ触れない。
 6. `docker-compose.stg.yml` を手で編集しない（生成物。`render_stg_compose.py` を直す）。
+
+## 9. stg で見つかったが未修正の設計課題
+
+| # | 内容 | 判断が要る理由 |
+|---|---|---|
+| D-1 | `apps/mobile` は `output: 'export'`（静的エクスポート）を宣言しながら、コンテナは `next dev`（開発サーバー）で配信している（`apps/mobile/Dockerfile` の CMD とコメントに明記）。 | stg が**本番の実行形態を練習していない**ことになる。開発サーバーは本番ビルドと挙動・性能が異なる。静的配信（nginx / Cloudflare Pages）へ寄せるか、`next start` にするかの設計判断が要る（MCDX-ADR-0002 は本番の新規 Docker 採用を禁じているため、配信方式の選択は ADR に関わる）。 |
+| D-2 | `scripts/db/init/01-init.sql` は開発用 compose の postgres コンテナ専用で、stg では実行されない（§4.1）。stg は `seed_stg.sh` で代替している。 | 将来 `01-init.sql` にスキーマやシードを足したとき、stg へ自動では反映されない。二重管理になっている。 |
+| D-3 | `kibana` に healthcheck が無く、`status.sh` の healthy 判定の対象外である。 | 監視上「起動しているが使えるか不明」なコンテナが 1 つ残る。 |
