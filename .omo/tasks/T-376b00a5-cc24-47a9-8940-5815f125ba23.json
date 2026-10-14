@@ -1,0 +1,10 @@
+{
+  "id": "T-376b00a5-cc24-47a9-8940-5815f125ba23",
+  "subject": "#79: 実装状況台帳の一本化",
+  "description": "README のテスト数/サービス数/更新日/状態、architecture の未着手表示、state.json の記述を現状に合わせて統一。docs PR。",
+  "status": "pending",
+  "activeForm": "実装状況台帳を一本化中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

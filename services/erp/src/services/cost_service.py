@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,26 +92,38 @@ async def approve_cost(
     if cost.status != "pending":
         raise ValueError("既に承認済みまたは却下された原価です")
 
+    # 予算の誤帰属防止（D9）: budget_id は当該台帳・同一テナントに属すること。
+    # 他台帳・他テナントの予算へ実績を加算してはいけないため、整合しない場合は拒否する。
+    budget = None
+    if cost.budget_id:
+        budget = await db.get(Budget, cost.budget_id)
+        if (
+            not budget
+            or budget.ledger_id != cost.ledger_id
+            or budget.organization_id != cost.organization_id
+        ):
+            raise ValueError("予算がこの台帳に属していません")
+
     cost.status = "approved"
     cost.approved_by = approved_by
     cost.approved_at = datetime.now(timezone.utc)
 
-    # Side effects never cross the tenant boundary (ADR-0004): a budget / ledger of
-    # another organization is left untouched even if the cost references it.
-    # Update budget actual_amount
-    if cost.budget_id:
-        budget = await db.get(Budget, cost.budget_id)
-        if budget and budget.organization_id == cost.organization_id:
-            budget.actual_amount = float(budget.actual_amount) + float(cost.amount)
-            budget.updated_at = datetime.now(timezone.utc)
+    # 金額は Decimal で加算し、float 起因の丸め誤差（0.30000000000000004 等）を防ぐ
+    if budget is not None:
+        budget.actual_amount = Decimal(str(budget.actual_amount)) + Decimal(
+            str(cost.amount)
+        )
+        budget.updated_at = datetime.now(timezone.utc)
 
-    # Update ledger actual_cost
     if cost.ledger_id:
         ledger = await db.get(ProjectLedger, cost.ledger_id)
+        # 副次作用がテナント境界を越えないようにする（ADR-0004）
         if ledger and ledger.organization_id == cost.organization_id:
-            ledger.actual_cost = float(ledger.actual_cost) + float(cost.amount)
-            ledger.estimated_profit = (
-                float(ledger.contract_amount) - float(ledger.actual_cost)
+            ledger.actual_cost = Decimal(str(ledger.actual_cost)) + Decimal(
+                str(cost.amount)
+            )
+            ledger.estimated_profit = Decimal(str(ledger.contract_amount)) - Decimal(
+                str(ledger.actual_cost)
             )
             ledger.updated_at = datetime.now(timezone.utc)
 

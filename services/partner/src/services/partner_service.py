@@ -124,12 +124,17 @@ async def list_contacts(
 
 
 async def calculate_partner_rating(
-    db: AsyncSession, partner_id: uuid.UUID
-) -> float | None:
-    result = await db.execute(
-        select(func.avg(Evaluation.overall_score)).where(
-            Evaluation.partner_id == partner_id
-        )
+    db: AsyncSession,
+    partner_id: uuid.UUID,
+    organization_id: uuid.UUID | None = None,
+) -> float:
+    stmt = select(func.avg(Evaluation.overall_score)).where(
+        Evaluation.partner_id == partner_id
     )
+    if organization_id is not None:
+        stmt = stmt.where(Evaluation.organization_id == organization_id)
+    result = await db.execute(stmt)
     avg = result.scalar()
-    return round(float(avg), 1) if avg else None
+    # 平均 0.0 は falsy のため ``if avg`` では欠測(None)と区別できない。
+    # evaluation_service.get_partner_rating と挙動を揃える（P-8）。
+    return round(float(avg), 1) if avg is not None else 0.0

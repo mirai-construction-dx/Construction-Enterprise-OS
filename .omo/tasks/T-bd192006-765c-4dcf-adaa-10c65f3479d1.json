@@ -1,0 +1,10 @@
+{
+  "id": "T-bd192006-765c-4dcf-adaa-10c65f3479d1",
+  "subject": "Migrate dashboard/ai/gis/projects pages",
+  "description": "dashboard/page, dashboard/exec, dashboard/field, ai/inspection, ai/predictive, gis/routes, projects/page, projects/reports + non-MOCK dashboard/ai, dashboard/kpi, gis/page, projects/wbs catch-null fixes.",
+  "status": "completed",
+  "activeForm": "Migrating dashboard/ai/gis/projects pages",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f42f53a93ffewcprMA2KUxXYZb"
+}

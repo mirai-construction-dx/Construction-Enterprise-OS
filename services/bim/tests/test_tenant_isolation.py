@@ -342,6 +342,19 @@ def test_delete_model_of_other_org_is_404_without_write(mock_jwt):
 
 
 @patch("src.middleware.auth.jwt")
+def test_delete_own_model_without_management_role_is_403(mock_jwt):
+    mock_jwt.decode.return_value = _payload()  # bim_manager（非管理ロール）
+    model = _model()
+    client, db = _client(model)
+
+    resp = client.delete(f"/api/v1/bim/models/{model.id}", headers=_auth_header())
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
+    _assert_no_write(db)
+
+
+@patch("src.middleware.auth.jwt")
 def test_update_own_model_succeeds(mock_jwt):
     mock_jwt.decode.return_value = _payload()
     model = _model()
@@ -644,7 +657,7 @@ def test_pointcloud_by_id_of_other_org_is_404_without_write(mock_jwt, method, bo
 
 @patch("src.middleware.auth.jwt")
 def test_delete_own_pointcloud_succeeds(mock_jwt):
-    mock_jwt.decode.return_value = _payload()
+    mock_jwt.decode.return_value = _payload(roles=["site_manager"])
     pc = _pointcloud()
     client, db = _client(pc)
 
@@ -653,6 +666,19 @@ def test_delete_own_pointcloud_succeeds(mock_jwt):
     assert resp.status_code == 200
     _assert_org_filtered(db, 0, ORG_A)
     db.delete.assert_awaited_once_with(pc)
+
+
+@patch("src.middleware.auth.jwt")
+def test_delete_own_pointcloud_without_management_role_is_403(mock_jwt):
+    mock_jwt.decode.return_value = _payload()  # bim_manager（非管理ロール）
+    pc = _pointcloud()
+    client, db = _client(pc)
+
+    resp = client.delete(f"/api/v1/bim/pointclouds/{pc.id}", headers=_auth_header())
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "FORBIDDEN"
+    _assert_no_write(db)
 
 
 @patch("src.middleware.auth.jwt")

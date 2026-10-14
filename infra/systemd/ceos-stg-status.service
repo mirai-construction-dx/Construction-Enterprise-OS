@@ -1,0 +1,45 @@
+# Construction-Enterprise-OS — staging (stg) の健全性検査
+#
+# 設計: docs/architecture/ADR-0005-staging-environment.md §1
+#   2026-10-14 実測: `scripts/stg/status.sh` は「cron・timer から呼べる」と
+#   文書にあるが timer は 0 件で、検査は誰かが叩いたときだけ走っていた。
+#   本体は `scripts/stg/monitor.sh`（判定はそちらが持つ。unit に shell を書かない）。
+#
+# 設置（正本はこのファイル。手で /etc を編集しない）:
+#   sudo install -m 644 infra/systemd/ceos-stg-status.service /etc/systemd/system/
+#   sudo install -m 644 infra/systemd/ceos-stg-status.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ceos-stg-status.timer
+#
+# 見る:
+#   systemctl list-timers ceos-stg-status
+#   systemctl status ceos-stg-status
+#   journalctl -u ceos-stg-status -n 50
+#   tail -40 ~/.local/state/ceos-stg/status.log
+#
+# 注意:
+#   - `ceos-stg.service` に依存させない（Requires を付けない）。
+#     スタックが停止していれば monitor.sh が検査を省略して 0 で終わる。
+#   - 異常があれば monitor.sh が status.sh の終了コードを返すため、
+#     systemd が failed として記録する（黙って緑にしない）。
+
+[Unit]
+Description=Construction-Enterprise-OS staging health check (scripts/stg/monitor.sh)
+Documentation=file:///home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/docs/operations/staging.md
+After=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=kensan
+Group=kensan
+# monitor.sh は ${HOME}/.local/state/ceos-stg/ へ記録し、
+# status.sh は ${HOME}/.config/ceos/stg.env を読むため HOME を明示する。
+Environment=HOME=/home/kensan
+# 通知先は任意。`/etc/ceos/stg-alert.env` があれば読む（先頭の `-` は「無くても失敗しない」）。
+# 例: CEOS_STG_ALERT_WEBHOOK=https://hooks.example.com/services/XXX
+# 未設定なら monitor.sh は通知せず、その事実を status.log に明示する。
+EnvironmentFile=-/etc/ceos/stg-alert.env
+WorkingDirectory=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS
+ExecStart=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/scripts/stg/monitor.sh
+TimeoutStartSec=600

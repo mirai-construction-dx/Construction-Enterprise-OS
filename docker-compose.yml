@@ -143,11 +143,26 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+    # 2026-10-14: healthcheck が無く、scripts/stg/status.sh の healthy 判定の対象外だった
+    # （起動しているが使えるか不明なコンテナが 1 つ残る状態）。公式イメージには curl が
+    # 入っており /api/status が 200 を返すことを実測で確認した。
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -f http://localhost:5601/api/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      # Kibana は起動に時間がかかるため長めに取る。
+      start_period: 180s
     networks:
       - construction-net
 
   minio:
-    image: minio/minio:latest
+    # 2026-10-14: `latest` をやめた。可変タグは再現性を壊す（同じ手順で作り直しても
+    # 別の環境になる）。staging は同じイメージを配っていたため、stg の検証記録の意味が
+    # 失われる。稼働していた実体のバージョンをタグにした（挙動は変わらない）。
+    # 実体の digest: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # 検査: scripts/stg/check_staging_guards.py の G-9
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: construction-os-minio
     command: server /data --console-address ":9001"
     environment:
@@ -167,7 +182,10 @@ services:
       - construction-net
 
   kafka:
-    image: bitnami/kafka:3.7
+    # 2026-10-14: Bitnami のイメージ配布先変更により `bitnami/kafka:3.7` は
+    # manifest unknown で pull できない（dev / stg の両方が起動不能だった）。
+    # 同一タグの移設先ミラーへ切り替える。環境変数 (KAFKA_CFG_*) とパスは互換。
+    image: bitnamilegacy/kafka:3.7
     container_name: construction-os-kafka
     environment:
       KAFKA_CFG_NODE_ID: 0
@@ -204,6 +222,14 @@ services:
     environment:
       <<: *db-env
       GATEWAY_PORT: 9000
+      # 上流への転送タイムアウト（秒）。2026-10-14 に設定へ出した
+      # （以前は ProxyService の既定値 30.0 にハードコードされ、環境ごとに
+      #  変えられなかった）。停止した上流には実測 16.1 秒待たされるため、
+      #  運用で短くできるようにしてある。
+      UPSTREAM_TIMEOUT_SECONDS: ${UPSTREAM_TIMEOUT_SECONDS:-30}
+      # 接続だけ短く切る（停止した上流は名前解決が即時でも接続がハングする）。
+      # 読み取りは UPSTREAM_TIMEOUT_SECONDS まで待てる。
+      UPSTREAM_CONNECT_TIMEOUT_SECONDS: ${UPSTREAM_CONNECT_TIMEOUT_SECONDS:-3}
       UPSTREAM_SERVICES: >-
         {"^/api/v1/health": "http://auth:8000",
          "^/api/v1/auth": "http://auth:8000",
@@ -263,8 +289,15 @@ services:
     environment:
       <<: *db-env
       INTERNAL_API_KEY: ${AUTH_INTERNAL_API_KEY:-}
+      # /api/v1/health/services が実際に叩く先。
+      # 2026-10-14: 以前は 3 件（document / workflow / notification）だけで、
+      # ゲートウェイの上流 21 件のうち 17 件を見ていなかった。文書とダッシュボードが
+      # 「全サービス healthy」と表示するため、見ていないサービスの停止を
+      # 「緑」と誤読させていた（overall は見た範囲の結論にすぎない）。
+      # auth 自身は DB 到達性で判定するためこの一覧に含めない。
+      # 網羅は scripts/ci/check_health_coverage.py が検査する。
       HEALTH_SERVICE_URLS: >-
-        {"document":"http://document:8000/health","workflow":"http://workflow:8000/health","notification":"http://notification:8000/health"}
+        {"advanced":"http://advanced:8000/health","ai":"http://ai:8000/health","analytics":"http://analytics:8000/health","automation":"http://automation:8000/health","autonomous":"http://autonomous:8000/health","bim":"http://bim:8000/health","construction":"http://construction:8000/health","document":"http://document:8000/health","erp":"http://erp:8000/health","field-dx":"http://field-dx:8000/health","gis":"http://gis:8000/health","iot":"http://iot:8000/health","maintenance":"http://maintenance:8000/health","notification":"http://notification:8000/health","partner":"http://partner:8000/health","platform":"http://platform:8000/health","safety":"http://safety:8000/health","security":"http://security:8000/health","vision":"http://vision:8000/health","workflow":"http://workflow:8000/health"}
     ports:
       - "8000:8000"
     depends_on:
@@ -786,17 +819,65 @@ services:
       <<: *python-healthcheck
 
   # ============================================================
+  # 🔌 MCP（読み取り専用ツール公開。ADR-0002 / 契約 contracts/mcp-tools/ceos.json）
+  # 2026-10-14: services/mcp は実装も契約も存在するのに compose に含まれておらず、
+  # dev / stg のどちらでも起動していなかった。読み取り専用（R0）の 5 ツールを
+  # 公開するためスタックに加える。
+  # ============================================================
+  mcp:
+    <<: *python-service
+    build:
+      context: ./services/mcp
+    container_name: construction-os-mcp
+    environment:
+      <<: *db-env
+      AUTH_SERVICE_URL: http://auth:8000
+      # 2026-10-14: 上流（工程・原価・契約）の URL を渡していなかったため、
+      # 既定の http://localhost:8016 / :8020 が使われ、コンテナ内から到達できず
+      # tools/call が「上流サービスに到達できません。」を返していた（実測）。
+      CONSTRUCTION_SERVICE_URL: http://construction:8000
+      ERP_SERVICE_URL: http://erp:8000
+      # MCP_ENABLED=0 でサーバー全体を停止する（fail-closed）。
+      MCP_ENABLED: "1"
+      # Phase 2 で 1 にする（aud=api://ceos-mcp 以外を拒否）。
+      MCP_REQUIRE_AUDIENCE: "0"
+      MCP_AUDIENCE: api://ceos-mcp
+    ports:
+      - "8022:8022"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8022/health')",
+        ]
+      <<: *python-healthcheck
+
+  # ============================================================
   # 🌐 Frontend Applications
   # ============================================================
   web:
     build:
       context: ./apps/web
+      # rewrites() は standalone 出力ではビルド時に確定するため、ここで渡す必要がある。
+      args:
+        API_GATEWAY: http://gateway:9000
     container_name: construction-os-web
     environment:
       API_GATEWAY: http://gateway:9000
       NEXT_TELEMETRY_DISABLED: 1
     ports:
-      - "3100:3000"
+      # 2026-10-14: イメージは PORT=3100 で待ち受ける（apps/web/Dockerfile）。
+      # 旧設定 "3100:3000" はコンテナ側 3000 へ転送しており、必ず 502 になっていた。
+      - "3100:3100"
     depends_on:
       - gateway
     restart: unless-stopped
@@ -808,7 +889,9 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://localhost:3000', r => process.exit(r.statusCode === 200 ? 0 : 1))",
+          # Next.js は未認証の "/" を 307 でログインへ飛ばす。200 だけを成功にすると
+          # 正常に配信していても unhealthy になる（2026-10-14 実測）。5xx だけを失敗とする。
+          "require('http').get('http://localhost:3100', r => process.exit(r.statusCode < 500 ? 0 : 1))",
         ]
       interval: 30s
       timeout: 10s

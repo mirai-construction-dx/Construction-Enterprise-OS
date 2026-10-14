@@ -11,7 +11,11 @@ from ..services.proxy_service import ProxyService
 
 router = APIRouter()
 settings = get_settings()
-proxy_service = ProxyService()
+# タイムアウトは設定から取る（以前は ProxyService の既定値にハードコードされていた）。
+proxy_service = ProxyService(
+    timeout=settings.UPSTREAM_TIMEOUT_SECONDS,
+    connect_timeout=settings.UPSTREAM_CONNECT_TIMEOUT_SECONDS,
+)
 
 logger = structlog.get_logger(__name__)
 

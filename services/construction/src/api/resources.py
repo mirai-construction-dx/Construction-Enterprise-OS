@@ -5,7 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -92,6 +97,7 @@ async def delete_resource(
     resource = await construction_service.get_resource(db, resource_id, scope_org(user))
     if not resource:
         raise HTTPException(status_code=404, detail="リソースが見つかりません")
+    require_any_role(user, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
     await db.delete(resource)
 
 

@@ -22,7 +22,9 @@
 |---|---|---|---|
 | MVP プロトタイプ | https://construction-os-mvp.mirai-dx-platform.com | WebUI `webui/Construction-Enterprise-OS---CRUD.html`(正本スタイル+全ページCRUD) | ✅ 稼働・E2E は `e2e/*.spec.ts` 計28テスト(desktop/mobile の2プロジェクト) |
 | 本番 | https://construction-os.mirai-dx-platform.com | 同上(同一コンテンツ) | ✅ 稼働 |
-| DB | Neon `construction-enterprise-os` | auth スキーマ(Migration+Seed 適用) | ✅ 空DB再実行可能 |
+| Staging | https://construction-os-stg.mirai-dx-platform.com | 本番前の検証環境（Cloudflare Access で保護／DNS は未設定） | 🚧 構築中 — [設計](docs/architecture/ADR-0005-staging-environment.md)・[手順](docs/operations/staging.md) |
+| 本番 DB | ホスト PostgreSQL **16.14** / `construction_os` | systemd `construction-os-auth.service` の実行中プロセスの `DATABASE_URL` を実測。**3 スキーマ / 16 テーブルのみ**（全サービスは未配備） | ⚠️ `MCDX-ADR-0003` は PG18 を定めており差分あり — [database.md](docs/operations/database.md) |
+| Staging DB | ホスト PostgreSQL **18** / `ceos_stg` | 22 スキーマ / 98 テーブル | ✅ 構築済み |
 
 - **WebUI(CRUD 統合版)**: **OpenDesign 正本バンドルのスタイルを一切変更せず**、そのバンドルにデータ層+CRUD を統合(`webui/Construction-Enterprise-OS---CRUD.html`)。
   **全ページ(13 カテゴリ・約 90 ルート)の右側コンテンツで「データ取得・新規作成・編集・削除・検索」が操作可能**。
@@ -30,7 +32,7 @@
   auth API(`/api/v1/health`・`/api/v1/auth/*`)は実接続。他サービス API 未稼働のため同一インターフェースのローカルストアで代替(将来差し替え可)。
 - 設計正本: `webui/`(OpenDesign ハンドオフ、プロトタイプは `standalone-prototype.html` として保全)+ `docs/design/opendesign-spec.md`
 - 検証: `e2e/mvp.spec.ts`(9)+ `e2e/crud.spec.ts`(11)+ `e2e/api.spec.ts`(8)= **28 テスト**(Playwright、desktop/mobile の2プロジェクトで実行)
-- 運用: `docs/operations/deployment.md`・`docs/operations/neon-database.md`・`docs/operations/production-deploy-record.md`
+- 運用: `docs/operations/deployment.md`・`docs/operations/database.md`・`docs/operations/staging.md`・`docs/operations/production-deploy-record.md`
 
 ```mermaid
 graph TB
@@ -400,10 +402,16 @@ cd services/gateway
 uvicorn src.main:app --host 0.0.0.0 --port 9000 --reload
 # → http://localhost:9000/docs
 
-# 5. DBマイグレーション
+# 5. DBマイグレーション（全サービスの SQL + auth/workflow の alembic）
 make db-migrate
+#    注意: dev の postgres イメージ (postgis/postgis:16-3.4) には pgvector が入っていないため、
+#    `ai` のマイグレーションだけは失敗する（他は適用される）。bootstrap_schema.sh が
+#    失敗したファイルを列挙して非ゼロで終了する。詳細は docs/operations/database.md §2。
 
-# 6. シードデータ投入
+# 6. シードデータ投入（組織・権限 → 管理ユーザの順）
+#    組織・権限はマイグレーション適用後に流す（docker-entrypoint では流せない。理由は
+#    scripts/db/seed/00-bootstrap.sql の冒頭コメント）
+make db-seed
 cd services/auth && python -m src.seed
 
 # 7. Web フロントエンド起動
@@ -434,6 +442,7 @@ make test
 | [🏛️ 全体アーキテクチャ設計](docs/architecture/00-overview.md)         | 5レイヤ構造、開発計画、ADR                    |
 | [🏛️ ADR-0001: CEOS の責任範囲](docs/architecture/ADR-0001-ceos-responsibility-boundary.md) | 工程・原価・契約の正本と MCIP/CDE/ArcSphere/MCAH の境界（V3.5準拠） |
 | [🔌 ADR-0002: MCP 読み取り専用公開](docs/architecture/ADR-0002-ceos-mcp-readonly-publication.md) | 5ツール/hash-pinning/キルスイッチ、Core 契約整合 |
+| [🔑 ADR-0003: MCP audience 分離とトークン交換](docs/architecture/ADR-0003-mcp-audience-token-exchange.md) | RFC 8693 交換・段階導入（Phase 0〜3）・fail-closed |
 | [📜 Harness-Core 契約固定参照](contracts/vendor/harness-core/v0.6.0/VENDORED.md) | Core v0.6.0 固定（lock/sha256）と `contracts/mcp-tools/ceos.json` |
 | [🔐 統合認証基盤 詳細設計](docs/architecture/01-auth-platform.md)     | データモデル/API/トークン/セキュリティ        |
 | [🗄️ 統合データ基盤 詳細設計](docs/architecture/02-data-platform.md)   | PostgreSQL+PostGIS+TimescaleDB/マルチスキーマ |
@@ -442,7 +451,8 @@ make test
 | [🎨 OpenDesign 設計仕様](docs/design/opendesign-spec.md)               | 画面構成14カテゴリ/約90ルート/6ロール/ブランド |
 | [📋 要件と MVP スコープ](docs/requirements/mvp-scope.md)               | OpenDesign との整合・未実装・残存リスク        |
 | [🌐 API 概要・エンドポイント一覧](docs/api/overview.md)                | Gateway ルーティング/全サービスAPI            |
-| [🗄️ Neon データベース運用](docs/operations/neon-database.md)           | 空検証DBへの Migration/Seed 再実行手順        |
+| [🗄️ データベース運用（dev/stg/prod）](docs/operations/database.md)     | 実測にもとづく環境別の DB と決定との差分      |
+| [🧪 Staging(stg) 環境](docs/operations/staging.md)                     | 構築・運用・検証・ロールバック手順            |
 | [🚀 デプロイ・ドメイン運用](docs/operations/deployment.md)             | Pages/Tunnel/DNS/ロールバック                 |
 | [✅ 完了条件チェックリスト](docs/operations/completion-checklist.md)   | Goal 完了条件と証拠の一覧                     |
 

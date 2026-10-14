@@ -20,6 +20,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Any) -> Response:
         path = request.url.path
 
+        # 内部専用パスは認証判定より先に遮断する（存在を明かさないよう 404）
+        if self._is_internal_only_path(path):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "success": False,
+                    "error": {"code": "NOT_FOUND", "message": "Not Found"},
+                },
+            )
+
         if self._is_public_path(path):
             return await call_next(request)
 
@@ -59,6 +69,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         }
 
         return await call_next(request)
+
+    @staticmethod
+    def _is_internal_only_path(path: str) -> bool:
+        return any(re.match(pattern, path) for pattern in settings.INTERNAL_ONLY_PATHS)
 
     def _is_public_path(self, path: str) -> bool:
         if not self._matches_any_upstream(path):

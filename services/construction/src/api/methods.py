@@ -5,7 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..middleware.auth import TokenData, get_current_user
+from ..middleware.auth import (
+    APPROVAL_ROLES,
+    MANAGEMENT_ROLES,
+    TokenData,
+    get_current_user,
+    require_any_role,
+)
 from ..middleware.tenant import create_org, scope_org
 from ..models.base import get_db
 from ..schemas import (
@@ -19,6 +25,20 @@ from ..services import construction_service
 from ._tenant_refs import ensure_wbs_in_org
 
 router = APIRouter()
+
+
+def _actor_id(user: TokenData) -> UUID:
+    """トークンの sub から操作者を同定する（ボディ由来の値は信用しない）。"""
+    try:
+        return UUID(user.sub)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "INVALID_IDENTITY",
+                "message": "トークンの利用者IDが不正です。",
+            },
+        )
 
 
 @router.post("/methods", response_model=MethodResponse, status_code=status.HTTP_201_CREATED)
@@ -91,6 +111,7 @@ async def delete_method(
     method = await construction_service.get_method(db, method_id, scope_org(user))
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
+    require_any_role(user, MANAGEMENT_ROLES)  # 削除には管理ロールを要求する
     await db.delete(method)
 
 
@@ -112,15 +133,18 @@ async def submit_method(
 @router.post("/methods/{method_id}/approve", response_model=MethodResponse)
 async def approve_method(
     method_id: UUID,
-    body: MethodApprovalRequest,
+    body: MethodApprovalRequest | None = None,
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id, scope_org(user))
+    org_id = scope_org(user)  # 組織検証を先に（fail-closed）
+    method = await construction_service.get_method(db, method_id, org_id)
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
+    require_any_role(user, APPROVAL_ROLES)  # 承認には承認ロールを要求する
     try:
-        return await construction_service.approve_method(db, method, body.approved_by)
+        # 承認者同定はトークン由来（body.approved_by は受理のみで信用しない）。
+        return await construction_service.approve_method(db, method, _actor_id(user))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -131,9 +155,11 @@ async def reject_method(
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
-    method = await construction_service.get_method(db, method_id, scope_org(user))
+    org_id = scope_org(user)  # 組織検証を先に（fail-closed）
+    method = await construction_service.get_method(db, method_id, org_id)
     if not method:
         raise HTTPException(status_code=404, detail="施工計画書が見つかりません")
+    require_any_role(user, APPROVAL_ROLES)  # 否認には承認ロールを要求する
     try:
         return await construction_service.reject_method(db, method)
     except ValueError as e:

@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+# 本リポジトリは pnpm ワークスペース（pnpm-lock.yaml / pnpm-workspace.yaml）。
+# Dockerfile 内の `npm install` 等がローカルで npm の lockfile を作っても取り込まない
+# （2026-10-14: apps/mobile の検証ビルドで生成された package-lock.json が混入した）。
+package-lock.json
 
 # Build outputs
 dist/

@@ -1,0 +1,10 @@
+{
+  "id": "T-55979ea9-c139-4e9c-9110-7f612ad70e30",
+  "subject": "Auth: MFA 有効化エンドポイント＋バックアップコード永続化",
+  "description": "mfa_enabled を True にする手段がない問題を解消。/mfa/activate を追加し、/mfa/setup でバックアップコードをハッシュ保存、/mfa/verify でコード消費を可能にする。alembic 003 追加、テスト追加。feature ブランチ→PR。",
+  "status": "completed",
+  "activeForm": "MFA有効化を実装中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

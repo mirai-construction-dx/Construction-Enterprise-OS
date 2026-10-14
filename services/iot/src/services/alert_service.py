@@ -11,6 +11,10 @@ from ..models import AlertHistory as AlertHistoryModel
 from ..models import Device as DeviceModel
 
 
+class AlertStateError(Exception):
+    """アラートの状態遷移違反。"""
+
+
 def _org_device_ids(organization_id: UUID):
     """Device ids of an organization (alert history has no organization column)."""
     return select(DeviceModel.id).where(DeviceModel.organization_id == organization_id)
@@ -124,6 +128,14 @@ async def acknowledge_alert(
     if not alert:
         return None
 
+    # 解決済みアラートを後から確認する（逆行遷移）は許さない。
+    if alert.resolved_at is not None:
+        raise AlertStateError("解決済みのアラートは確認できません。")
+
+    # 既に確認済みなら先の確認者を上書きしない（冪等）。
+    if alert.acknowledged_at is not None:
+        return alert
+
     now = datetime.now(timezone.utc)
     alert.acknowledged_by = user_id
     alert.acknowledged_at = now
@@ -138,6 +150,14 @@ async def resolve_alert(
     alert = result.scalar_one_or_none()
     if not alert:
         return None
+
+    # 解決済みへの再 resolve は resolved_at を上書きしない（冪等）。
+    if alert.resolved_at is not None:
+        return alert
+
+    # 未確認のアラートは resolve できない（状態遷移順序の強制）。
+    if alert.acknowledged_at is None:
+        raise AlertStateError("確認されていないアラートは解決できません。")
 
     now = datetime.now(timezone.utc)
     alert.resolved_at = now

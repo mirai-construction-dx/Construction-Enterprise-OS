@@ -34,11 +34,11 @@ def _evaluation_to_response(eval_) -> EvaluationResponse:
         project_id=eval_.project_id,
         evaluator_id=eval_.evaluator_id,
         overall_score=float(eval_.overall_score),
-        quality_score=float(eval_.quality_score) if eval_.quality_score else None,
-        safety_score=float(eval_.safety_score) if eval_.safety_score else None,
-        schedule_score=float(eval_.schedule_score) if eval_.schedule_score else None,
-        cost_score=float(eval_.cost_score) if eval_.cost_score else None,
-        communication_score=float(eval_.communication_score) if eval_.communication_score else None,
+        quality_score=float(eval_.quality_score) if eval_.quality_score is not None else None,
+        safety_score=float(eval_.safety_score) if eval_.safety_score is not None else None,
+        schedule_score=float(eval_.schedule_score) if eval_.schedule_score is not None else None,
+        cost_score=float(eval_.cost_score) if eval_.cost_score is not None else None,
+        communication_score=float(eval_.communication_score) if eval_.communication_score is not None else None,
         comment=eval_.comment,
         evaluation_period_start=eval_.evaluation_period_start,
         evaluation_period_end=eval_.evaluation_period_end,
@@ -60,9 +60,23 @@ async def create_evaluation(
         raise _partner_not_found()
     org_id = create_org(current_user, partner.organization_id)
     evaluator_id = UUID(current_user.sub)
-    evaluation = await evaluation_service.create_evaluation(
-        db, org_id, evaluator_id, body.model_dump()
+    data = body.model_dump()
+    existing = await evaluation_service.find_existing_evaluation(
+        db,
+        organization_id=org_id,
+        partner_id=data.get("partner_id"),
+        project_id=data.get("project_id"),
+        evaluator_id=evaluator_id,
     )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "DUPLICATE_EVALUATION",
+                "message": "同一評価者・同一対象・同一案件の評価は既に登録されています。",
+            },
+        )
+    evaluation = await evaluation_service.create_evaluation(db, org_id, evaluator_id, data)
     await db.flush()
     await evaluation_service.update_partner_rating(db, body.partner_id, org_id)
     await db.refresh(evaluation)

@@ -270,7 +270,10 @@ def _by_id_path(resource: str, record_id: uuid.UUID) -> str:
 @pytest.mark.parametrize("method,resource,body", BY_ID_CASES)
 def test_by_id_other_org_is_not_found(method, resource, body):
     # The org-scoped lookup finds nothing for a record of another organization.
-    client, db = _client(_user(), _Result(value=None))
+    # Delete is additionally gated by a management role; use an org-scoped management
+    # role here so this test exercises the org boundary (404), not the role gate (403).
+    roles = ["site_manager"] if method == "delete" else None
+    client, db = _client(_user(roles=roles), _Result(value=None))
     record_id = uuid.uuid4()
     kwargs = {"json": body} if body is not None else {}
     response = client.request(
@@ -286,6 +289,19 @@ def test_by_id_other_org_is_not_found(method, resource, body):
     db.delete.assert_not_called()
     db.flush.assert_not_called()
     db.commit.assert_not_called()
+
+
+DELETE_PATHS = [f"{BASE}/datasources", f"{BASE}/pipelines", f"{BASE}/reports"]
+
+
+@pytest.mark.parametrize("path", DELETE_PATHS)
+def test_delete_with_non_management_role_is_forbidden(path):
+    client, db = _client(_user())  # analyst = non-management role
+    response = client.delete(f"{path}/{uuid.uuid4()}")
+    assert response.status_code == 403
+    assert _code(response) == "FORBIDDEN"
+    db.execute.assert_not_called()
+    db.delete.assert_not_called()
 
 
 def test_get_own_datasource_is_scoped_and_found():

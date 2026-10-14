@@ -1,0 +1,274 @@
+"""品質テスト: 資源原価計算（Q3）と施工計画書承認（Q6）／権限境界（Q1）。
+
+検証内容（ADR-0004 適用後の残存品質欠陥の是正を担保する）:
+  - H6: `_calculate_resource_total_cost` は actual_quantity == 0 を planned に
+    フォールバックせず 0 円とする。`create_resource` も total_cost を計算する。
+  - H5: 承認者（approved_by）はトークン `sub` から同定し、ボディの値は信用しない。
+
+期待値は仕様（承認者はトークン `sub` で同定する／承認は review 状態のみ）に基づく。
+テナント分離（organization_id の越境）は tests/test_tenant_isolation.py が検証する。
+"""
+
+from decimal import Decimal
+
+import pytest
+
+from src.services.construction_service import _calculate_resource_total_cost
+from tests.quality_helpers import (
+    API,
+    AUTH_HEADERS,
+    ORG_A,
+    USER_A,
+    USER_B,
+    make_method,
+    make_resource,
+    make_wbs,
+)
+
+
+# ============================================
+# H6: 資源原価の計算再現性
+# ============================================
+class TestH6ResourceCostCalculation:
+    def test_total_cost_uses_actual_quantity_when_present(self):
+        r = make_resource(
+            planned_quantity=Decimal("30"),
+            actual_quantity=Decimal("10"),
+            unit_cost=Decimal("100"),
+        )
+        _calculate_resource_total_cost(r)
+        assert r.total_cost == Decimal("1000")
+
+    def test_total_cost_falls_back_to_planned_when_actual_is_none(self):
+        """actual 未入力なら planned を使う（意図された挙動の記録）。"""
+        r = make_resource(
+            planned_quantity=Decimal("30"),
+            actual_quantity=None,
+            unit_cost=Decimal("100"),
+        )
+        _calculate_resource_total_cost(r)
+        assert r.total_cost == Decimal("3000")
+
+    def test_total_cost_zero_actual_is_not_replaced_by_planned(self):
+        """実績数量 0（=未消化）は 0 円であるべきで、計画値で水増ししてはならない。"""
+        r = make_resource(
+            planned_quantity=Decimal("30"),
+            actual_quantity=Decimal("0"),
+            unit_cost=Decimal("100"),
+        )
+        _calculate_resource_total_cost(r)
+        assert r.total_cost == Decimal("0"), (
+            f"actual=0 で planned=30 にフォールバックした: total_cost={r.total_cost}"
+        )
+
+    def test_total_cost_zero_actual_and_no_planned_is_zero(self):
+        r = make_resource(
+            planned_quantity=None,
+            actual_quantity=Decimal("0"),
+            unit_cost=Decimal("100"),
+        )
+        _calculate_resource_total_cost(r)
+        assert r.total_cost == Decimal("0")
+
+    def test_total_cost_none_unit_cost_is_zero(self):
+        r = make_resource(
+            planned_quantity=Decimal("30"),
+            actual_quantity=None,
+            unit_cost=None,
+        )
+        _calculate_resource_total_cost(r)
+        assert r.total_cost == Decimal("0")
+
+    def test_total_cost_is_deterministic(self):
+        def calc():
+            r = make_resource(
+                planned_quantity=Decimal("12.5"),
+                actual_quantity=Decimal("7.25"),
+                unit_cost=Decimal("3333.33"),
+            )
+            _calculate_resource_total_cost(r)
+            return r.total_cost
+
+        assert calc() == calc()
+
+    def test_create_resource_computes_total_cost(self, client, mock_db):
+        response = client.post(
+            f"{API}/resources",
+            json={
+                "organization_id": str(ORG_A),
+                "project_id": "00000000-0000-0000-0000-0000000000dd",
+                "resource_type": "labor",
+                "name": "テスト資源A",
+                "unit": "人日",
+                "planned_quantity": "30",
+                "unit_cost": "25000",
+            },
+            headers=AUTH_HEADERS,
+        )
+        assert response.status_code == 201
+        created = mock_db.add.call_args[0][0]
+        assert created.total_cost is not None, "作成時に total_cost が未計算（None）"
+        assert created.total_cost == Decimal("750000")
+
+    def test_update_resource_recomputes_total_cost(self, client, mock_db):
+        """正の対照: 更新時は total_cost が再計算される（作成時との非対称）。"""
+        from unittest.mock import AsyncMock
+
+        resource = make_resource(
+            planned_quantity=Decimal("30"),
+            actual_quantity=None,
+            unit_cost=Decimal("25000"),
+        )
+        mock_db.get = AsyncMock(return_value=resource)
+        response = client.put(
+            f"{API}/resources/{resource.id}",
+            json={"planned_quantity": "40"},
+            headers=AUTH_HEADERS,
+        )
+        assert response.status_code == 200
+        assert resource.total_cost == Decimal("1000000")
+
+
+# ============================================
+# H5: 承認者アイデンティティ
+# ============================================
+class TestH5ApprovalIdentity:
+    def test_approve_uses_token_identity_not_body(self, client, mock_db):
+        from unittest.mock import AsyncMock
+
+        method = make_method(status="review", organization_id=ORG_A)
+        mock_db.get = AsyncMock(return_value=method)
+
+        response = client.post(
+            f"{API}/methods/{method.id}/approve",
+            json={"approved_by": str(USER_B)},  # 偽装を試みる
+            headers=AUTH_HEADERS,
+        )
+        assert response.status_code == 200
+        assert method.status == "approved"
+        assert method.approved_by == USER_A, (
+            f"ボディ指定の別人 {USER_B} が承認者として記録された: {method.approved_by}"
+        )
+        assert method.approved_at is not None
+
+    def test_approve_without_body_uses_token_identity(self, client, mock_db):
+        from unittest.mock import AsyncMock
+
+        method = make_method(status="review", organization_id=ORG_A)
+        mock_db.get = AsyncMock(return_value=method)
+
+        response = client.post(
+            f"{API}/methods/{method.id}/approve", headers=AUTH_HEADERS
+        )
+        assert response.status_code == 200, (
+            f"ボディなしの承認が {response.status_code} になった"
+        )
+        assert method.approved_by == USER_A
+
+
+# ============================================
+# 承認ステートマシン（Q6/Q8）
+# ============================================
+class TestApprovalStateMachine:
+    def _review_method(self, mock_db, status):
+        from unittest.mock import AsyncMock
+
+        method = make_method(status=status, organization_id=ORG_A)
+        mock_db.get = AsyncMock(return_value=method)
+        return method
+
+    def test_approve_requires_review_status(self, client, mock_db):
+        method = self._review_method(mock_db, "draft")
+        response = client.post(
+            f"{API}/methods/{method.id}/approve",
+            json={"approved_by": str(USER_A)},
+            headers=AUTH_HEADERS,
+        )
+        assert response.status_code == 400
+        assert method.status == "draft"
+
+    def test_double_approve_is_rejected(self, client, mock_db):
+        method = self._review_method(mock_db, "review")
+        first = client.post(
+            f"{API}/methods/{method.id}/approve",
+            json={"approved_by": str(USER_A)},
+            headers=AUTH_HEADERS,
+        )
+        assert first.status_code == 200
+        second = client.post(
+            f"{API}/methods/{method.id}/approve",
+            json={"approved_by": str(USER_A)},
+            headers=AUTH_HEADERS,
+        )
+        assert second.status_code == 400
+        assert method.status == "approved"
+
+    def test_reject_requires_review_status(self, client, mock_db):
+        method = self._review_method(mock_db, "draft")
+        response = client.post(
+            f"{API}/methods/{method.id}/reject", headers=AUTH_HEADERS
+        )
+        assert response.status_code == 400
+        assert method.status == "draft"
+
+    def test_submit_requires_draft_status(self, client, mock_db):
+        method = self._review_method(mock_db, "approved")
+        response = client.post(
+            f"{API}/methods/{method.id}/submit", headers=AUTH_HEADERS
+        )
+        assert response.status_code == 400
+        assert method.status == "approved"
+
+    def test_submit_twice_is_rejected(self, client, mock_db):
+        method = self._review_method(mock_db, "draft")
+        first = client.post(f"{API}/methods/{method.id}/submit", headers=AUTH_HEADERS)
+        assert first.status_code == 200
+        assert method.status == "review"
+        second = client.post(f"{API}/methods/{method.id}/submit", headers=AUTH_HEADERS)
+        assert second.status_code == 400
+
+
+# ============================================
+# 未認証アクセス（Q1）
+# ============================================
+class TestAuthRequiredQuality:
+    @pytest.mark.parametrize(
+        "method,path",
+        [
+            ("get", f"{API}/resources"),
+            ("get", f"{API}/schedules"),
+            ("get", f"{API}/methods"),
+            ("get", f"{API}/projects/00000000-0000-0000-0000-0000000000dd/gantt"),
+            ("get", f"{API}/projects/00000000-0000-0000-0000-0000000000dd/critical-path"),
+        ],
+    )
+    def test_reads_require_auth(self, client_no_auth, method, path):
+        response = getattr(client_no_auth, method)(path)
+        assert response.status_code == 401
+
+    def test_approve_requires_auth(self, client_no_auth):
+        response = client_no_auth.post(
+            f"{API}/methods/00000000-0000-0000-0000-0000000000ab/approve",
+            json={"approved_by": str(USER_A)},
+        )
+        assert response.status_code == 401
+
+
+# ============================================
+# 境界値（Q8）: 進捗率の範囲検証
+# ============================================
+class TestBoundaryValidationQ8:
+    @pytest.mark.parametrize("value", ["150", "-5"])
+    def test_wbs_put_rejects_out_of_range_progress(self, client, mock_db, value):
+        from unittest.mock import AsyncMock
+
+        wbs = make_wbs(organization_id=ORG_A)
+        mock_db.get = AsyncMock(return_value=wbs)
+        response = client.put(
+            f"{API}/wbs/{wbs.id}",
+            json={"progress_percent": value},
+            headers=AUTH_HEADERS,
+        )
+        assert response.status_code == 422, (
+            f"範囲外の進捗率 {value} が {response.status_code} で受理された"
+        )

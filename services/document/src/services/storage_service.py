@@ -22,10 +22,21 @@ def _get_s3_client():
     )
 
 
+def sanitize_file_name(file_name: str) -> str:
+    """オブジェクトキーへ埋め込むファイル名を無害化する。
+
+    パス区切りや親ディレクトリ参照（`..`）を残すと、キー経由で
+    意図しないパスへ到達しうる（path traversal）。
+    """
+    name = (file_name or "").replace("\\", "/").split("/")[-1]
+    name = name.replace("..", "_").strip()
+    return name or "unnamed"
+
+
 def generate_storage_key(
     org_id: UUID, doc_id: UUID, version: int, file_name: str
 ) -> str:
-    return f"{org_id}/{doc_id}/v{version}/{file_name}"
+    return f"{org_id}/{doc_id}/v{version}/{sanitize_file_name(file_name)}"
 
 
 def initialize_bucket() -> bool:

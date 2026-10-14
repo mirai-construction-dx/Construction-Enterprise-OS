@@ -1,0 +1,10 @@
+{
+  "id": "T-d0913278-5a99-4b90-af2e-ba9b07a2f060",
+  "subject": "#70: FastAPI 更新で starlette を解消",
+  "description": "19サービスの fastapi 0.115.0→0.141.1 を更新し starlette 脆弱性を解消。許容リストから該当IDを除去。全サービスのテストで回帰確認。feature ブランチ→PR。",
+  "status": "pending",
+  "activeForm": "FastAPI/starlette を更新中",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f43ac1056ffeuiFtKYENl1dpRf"
+}

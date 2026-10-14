@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
-// API_GATEWAY (no NEXT_PUBLIC_ prefix) is server-side only — can be overridden at runtime in Docker
+// API_GATEWAY (NEXT_PUBLIC_ 接頭辞なし) はサーバー専用。
+// 注意: `output: "standalone"` では rewrites() が**ビルド時**に評価され .next/standalone へ
+// 焼き込まれるため、Docker の runtime 環境変数では上書きできない（2026-10-14 実測）。
+// Docker では apps/web/Dockerfile の ARG API_GATEWAY（compose の build.args）で渡す。
 const API_GATEWAY =
   process.env.API_GATEWAY ??
   process.env.NEXT_PUBLIC_API_GATEWAY ??

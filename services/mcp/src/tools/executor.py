@@ -4,10 +4,12 @@
 監査ログへ result_code を記録できるようにする。
 """
 
+from collections.abc import Awaitable, Callable
 from typing import Any, Protocol
 from urllib.parse import quote
 
 from ..config import Settings
+from ..services.token_exchange import UpstreamAuthError
 from ..services.upstream import UpstreamResult, UpstreamUnavailableError
 from .models import ToolCallOutcome, ToolDefinition
 from .policy import is_server_enabled, is_tool_allowed
@@ -20,6 +22,10 @@ RESULT_TOOL_NOT_ALLOWED = "TOOL_NOT_ALLOWED"
 RESULT_ARGUMENT_INVALID = "TOOL_ARGUMENT_INVALID"
 RESULT_UPSTREAM_ERROR = "UPSTREAM_ERROR"
 RESULT_UPSTREAM_UNAVAILABLE = "UPSTREAM_UNAVAILABLE"
+RESULT_UPSTREAM_AUTH_UNAVAILABLE = "UPSTREAM_AUTH_UNAVAILABLE"
+
+# 呼び出し元の Authorization から上流用 Authorization を解決する（ADR-0003 のトークン交換）
+AuthorizationResolver = Callable[[str | None], Awaitable[str | None]]
 
 
 class ToolArgumentError(ValueError):
@@ -120,6 +126,7 @@ async def execute_tool(
     client: UpstreamClientProtocol,
     registry: ToolRegistry,
     settings: Settings | None = None,
+    resolve_authorization: AuthorizationResolver | None = None,
 ) -> ToolCallOutcome:
     """読み取り専用ツールを実行する。すべての拒否は outcome の result_code で返す。"""
     if not is_server_enabled(settings):
@@ -151,12 +158,23 @@ async def execute_tool(
         )
 
     path, query = build_upstream_request(definition, validated)
+    # 交換は検証をすべて通過し、上流を呼ぶ直前にだけ行う
+    upstream_authorization = authorization
+    if resolve_authorization is not None:
+        try:
+            upstream_authorization = await resolve_authorization(authorization)
+        except UpstreamAuthError:
+            return ToolCallOutcome(
+                result_code=RESULT_UPSTREAM_AUTH_UNAVAILABLE,
+                error_message="上流呼び出し用の資格情報を取得できません。",
+            )
+
     try:
         result = await client.get(
             definition.upstream_service,
             path,
             params=query,
-            authorization=authorization,
+            authorization=upstream_authorization,
         )
     except UpstreamUnavailableError:
         return ToolCallOutcome(

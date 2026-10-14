@@ -138,7 +138,9 @@ async def device_heartbeat(
 
     now = datetime.now(timezone.utc)
     device.last_seen_at = now
-    device.status = "online"
+    # retired のデバイスは heartbeat で復帰させない。
+    if device.status != "retired":
+        device.status = "online"
 
     if data.get("battery_level") is not None:
         device.battery_level = data["battery_level"]

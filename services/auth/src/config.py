@@ -39,6 +39,16 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     M2M_TOKEN_EXPIRE_HOURS: int = 24
 
+    # トークン交換（RFC 8693、ADR-0003）。既定は無効（Phase 0）。
+    TOKEN_EXCHANGE_ENABLED: bool = False
+    # ① 通常ユーザートークン → MCP 用（aud=MCP_AUDIENCE）
+    MCP_AUDIENCE: str = "api://ceos-mcp"
+    MCP_TOKEN_EXPIRE_MINUTES: int = 10
+    # ② MCP 用 → 上流用（aud 無し・act 付き）。クライアント認証とスコープが必須
+    UPSTREAM_EXCHANGE_AUDIENCE: str = "urn:ceos:upstream"
+    UPSTREAM_EXCHANGE_SCOPE: str = "token-exchange:ceos-upstream"
+    UPSTREAM_TOKEN_EXPIRE_MINUTES: int = 5
+
     # MFA
     MFA_ISSUER: str = "Construction-Enterprise-OS"
     MFA_TOKEN_VALIDITY_SECONDS: int = 30

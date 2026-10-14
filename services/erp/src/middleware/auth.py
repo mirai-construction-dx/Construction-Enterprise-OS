@@ -71,3 +71,19 @@ async def get_current_user(
         )
 
     return token_data
+
+
+# 財務（finance）カテゴリの書込に必要なロール（auth サービスの既定ロール seed と一致）
+FINANCE_ROLES = frozenset({"admin", "accountant"})
+
+
+def require_any_role(user: TokenData, allowed: frozenset[str]) -> None:
+    """トークンが allowed のいずれかのロールを保持することを要求する（fail-closed）。
+
+    roles が空（[] / null）のトークンはロール必須操作を実行できない。
+    """
+    if not (set(user.roles or []) & allowed):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "この操作に必要なロールがありません。"},
+        )

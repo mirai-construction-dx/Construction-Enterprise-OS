@@ -30,6 +30,22 @@ class Settings(BaseSettings):
 
     RATE_LIMIT_PER_MINUTE: int = 100
 
+    # 上流サービスへの転送タイムアウト（秒）。
+    # 2026-10-14: 以前は `ProxyService` の既定値 30.0 にハードコードされており、
+    # 環境ごとに変えられなかった（テスト名は "uses configured timeout" と
+    # 言っていたが、実際は既定値を確認しているだけだった）。
+    # stg の実測では、停止した上流に対して 502 を返すまで **16.1 秒**待たされた。
+    # 運用で短くできるよう設定へ出した（既定値は従来と同じ 30.0 で挙動は変えない）。
+    UPSTREAM_TIMEOUT_SECONDS: float = 30.0
+
+    # 上流への**接続**タイムアウト（秒）。読み取りとは分ける。
+    # 2026-10-14 の実測: 停止した上流へは
+    #   - 名前解決は静的 IP ＋ gateway の extra_hosts で即時になる（§6.14）
+    #   - しかし接続は相手が居ないため**ハングする**（30 秒待たされた）
+    # そのため接続だけ短く切る。応答が遅いだけの正規の呼び出し（AI / 解析など）は
+    # UPSTREAM_TIMEOUT_SECONDS まで待てる。
+    UPSTREAM_CONNECT_TIMEOUT_SECONDS: float = 3.0
+
     UPSTREAM_SERVICES: dict[str, str] = {
         # Foundation layer — auth service (port 8000)
         "^/api/v1/health": "http://localhost:8000",
@@ -73,6 +89,12 @@ class Settings(BaseSettings):
         "^/api/v1/security": "http://localhost:8021",
         "^/api/v1/notification": "http://localhost:8017",
     }
+
+    # 内部ネットワーク専用のため gateway 経由では常に 404 とするパス（認証の有無を問わない）。
+    # トークン交換（ADR-0003）は MCP 等の内部サービスが auth を直接呼ぶ。外部公開は別判断。
+    INTERNAL_ONLY_PATHS: list[str] = [
+        r"^/+api/v1/auth/token/*$",
+    ]
 
     PUBLIC_PATHS: list[str] = [
         "^/health$",

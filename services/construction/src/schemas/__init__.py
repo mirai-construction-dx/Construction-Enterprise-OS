@@ -36,7 +36,7 @@ class WBSUpdateRequest(BaseModel):
     planned_cost: Decimal | None = None
     actual_cost: Decimal | None = None
     weight_percent: Decimal | None = None
-    progress_percent: Decimal | None = None
+    progress_percent: Decimal | None = Field(None, ge=0, le=100)
     status: str | None = None
     responsible_person: UUID | None = None
 
@@ -269,7 +269,8 @@ class MethodUpdateRequest(BaseModel):
 
 
 class MethodApprovalRequest(BaseModel):
-    approved_by: UUID
+    # 後方互換のため受理するが、承認者同定には使用しない（トークン由来に変更）。
+    approved_by: UUID | None = None
 
 
 class MethodResponse(BaseModel):

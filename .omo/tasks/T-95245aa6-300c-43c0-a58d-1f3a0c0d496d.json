@@ -1,0 +1,10 @@
+{
+  "id": "T-95245aa6-300c-43c0-a58d-1f3a0c0d496d",
+  "subject": "Migrate POST/PUT and authHeaders GET sites",
+  "description": "workflows POST approve/reject, all fetch+authHeaders sites that need custom handling: convert where safe to get/post/apiRequest, keep fetch+authHeaders for multipart/streaming/custom Response paths.",
+  "status": "completed",
+  "activeForm": "Migrating POST + authHeaders sites",
+  "blocks": [],
+  "blockedBy": [],
+  "threadID": "ses_f4317cdeeffeJ6BrcWayvJVuGA"
+}

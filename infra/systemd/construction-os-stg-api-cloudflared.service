@@ -1,0 +1,54 @@
+# Construction-Enterprise-OS — staging (stg) の API を Cloudflare Tunnel で公開する
+#
+# 設計: docs/operations/staging.md §6.4 / docs/architecture/ADR-0005-staging-environment.md §3
+#   本番の `construction-os-api` トンネルとは**別トンネル**にする
+#   （stg と prod で入口を共有しない）。転送先は stg のゲートウェイ
+#   （127.0.0.1:19500）。公開ポートは LAN に出さない。
+#
+# なぜリポジトリに置くか（2026-10-14 実測）:
+#   §6.4 はホスト名・トンネル名・転送先・設定ファイルのパスまで決めていたが、
+#   **systemd unit が無く、手順も文章だけ**だった。DNS が解けた瞬間に有効化できる
+#   よう、正本をリポジトリに置く（`ceos-stg.service` と同じ扱い）。
+#
+# 前準備（オペレーター。正本はリポジトリ側）:
+#   scripts/stg/prepare_api_tunnel.sh --apply
+#     → ~/.cloudflared/construction-os-stg-api-config.yml とトンネルを作る
+#     → DNS ルートのコマンドを表示する（Zone→DNS→Edit 権限が必要）
+#
+# 設置:
+#   sudo install -m 644 infra/systemd/construction-os-stg-api-cloudflared.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now construction-os-stg-api-cloudflared
+#
+# 見る:
+#   systemctl status construction-os-stg-api-cloudflared
+#   journalctl -u construction-os-stg-api-cloudflared -n 50
+#
+# 注意:
+#   - 認証情報（トンネルの credentials JSON）は**リポジトリに置かない**。
+#     `--config` が指す設定と credentials はホスト側（~/.cloudflared/）にある。
+#   - stg スタックが動いていないと転送先が無い。順序（After）だけ指定し、
+#     起動の成否は依存させない（`ceos-stg.service` は enable していない。
+#     enable するかは Mirai-Platform-Infra の未決 B-2 と同時に決める）。
+
+[Unit]
+Description=Construction-Enterprise-OS staging API Cloudflare Tunnel (construction-os-stg-api)
+Documentation=file:///home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/docs/operations/staging.md
+After=network-online.target ceos-stg.service
+Wants=network-online.target
+# 相手が居ないときに無限再起動しない（cloudflared 自身が再接続する）。
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=kensan
+Group=kensan
+# 設定と credentials は ~/.cloudflared/ にあるため HOME を明示する。
+Environment=HOME=/home/kensan
+ExecStart=/usr/local/bin/cloudflared --no-autoupdate tunnel --config /home/kensan/.cloudflared/construction-os-stg-api-config.yml run construction-os-stg-api
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

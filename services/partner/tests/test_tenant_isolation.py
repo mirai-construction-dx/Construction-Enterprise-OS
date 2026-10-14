@@ -253,7 +253,10 @@ def test_by_id_lookup_is_org_scoped_and_other_org_is_404(
     mock_jwt, method, path, body, code
 ):
     """A record of another organization is not found (404) because the lookup is org-scoped."""
-    mock_jwt.decode.return_value = _payload()
+    # 契約署名は承認ロール必須（RBAC）。site_manager は承認ロールかつ非 admin のため、
+    # scope_org によるテナント境界（token org への束縛）を維持したまま署名フローを検証できる。
+    roles = ["site_manager"] if path.endswith("/sign") else None
+    mock_jwt.decode.return_value = _payload(roles=roles)
     client, db = _client(None)
 
     resp = client.request(method, path, json=body, headers=_auth_header())
@@ -479,7 +482,7 @@ def test_child_create_uses_token_org(mock_jwt, path, body, target, factory):
 def test_admin_child_create_uses_partner_org(mock_jwt, path, body, target, factory):
     """Admin (cross-org) child records follow the referenced partner's organization."""
     mock_jwt.decode.return_value = _payload(roles=["admin"])
-    client, db = _client(make_mock_partner(organization_id=ORG_B))
+    client, db = _client(make_mock_partner(organization_id=ORG_B), None)
 
     with (
         patch(target, new_callable=AsyncMock, return_value=factory()) as mock_create,
@@ -517,8 +520,8 @@ def test_evaluation_rating_update_is_org_scoped(mock_jwt):
     """The rating recomputation after an evaluation only reads/writes the caller's org."""
     mock_jwt.decode.return_value = _payload()
     partner = make_mock_partner(organization_id=ORG_A)
-    # partner lookup, rating aggregate, partner fetch for rating update
-    client, db = _client(partner, (4.0, 1), partner)
+    # partner lookup, duplicate check, rating aggregate, partner fetch for rating update
+    client, db = _client(partner, None, (4.0, 1), partner)
 
     with patch(
         "src.api.evaluations.evaluation_service.create_evaluation",
@@ -530,6 +533,6 @@ def test_evaluation_rating_update_is_org_scoped(mock_jwt):
         )
 
     assert resp.status_code == 201, resp.text
-    assert db.execute.await_count == 3
-    for i in range(3):
+    assert db.execute.await_count == 4
+    for i in range(4):
         assert ORG_A in _params(db, i).values()

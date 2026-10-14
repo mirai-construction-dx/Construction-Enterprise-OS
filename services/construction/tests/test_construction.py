@@ -12,6 +12,7 @@ from src.middleware.auth import TokenData, get_current_user
 from src.models.base import get_db
 
 ORG_ID = uuid.UUID("00000000-0000-0000-0000-0000000000aa")
+TEST_USER_ID = uuid.UUID("00000000-0000-0000-0000-0000000000cc")
 
 
 class MockScalarResult:
@@ -83,7 +84,7 @@ def app(mock_db):
 
     async def mock_get_current_user():
         return TokenData(
-            sub="test-user-id", type="user", org=str(ORG_ID), roles=["admin"]
+            sub=str(TEST_USER_ID), type="user", org=str(ORG_ID), roles=["admin"]
         )
 
     _app.dependency_overrides[get_db] = mock_get_db
@@ -641,17 +642,19 @@ class TestMethodStatement:
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
-        approver_id = uuid.uuid4()
+        forged_approver_id = uuid.uuid4()  # ボディで別人を指定しても採用されないこと
         mock_db.get = AsyncMock(return_value=method)
 
         response = client.post(
             f"/api/v1/construction/methods/{method_id}/approve",
-            json={"approved_by": str(approver_id)},
+            json={"approved_by": str(forged_approver_id)},
             headers=_auth_headers(),
         )
         assert response.status_code == 200
         assert method.status == "approved"
-        assert method.approved_by == approver_id
+        # 承認者はトークン由来（QA-Construction DEF-05a の是正）
+        assert method.approved_by == TEST_USER_ID
+        assert method.approved_by != forged_approver_id
         assert method.approved_at is not None
 
     def test_reject_method(self, client, mock_db):

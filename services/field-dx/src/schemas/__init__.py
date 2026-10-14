@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ============================================
@@ -23,7 +23,6 @@ class DailyReportCreateRequest(BaseModel):
     materials_used: list[str] | None = None
     issues: str | None = None
     next_plan: str | None = None
-    created_by: UUID
 
 
 class DailyReportUpdateRequest(BaseModel):
@@ -85,10 +84,9 @@ class ProgressCreateRequest(BaseModel):
     planned_end: date | None = None
     actual_start: date | None = None
     actual_end: date | None = None
-    progress_percent: float | None = None
+    progress_percent: float | None = Field(default=None, ge=0, le=100)
     status: str = "pending"
     notes: str | None = None
-    recorded_by: UUID
 
 
 class ProgressUpdateRequest(BaseModel):
@@ -101,7 +99,7 @@ class ProgressUpdateRequest(BaseModel):
     planned_end: date | None = None
     actual_start: date | None = None
     actual_end: date | None = None
-    progress_percent: float | None = None
+    progress_percent: float | None = Field(default=None, ge=0, le=100)
     status: str | None = None
     notes: str | None = None
 
@@ -159,9 +157,15 @@ class QualityCheckCreateRequest(BaseModel):
     is_conforming: bool | None = None
     check_date: date
     location: str | None = None
-    inspector_id: UUID
     notes: str | None = None
     status: str = "pending"
+
+    @model_validator(mode="after")
+    def _require_measurement_for_conformance(self) -> "QualityCheckCreateRequest":
+        # 合否の根拠（測定値）なしに「適合/不適合」を申告する入力を拒否する。
+        if self.is_conforming is not None and not self.measured_value:
+            raise ValueError("測定値なしでは合否を確定できません")
+        return self
 
 
 class QualityCheckUpdateRequest(BaseModel):
