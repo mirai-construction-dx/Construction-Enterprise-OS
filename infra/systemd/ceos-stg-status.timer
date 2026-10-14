@@ -1,0 +1,29 @@
+# Construction-Enterprise-OS — staging (stg) の健全性検査を定期実行する
+#
+# 設計: docs/architecture/ADR-0005-staging-environment.md §1
+#   2026-10-14 実測: stg の検査を定期実行する timer は存在しなかった。
+#
+# 設置:
+#   sudo install -m 644 infra/systemd/ceos-stg-status.service /etc/systemd/system/
+#   sudo install -m 644 infra/systemd/ceos-stg-status.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ceos-stg-status.timer
+#
+# 間隔:
+#   5 分ごと。`status.sh` は docker と psql を叩くため、これ以上短くしない。
+#   RandomizedDelaySec で同時刻の集中を避ける。
+#   Persistent は使わない（ホスト停止中の分を後からまとめて実行しても意味がない。
+#   停止そのものは `ceos-stg.service` の状態で見る）。
+
+[Unit]
+Description=Construction-Enterprise-OS staging health check timer (every 5 minutes)
+Documentation=file:///home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/docs/operations/staging.md
+
+[Timer]
+OnCalendar=*:0/5
+RandomizedDelaySec=20s
+AccuracySec=15s
+Unit=ceos-stg-status.service
+
+[Install]
+WantedBy=timers.target
