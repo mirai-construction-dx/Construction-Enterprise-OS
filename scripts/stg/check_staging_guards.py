@@ -11,6 +11,7 @@
   G-7  全サービスが ENVIRONMENT != development/test で開発用既定鍵を拒否する（guard が残っている）。
   G-8  dev(compose) の ENVIRONMENT が staging へ書き換わっていない（stg が dev を汚染していない）。
   G-9  stg compose に**可変タグ**（`:latest` など）のイメージが無い（再現性。2026-10-14 追加）。
+  G-10 stg compose の**全サービスに再起動方針**がある（長時間動く環境。2026-10-14 追加）。
 
 `SKIP` を作らない。判定できないものは FAIL として報告する（AGENTS.md「未確認を成功と書かない」）。
 
@@ -189,6 +190,30 @@ def check_no_mutable_tags(stg: dict) -> None:
     )
 
 
+def check_restart_policy(stg: dict) -> None:
+    """全サービスに再起動方針があるか。
+
+    なぜ必要か（2026-10-14 実測）:
+        docker compose の既定は `restart: no` である。`docker-compose.yml` は
+        基盤サービス（redis / rabbitmq / kafka / elasticsearch / kibana / minio）に
+        restart を指定していなかった（dev でも 8 件が未指定）。
+        stg は長時間動き続ける環境なので、**落ちたら誰かが起こすまで止まったまま**になる。
+        実際、アプリ 26 サービスには方針があり基盤 6 つには無い、という非対称があった。
+
+    対策:
+        `render_stg_compose.py` が stg の全サービスへ `unless-stopped` を与える
+        （明示がある場合はそれを尊重する）。ここでは**漏れ**を検査する。
+    """
+    missing = [name for name, s in sorted(stg["services"].items()) if not s.get("restart")]
+    record(
+        "G-10 restart policy is present",
+        not missing,
+        f"{len(stg['services'])} サービスすべてに再起動方針がある"
+        if not missing
+        else f"方針が無いサービス: {missing}（落ちても起動しない）",
+    )
+
+
 def check_dev_not_polluted() -> None:
     base = yaml.safe_load(BASE_COMPOSE.read_text(encoding="utf-8"))
     environments = {
@@ -220,6 +245,7 @@ def main() -> int:
         check_replaced_services_absent(stg)
         check_service_guards()
         check_no_mutable_tags(stg)
+        check_restart_policy(stg)
         check_dev_not_polluted()
 
     failed = 0

@@ -36,6 +36,10 @@ Group=kensan
 # monitor.sh は ${HOME}/.local/state/ceos-stg/ へ記録し、
 # status.sh は ${HOME}/.config/ceos/stg.env を読むため HOME を明示する。
 Environment=HOME=/home/kensan
+# 通知先は任意。`/etc/ceos/stg-alert.env` があれば読む（先頭の `-` は「無くても失敗しない」）。
+# 例: CEOS_STG_ALERT_WEBHOOK=https://hooks.example.com/services/XXX
+# 未設定なら monitor.sh は通知せず、その事実を status.log に明示する。
+EnvironmentFile=-/etc/ceos/stg-alert.env
 WorkingDirectory=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS
 ExecStart=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/scripts/stg/monitor.sh
 TimeoutStartSec=600
