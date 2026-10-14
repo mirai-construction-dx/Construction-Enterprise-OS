@@ -85,7 +85,7 @@ STG_ACCESS_TEAM_DOMAIN=__FILLED_BY_OPERATOR__
 STG_ACCESS_AUD=__FILLED_BY_OPERATOR__
 
 # --- スモークテスト -----------------------------------------------------------
-STG_SMOKE_ADMIN_EMAIL=stg-admin@example.invalid
+STG_SMOKE_ADMIN_EMAIL=stg-admin@stg.mirai-dx-platform.com
 STG_SMOKE_ADMIN_PASSWORD=$(rand_hex 16)
 STG_SMOKE_BASE_URL=http://127.0.0.1:19500
 EOF
