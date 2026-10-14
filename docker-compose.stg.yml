@@ -263,6 +263,7 @@ services:
       JWT_PUBLIC_KEY: ${STG_JWT_PUBLIC_KEY:?set STG_JWT_PUBLIC_KEY (see .env.stg.example)}
       ENVIRONMENT: staging
       GATEWAY_PORT: 9000
+      UPSTREAM_TIMEOUT_SECONDS: ${UPSTREAM_TIMEOUT_SECONDS:-30}
       UPSTREAM_SERVICES: "{\"^/api/v1/health\": \"http://auth:8000\",\n \"^/api/v1/auth\": \"http://auth:8000\",\n \"^/api/v1/users\"\
         : \"http://auth:8000\",\n \"^/api/v1/roles\": \"http://auth:8000\",\n \"^/api/v1/permissions\": \"http://auth:8000\"\
         ,\n \"^/api/v1/api-clients\": \"http://auth:8000\",\n \"^/api/v1/audit-logs\": \"http://auth:8000\",\n \"^/api/v1/documents\"\

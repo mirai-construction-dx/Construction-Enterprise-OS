@@ -30,6 +30,14 @@ class Settings(BaseSettings):
 
     RATE_LIMIT_PER_MINUTE: int = 100
 
+    # 上流サービスへの転送タイムアウト（秒）。
+    # 2026-10-14: 以前は `ProxyService` の既定値 30.0 にハードコードされており、
+    # 環境ごとに変えられなかった（テスト名は "uses configured timeout" と
+    # 言っていたが、実際は既定値を確認しているだけだった）。
+    # stg の実測では、停止した上流に対して 502 を返すまで **16.1 秒**待たされた。
+    # 運用で短くできるよう設定へ出した（既定値は従来と同じ 30.0 で挙動は変えない）。
+    UPSTREAM_TIMEOUT_SECONDS: float = 30.0
+
     UPSTREAM_SERVICES: dict[str, str] = {
         # Foundation layer — auth service (port 8000)
         "^/api/v1/health": "http://localhost:8000",

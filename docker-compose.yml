@@ -222,6 +222,11 @@ services:
     environment:
       <<: *db-env
       GATEWAY_PORT: 9000
+      # 上流への転送タイムアウト（秒）。2026-10-14 に設定へ出した
+      # （以前は ProxyService の既定値 30.0 にハードコードされ、環境ごとに
+      #  変えられなかった）。停止した上流には実測 16.1 秒待たされるため、
+      #  運用で短くできるようにしてある。
+      UPSTREAM_TIMEOUT_SECONDS: ${UPSTREAM_TIMEOUT_SECONDS:-30}
       UPSTREAM_SERVICES: >-
         {"^/api/v1/health": "http://auth:8000",
          "^/api/v1/auth": "http://auth:8000",

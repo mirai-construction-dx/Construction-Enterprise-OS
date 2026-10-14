@@ -41,6 +41,18 @@ class ProxyService:
     def __init__(self, timeout: float = 30.0):
         self._timeout = timeout
 
+    @property
+    def timeout(self) -> float:
+        """上流への転送タイムアウト（秒）。
+
+        検査から読めるように公開する。以前は private な `_timeout` しか無く、
+        「設定値が実際に使われているか」をテストで確かめられなかった
+        （テスト名は "uses configured timeout" だったが、実際は既定値 30.0 を
+          書いていただけで、settings を変えても追随しないことに気づけなかった。
+          2026-10-14 実測）。
+        """
+        return self._timeout
+
     async def forward(
         self,
         request: Request,
