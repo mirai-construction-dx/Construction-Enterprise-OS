@@ -42,11 +42,13 @@ mkdir -p "$TARGET_DIR"
 rand_hex() { openssl rand -hex "$1"; }
 
 # JWT は HS256 の共有鍵（本番で RS256 化するまでの暫定。ADR-0005 §5）。
-# JWT_PRIVATE_KEY / JWT_PUBLIC_KEY は config.py が「開発用既定鍵でないこと」を
-# 要求するため、HS256 運用でも別々の値を入れる。
+# **HS256 では署名鍵と検証鍵が同一でなければならない。**
+# 別値にすると「ログインは 200 でトークンも出るが、認証付き API が必ず 401」になる
+# （2026-10-14 実測。scripts/stg/e2e_stg.sh の api.spec.ts が検出した）。
+# RS256 へ移行するときは JWT_PUBLIC を別値（公開鍵）にする。
 JWT_SECRET="$(rand_hex 32)"
 JWT_PRIVATE="$(rand_hex 32)"
-JWT_PUBLIC="$(rand_hex 32)"
+JWT_PUBLIC="$JWT_PRIVATE"
 
 cat >"$TARGET" <<EOF
 # Construction-Enterprise-OS STAGING secrets — $(date -Iseconds)
