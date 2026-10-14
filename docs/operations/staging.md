@@ -96,6 +96,8 @@ scripts/stg/migrate_stg.sh        # スキーマ適用（冪等）
 scripts/stg/seed_stg.sh           # 最小限の合成データ投入（管理ユーザ・ロール）
 scripts/stg/smoke.sh              # スモークテスト
 scripts/stg/restore_drill.sh      # 復旧訓練（論理バックアップから別DBへ戻して照合）
+scripts/stg/e2e_stg.sh            # API の Playwright E2E を stg に向けて実行
+scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
 ```
@@ -125,6 +127,23 @@ python3 scripts/stg/render_stg_compose.py --check
   立会いの下で行う Human Gate の操作である**（§8）。
 - `pg_dump` は PATH 上の 17 系ではなく **クラスタと同じ 18 系**
   (`/usr/lib/postgresql/18/bin`) を使う。17 系だとバージョン不一致で中断する（実測）。
+
+### 4.3 JWT 鍵はアルゴリズムに整合させる（HS256 では署名鍵＝検証鍵）
+
+auth は `jwt.encode(..., settings.jwt_private_key, algorithm=settings.JWT_ALGORITHM)` で署名し、
+`jwt.decode(..., settings.jwt_public_key, algorithms=[...])` で検証する。
+**`JWT_ALGORITHM=HS256`（共有鍵）のときは署名鍵と検証鍵が同一でなければならない。**
+
+`gen_stg_env.sh` の初版は 3 つの鍵に別々の乱数を入れており、
+**「ログインは 200 でトークンも出るが、認証付き API が必ず 401」**になっていた
+（2026-10-14 実測）。スモークテストはこれを検出できず、
+`scripts/stg/e2e_stg.sh`（Playwright `e2e/api.spec.ts` の
+「JWT で users / roles が取得できる」）が 401 を出して判明した。
+
+- 確認だけする: `scripts/stg/rotate_stg_jwt.sh --show`
+- 作り直す: `scripts/stg/rotate_stg_jwt.sh` → `scripts/stg/compose.sh up -d --force-recreate auth gateway`
+- RS256 へ移行するときは `JWT_PUBLIC` を別値（公開鍵）にする。スクリプトは
+  `STG_JWT_ALGORITHM` を見て自動で切り替える。
 
 `db-bridge` は `network_mode: host` のため `construction-net` のサービス名解決に載らない。
 コンテナからは **ゲートウェイ IP `10.201.0.1:55438`** を使う（`DATABASE_URL` に埋め込み済み）。
