@@ -230,7 +230,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **DNS CNAME `construction-os-stg`** | **未完了（ブロッカー 1）** | 使用可能な資格情報に Zone→DNS→Edit が無く `10000: Authentication error` |
 | **CI ワークフローの設置** | **未完了（ブロッカー 2）** | ハーネスポリシーが `.github/workflows/**` への書込を DEPLOY(critical) として拒否。内容は `docs/operations/staging-deploy.workflow.yml` に確定済み |
 | **Pages から本番 API への越境** | 完了（欠陥を検出して修正） | 共有 `webui/functions` が本番 API を向いており、stg へそのまま配ると越境した（実測）。`scripts/stg/render_pages_functions.py` で描画し、`scripts/stg/check_pages_upstream.py` で不変条件化した。§6.5 |
-| Cloudflare Tunnel（API 公開） | 未着手 | Tunnel 作成と `cloudflared` unit が必要。ホストに `cloudflared` は導入済み（`/usr/local/bin/cloudflared`）。stg の API ホストは `construction-os-stg-api.mirai-dx-platform.com`（§6.4） |
+| Cloudflare Tunnel（API 公開） | **リポジトリ側は完了／有効化は未実施** | unit（`infra/systemd/construction-os-stg-api-cloudflared.service`）と準備スクリプト（`scripts/stg/prepare_api_tunnel.sh`、既定は dry-run）を追加。**トンネルの作成・DNS ルート・有効化は未実施**（DNS 権限が無い）。ホストに `cloudflared` は導入済み。値を 4 か所で突き合わせる G-13 を追加。§6.4 |
 | 全スタックの起動 | 完了 | `scripts/stg/compose.sh up -d` で 31 コンテナが Up（30 healthy + kibana。kibana は healthcheck 未定義） |
 | スモークテスト | 完了 | `scripts/stg/smoke.sh` が **9/9 PASS**（gateway / auth / web / 401 / docs無効 / ログイン / トークン / db-bridge / DB 到達） |
 | **API E2E** | 完了 | `scripts/stg/e2e_stg.sh` — Playwright `e2e/api.spec.ts` が **16/16 PASS**（desktop/mobile）。この E2E が JWT 鍵の不整合（ログインは 200 だが認証付き API が 401）を検出した。§4.3 |
@@ -294,7 +294,32 @@ Mirai-Platform-Infra の `db/roles.yaml` は
 | ローカル設定 | `~/.cloudflared/construction-os-stg-api-config.yml`（認証情報はリポジトリ外） |
 
 このホストは `staging-deploy.workflow.yml` の `STG_API_UPSTREAM` と
-**同じ値でなければならない**（`make stg-pages-upstream` の C-3 が検査する）。
+**同じ値でなければならない**。
+
+#### リポジトリ側の正本（2026-10-14 追加）
+
+以前は §6.4 の文章だけで、**systemd unit も生成手順も無かった**。DNS が解けた
+瞬間に有効化できるよう、正本をリポジトリに置いた。
+
+| 実体 | 役割 |
+|---|---|
+| `scripts/stg/prepare_api_tunnel.sh` | 設定の生成・トンネルの作成・unit の設置・**DNS ルートのコマンド表示**。既定は `--dry-run`（何も書き換えず、生成される設定と実行するコマンドを表示する） |
+| `infra/systemd/construction-os-stg-api-cloudflared.service` | トンネルを systemd 管理下で動かす unit（**正本はリポジトリ**。手で `/etc` を編集しない） |
+
+```bash
+scripts/stg/prepare_api_tunnel.sh                  # 何をするかを見る（書き換えない）
+scripts/stg/prepare_api_tunnel.sh --apply          # 設定とトンネルを用意する
+scripts/stg/prepare_api_tunnel.sh --apply --install-unit   # unit も設置する（sudo）
+```
+
+**DNS ルートはこのスクリプトでは実行しない**（Zone→DNS→Edit 権限が必要。§6.0）。
+`--apply` は最後に `cloudflared tunnel route dns construction-os-stg-api …` を
+表示して止まる。unit も `enable` しない（有効化は §6.4 の前提が整ってから）。
+
+値は **4 か所**（文書・`staging-deploy.workflow.yml`・スクリプト・compose）に現れる。
+片方だけ直すと静かに食い違うため、`scripts/stg/check_staging_guards.py` の
+**G-13** が突き合わせる（転送先ポート = stg compose の gateway の公開ポート /
+公開ホスト = `STG_API_UPSTREAM` / 公開ホストが §6.4 に記載されていること）。
 
 ### 6.5 stg から本番 API への越境を塞ぐ（2026-10-14 実測の欠陥）
 
