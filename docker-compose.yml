@@ -813,7 +813,9 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://localhost:3100', r => process.exit(r.statusCode === 200 ? 0 : 1))",
+          # Next.js は未認証の "/" を 307 でログインへ飛ばす。200 だけを成功にすると
+          # 正常に配信していても unhealthy になる（2026-10-14 実測）。5xx だけを失敗とする。
+          "require('http').get('http://localhost:3100', r => process.exit(r.statusCode < 500 ? 0 : 1))",
         ]
       interval: 30s
       timeout: 10s
