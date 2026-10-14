@@ -227,6 +227,9 @@ services:
       #  変えられなかった）。停止した上流には実測 16.1 秒待たされるため、
       #  運用で短くできるようにしてある。
       UPSTREAM_TIMEOUT_SECONDS: ${UPSTREAM_TIMEOUT_SECONDS:-30}
+      # 接続だけ短く切る（停止した上流は名前解決が即時でも接続がハングする）。
+      # 読み取りは UPSTREAM_TIMEOUT_SECONDS まで待てる。
+      UPSTREAM_CONNECT_TIMEOUT_SECONDS: ${UPSTREAM_CONNECT_TIMEOUT_SECONDS:-3}
       UPSTREAM_SERVICES: >-
         {"^/api/v1/health": "http://auth:8000",
          "^/api/v1/auth": "http://auth:8000",

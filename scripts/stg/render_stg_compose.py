@@ -39,6 +39,23 @@ CONTAINER_PREFIX = "ceos-stg-"
 NETWORK_SUBNET = "10.201.0.0/24"
 NETWORK_GATEWAY = "10.201.0.1"
 
+# stg ネットワークの静的 IP 払い出し（決定論的）。
+#
+# なぜ必要か（2026-10-14 の実測）:
+#   停止したコンテナの名前は Docker の DNS が答えられず、外部リゾルバへ
+#   転送されて **約 16 秒**で失敗する（起動中の名前は 6ms）。
+#   ゲートウェイは上流を名前で呼ぶため、上流が落ちると 1 リクエストごとに
+#   16 秒待たされる。httpx の timeout は名前解決を制限しないので、
+#   タイムアウトを短くしても直らない（staging.md §6.14）。
+#
+#   そこで IP を決定論的に払い出し、ゲートウェイの /etc/hosts（extra_hosts）へ
+#   静的に書く。**名前解決を DNS に依存させない。**
+NETWORK_PREFIX = "10.201.0"
+# .1 はネットワークゲートウェイ（db-bridge が bind する）。.2-.9 は予約。
+IP_FIRST_HOST = 10
+
+GATEWAY_SERVICE = "gateway"
+
 # ホスト PostgreSQL 18 クラスタ（Mirai-Platform-Infra 管理）の loopback ポート。
 HOST_PG_PORT = 55438
 DB_BRIDGE_SERVICE = "db-bridge"
@@ -158,6 +175,17 @@ def render() -> str:
     if missing:
         fail(f"docker-compose.yml に {missing} が無い。構成が変わった可能性がある。")
 
+    # 名前解決を DNS に依存させないため、ネットワークに載るサービスへ
+    # 決定論的に IP を払い出す（名前の昇順）。db-bridge は network_mode: host
+    # のため対象外。
+    on_network = sorted(n for n in services if n not in REPLACED_SERVICES)
+    ip_plan: dict[str, str] = {}
+    for index, svc_name in enumerate(on_network):
+        octet = IP_FIRST_HOST + index
+        if octet > 254:
+            fail("stg ネットワーク（/24）の IP が枯渇した。サブネットを見直すこと。")
+        ip_plan[svc_name] = f"{NETWORK_PREFIX}.{octet}"
+
     out_services: dict[str, dict] = {}
 
     # ホスト PostgreSQL 18 の loopback を stg ネットワークのゲートウェイへ転送する。
@@ -247,7 +275,22 @@ def render() -> str:
                 if fingerprint in value:
                     fail(f"service {name}: 開発用の既定値が残っている ({key}={value!r})")
 
+        # 静的 IP（名前解決を DNS に依存させないため。上の ip_plan を参照）。
+        service["networks"] = {
+            "construction-net": {"ipv4_address": ip_plan[name]},
+        }
+
         out_services[name] = service
+
+    # ゲートウェイは上流を**名前で**呼ぶ。停止した上流の名前解決に 16 秒
+    # かかる問題（staging.md §6.14）を避けるため、/etc/hosts へ静的に書く。
+    # これで名前解決は DNS を経由しない（接続は即座に失敗し、httpx の
+    # タイムアウトで上限が決まる）。
+    if GATEWAY_SERVICE not in out_services:
+        fail(f"docker-compose.yml に {GATEWAY_SERVICE} が無い。上流の名前解決を固定できない。")
+    out_services[GATEWAY_SERVICE]["extra_hosts"] = [
+        f"{name}:{ip}" for name, ip in sorted(ip_plan.items()) if name != GATEWAY_SERVICE
+    ]
 
     document = {
         "name": PROJECT_NAME,

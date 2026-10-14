@@ -38,8 +38,9 @@ def _connection_tokens(values: list[str]) -> set[str]:
 class ProxyService:
     """上流マイクロサービスへのリクエスト転送を担当"""
 
-    def __init__(self, timeout: float = 30.0):
+    def __init__(self, timeout: float = 30.0, connect_timeout: float = 3.0):
         self._timeout = timeout
+        self._connect_timeout = connect_timeout
 
     @property
     def timeout(self) -> float:
@@ -52,6 +53,20 @@ class ProxyService:
           2026-10-14 実測）。
         """
         return self._timeout
+
+    @property
+    def connect_timeout(self) -> float:
+        """上流への**接続**タイムアウト（秒）。
+
+        読み取りとは分ける。停止した上流は名前解決が即時になっても接続が
+        ハングするため、接続だけ短く切る（2026-10-14 実測: 分けないと
+        読み取りタイムアウトまで待たされた）。
+        """
+        return self._connect_timeout
+
+    def _httpx_timeout(self) -> httpx.Timeout:
+        """httpx 用のタイムアウト。接続だけ短く、読み取りは長く取る。"""
+        return httpx.Timeout(self._timeout, connect=self._connect_timeout)
 
     async def forward(
         self,
@@ -71,7 +86,7 @@ class ProxyService:
         body = await request.body() if request.method in ("POST", "PUT", "PATCH", "DELETE") else None
 
         try:
-            async with httpx.AsyncClient(timeout=self._timeout) as client:
+            async with httpx.AsyncClient(timeout=self._httpx_timeout()) as client:
                 upstream_response = await client.request(
                     method=request.method,
                     url=target_url,

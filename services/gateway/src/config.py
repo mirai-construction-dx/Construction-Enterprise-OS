@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     # 運用で短くできるよう設定へ出した（既定値は従来と同じ 30.0 で挙動は変えない）。
     UPSTREAM_TIMEOUT_SECONDS: float = 30.0
 
+    # 上流への**接続**タイムアウト（秒）。読み取りとは分ける。
+    # 2026-10-14 の実測: 停止した上流へは
+    #   - 名前解決は静的 IP ＋ gateway の extra_hosts で即時になる（§6.14）
+    #   - しかし接続は相手が居ないため**ハングする**（30 秒待たされた）
+    # そのため接続だけ短く切る。応答が遅いだけの正規の呼び出し（AI / 解析など）は
+    # UPSTREAM_TIMEOUT_SECONDS まで待てる。
+    UPSTREAM_CONNECT_TIMEOUT_SECONDS: float = 3.0
+
     UPSTREAM_SERVICES: dict[str, str] = {
         # Foundation layer — auth service (port 8000)
         "^/api/v1/health": "http://localhost:8000",

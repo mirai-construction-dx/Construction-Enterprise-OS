@@ -131,23 +131,34 @@ def test_proxy_service_uses_configured_timeout(gw_client, fake_upstream):
     gw_client.post(PUBLIC_UPSTREAM_PATH, json={})
 
     assert proxy_route.proxy_service.timeout == get_settings().UPSTREAM_TIMEOUT_SECONDS
-    assert fake_upstream.init_kwargs == [
-        {"timeout": get_settings().UPSTREAM_TIMEOUT_SECONDS}
-    ]
+    assert (
+        proxy_route.proxy_service.connect_timeout
+        == get_settings().UPSTREAM_CONNECT_TIMEOUT_SECONDS
+    )
+    (kwargs,) = fake_upstream.init_kwargs
+    timeout = kwargs["timeout"]
+    assert isinstance(timeout, httpx.Timeout)
+    # 接続だけ短く、読み取りは長く（停止した上流でハングしないため）
+    assert timeout.connect == get_settings().UPSTREAM_CONNECT_TIMEOUT_SECONDS
+    assert timeout.read == get_settings().UPSTREAM_TIMEOUT_SECONDS
+    assert timeout.connect < timeout.read
 
 
 def test_proxy_service_timeout_default_is_unchanged():
     """既定値は従来と同じ 30.0（配線しても挙動を変えない）。"""
     assert get_settings().UPSTREAM_TIMEOUT_SECONDS == 30.0
+    # 接続は短く切る（2026-10-14 追加）
+    assert get_settings().UPSTREAM_CONNECT_TIMEOUT_SECONDS == 3.0
 
 
 def test_upstream_timeout_is_configurable(monkeypatch):
     """環境変数でタイムアウトを変えられること（＝本当に設定可能であること）。
 
-    stg の実測では、停止した上流に対して 502 を返すまで 16.1 秒待たされた。
-    運用で短くできることを保証する。
+    stg の実測では、停止した上流に対して 502 を返すまで 16.1 秒待たされた
+    （接続タイムアウトを分けた後は数秒で返る）。運用で変えられることを保証する。
     """
     monkeypatch.setenv("UPSTREAM_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("UPSTREAM_CONNECT_TIMEOUT_SECONDS", "2")
     # get_settings.cache_clear() は**使わない**。アプリとミドルウェアは
     # キャッシュされた Settings インスタンスを握っているため、差し替えると
     # 他のテストの前提を壊す（実測: rate limit のテストが settings を書き換えて
@@ -155,7 +166,14 @@ def test_upstream_timeout_is_configurable(monkeypatch):
     # ここではキャッシュを通さない Settings() を作り、env の読み取りを確かめる。
     fresh = Settings()
     assert fresh.UPSTREAM_TIMEOUT_SECONDS == 5.0
-    assert ProxyService(timeout=fresh.UPSTREAM_TIMEOUT_SECONDS).timeout == 5.0
+    assert fresh.UPSTREAM_CONNECT_TIMEOUT_SECONDS == 2.0
+    service = ProxyService(
+        timeout=fresh.UPSTREAM_TIMEOUT_SECONDS,
+        connect_timeout=fresh.UPSTREAM_CONNECT_TIMEOUT_SECONDS,
+    )
+    assert service.timeout == 5.0
+    assert service.connect_timeout == 2.0
+    assert service._httpx_timeout().connect == 2.0
 
 
 # ============================================
