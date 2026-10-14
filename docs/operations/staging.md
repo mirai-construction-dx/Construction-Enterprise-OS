@@ -479,11 +479,40 @@ OK: テナント分離を**非 admin の経路で**実測した（T-1〜T-5）�
 
 限界（正直な記録）:
 
-- 対象は **erp の台帳 API のみ**。同じ `tenant.py` を持つ**18 サービス**は未検証である
-  （実装は 5 変種に分裂している。差分は `is_cross_org_admin` の `user.roles` と
-  `(user.roles or [])` だけで、各サービスの `TokenData` は常にリストを供給するため
-  **現時点で実害は無い**が、ドリフトを検出する仕組みは無い）。
+- 対象は **erp の台帳 API のみ**。同じ `tenant.py` を持つ他 17 サービスの **API は未検証**である。
+  ただし **ヘルパの振る舞いは全 18 サービスで検証済み**になった（下記）。
 - 分離試験用ユーザーのパスワードは**合成の定数**である（stg 専用。実在の資格情報ではない）。
+
+#### 18 個の複製を「振る舞い」で検査する
+
+`tenant.py` は **18 サービスに複製**され、2026-10-14 の実測で**5 変種に分裂**していた
+（差分は `is_cross_org_admin` の `user.roles` と `(user.roles or [])` の 1 点。
+各サービスの `TokenData` は常にリストを供給するため**現時点で実害は無い**）。
+テキストの一致を求めると正当な差分（import 元・コメント）まで落ちるので、
+`scripts/security/check_tenant_helper_conformance.py` が**分離に効く振る舞い**を直接叩く。
+
+| 検査 | 内容 |
+|---|---|
+| H-1 | `token_org` / `scope_org` / `create_org` が import できる（できない場合は FAIL。黙って飛ばさない） |
+| H-2 | 非 admin ＋ 組織未指定 → 自分の組織が返る |
+| H-3 | 非 admin ＋ 他組織を要求 → **403 ORG_FORBIDDEN** |
+| H-4 | 非 admin ＋ 他組織へ作成 → **403 ORG_FORBIDDEN** |
+| H-5 | 非 admin ＋ 自組織へ作成 → 自分の組織が返る |
+| H-6 / H-7 | admin ＋ 未指定 → `None`（全組織） / admin ＋ 他組織 → その組織（設計どおり） |
+| H-8 / H-9 | 組織クレームが無い / UUID でない → **403 ORG_REQUIRED / ORG_INVALID**（fail closed） |
+| H-10 | `tenant.py` を持たず `organization_id` を参照するサービスは**理由つきで宣言**されている |
+
+実測（2026-10-14）: **18 サービスすべてが H-1〜H-9 に適合**（`make tenant-conformance`）。
+H-10 で `mcp` / `workflow` / `auth` を宣言した（それぞれ理由はスクリプト内）。
+
+- `workflow` は `src/api/workflows.py` の `_organization_id()` で**独自に**同等の統制を持つ。
+  ただし **admin でも他組織を拒否する**（erp の `scope_org()` は admin にクロス組織を許す）。
+  厳しい側なので穴ではないが、**同じ役割でサービスごとに権限が異なる**ことは記録に値する。
+- `mcp` は組織スコープを実装せず、**呼び出し元の Authorization をそのまま上流へ渡す**。
+  バイパスしないことを実測した（audience 束縛トークンの交換は
+  `services/auth/src/services/token_exchange_service.py:108-112` が
+  `sub` / `org` / `roles` / `scopes` を被交換トークンから引き継ぎ、権限を昇格させない）。
+- `gateway` / `notification` は `organization_id` を参照しない（組織単位のデータを持たない）。
 
 ## 7. ロールバック
 
