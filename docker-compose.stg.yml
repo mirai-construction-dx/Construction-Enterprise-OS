@@ -49,6 +49,7 @@ services:
       retries: 5
     networks:
     - construction-net
+    restart: unless-stopped
     environment:
       ENVIRONMENT: staging
       DEBUG: 'false'
@@ -97,6 +98,7 @@ services:
       retries: 5
     networks:
     - construction-net
+    restart: unless-stopped
   elasticsearch:
     image: elasticsearch:8.14.0
     container_name: ceos-stg-elasticsearch
@@ -131,6 +133,7 @@ services:
       retries: 5
     networks:
     - construction-net
+    restart: unless-stopped
   kibana:
     image: kibana:8.14.0
     container_name: ceos-stg-kibana
@@ -165,6 +168,7 @@ services:
       start_period: 180s
     networks:
     - construction-net
+    restart: unless-stopped
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: ceos-stg-minio
@@ -200,6 +204,7 @@ services:
       retries: 3
     networks:
     - construction-net
+    restart: unless-stopped
   kafka:
     image: bitnamilegacy/kafka:3.7
     container_name: ceos-stg-kafka
@@ -238,6 +243,7 @@ services:
       retries: 5
     networks:
     - construction-net
+    restart: unless-stopped
   gateway:
     build:
       context: ./services/gateway

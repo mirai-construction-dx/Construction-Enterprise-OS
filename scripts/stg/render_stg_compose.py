@@ -188,6 +188,14 @@ def render() -> str:
         service = dict(service)
         service["container_name"] = f"{CONTAINER_PREFIX}{name}"
 
+        # stg は長時間動き続ける環境である。docker compose の既定は `restart: no` であり、
+        # 基盤サービス（redis / rabbitmq / kafka / elasticsearch / kibana / minio）は
+        # docker-compose.yml で restart を指定していない（2026-10-14 実測: dev でも 8 件が未指定）。
+        # 落ちても誰も起こさないため、stg では**全サービスへ方針を与える**。
+        # 明示がある場合はそれを尊重する（db-bridge は上で指定済み）。
+        # 検査: scripts/stg/check_staging_guards.py の G-10
+        service.setdefault("restart", "unless-stopped")
+
         env = dict(service.get("environment") or {})
         for key in STG_ENV_REMOVALS:
             env.pop(key, None)

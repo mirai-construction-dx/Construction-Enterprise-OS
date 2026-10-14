@@ -188,8 +188,9 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | 項目 | 状態 | 根拠 |
 |---|---|---|
 | stg 設計の正本 | 完了 | `docs/architecture/ADR-0005-staging-environment.md` |
-| stg compose 生成と統制検査 | 完了 | `scripts/stg/check_staging_guards.py` **10/10 PASS**（G-9 を追加。§6.9） |
+| stg compose 生成と統制検査 | 完了 | `scripts/stg/check_staging_guards.py` **11/11 PASS**（G-9 / G-10 を追加。§6.9・§6.10） |
 | **イメージの再現性** | 完了（欠陥を検出して修正） | `minio/minio:latest` を dev と stg が配っていた。**可変タグは再現性を壊す**（同じ手順で作り直しても別の環境になる）。稼働していた実体（`RELEASE.2025-09-07T16-13-09Z`）に固定し、G-9 で可変タグを禁止した。§6.9 |
+| **基盤サービスの再起動方針** | 完了（欠陥を検出して修正） | redis / rabbitmq / kafka / elasticsearch / kibana / minio に `restart` が無く（compose の既定は `no`）、**落ちても誰も起こさない**状態だった（アプリ 26 件には方針があり、基盤 6 つには無いという非対称）。stg 生成器が全サービスへ `unless-stopped` を与え、G-10 で漏れを検査する。§6.10 |
 | ホスト PG18 `ceos_stg` | 完了 | 20 サービススキーマ / 93 テーブルを作成（`migrate_stg.sh` 全 22 SQL + auth/workflow の alembic が成功） |
 | postgis / pgvector | 完了 | `postgresql-18-postgis-3` / `postgresql-18-pgvector` を導入し `ceos_stg` へ CREATE EXTENSION（`roles.yaml` の宣言と一致した） |
 | db-bridge（loopback 転送） | 完了 | `10.201.0.1:55438` LISTEN / health healthy |
@@ -205,6 +206,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
 | 状態監視（手動） | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
 | **状態監視（常設）** | 完了 | 上記は「誰かが叩いたときだけ」走っており、**timer は 1 つも無かった**（2026-10-14 実測: `systemctl list-timers --all \| grep -i ceos` → 0 件）。`scripts/stg/monitor.sh` と `infra/systemd/ceos-stg-status.{service,timer}` を追加し、5 分ごとに検査するようにした。§6.6 |
+| **監視の通知経路** | 口を用意（送信先は未設定） | 失敗は journald と systemd の `failed` に残るだけで**誰にも届かなかった**。`CEOS_STG_ALERT_WEBHOOK` があれば初回と 1 時間ごとに POST し、無ければその事実をログに明示する。**現時点で送信先は未設定**である。§6.11 |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
@@ -600,6 +602,112 @@ $ scripts/stg/status.sh
 - 本環境からは Docker レジストリへ到達できず（`pull access denied`）、
   固定タグが上流に存在することを**ここでは検証していない**。
   ホストには同一イメージへ付けたタグがあるため再作成は成立する。
+
+### 6.10 基盤サービスの再起動方針（落ちても誰も起こさない問題）
+
+2026-10-14 の実測で、stg compose の 32 サービスのうち **26 件に
+`restart: unless-stopped` があり、残り 6 件（`redis` / `rabbitmq` / `kafka` /
+`elasticsearch` / `kibana` / `minio`）には方針が無かった**。
+docker compose の既定は `restart: no` なので、これらが落ちると
+**誰かが `compose up` するまで止まったまま**になる。
+
+しかも非対称である — **アプリ 26 件には方針があり、基盤 6 つには無い**。
+基盤が落ちればアプリは連鎖的に機能しなくなるため、優先度はむしろ基盤の方が高い。
+
+いちばんの問題は「気づけないこと」である。監視（§6.6）は 5 分ごとに状態を見るが、
+**通知経路が無い**ため、失敗は journald と systemd の failed に残るだけである
+（§6.11 で扱う）。
+
+対策: `scripts/stg/render_stg_compose.py` が stg の**全サービス**へ
+`unless-stopped` を与える（明示がある場合はそれを尊重する）。
+`docker-compose.yml`（dev・正本）は変更していない — dev では開発者が明示的に
+止めることが多く、stg 固有の運用方針だからである。
+`scripts/stg/check_staging_guards.py` の **G-10** が漏れを検査する。
+
+実測（2026-10-14）:
+
+| 段階 | `redis` | `minio` | `auth` |
+|---|---|---|---|
+| 修正前（稼働中コンテナ） | `no` | `no` | `unless-stopped` |
+| 修正後（再作成後） | `unless-stopped` | `unless-stopped` | `unless-stopped` |
+
+```
+$ scripts/stg/compose.sh up -d        # 6 つの基盤サービスが再作成された
+ Container ceos-stg-redis / kafka / elasticsearch / kibana / minio / rabbitmq  Healthy
+$ docker inspect ceos-stg-redis --format '{{.HostConfig.RestartPolicy.Name}}'
+ unless-stopped
+$ scripts/stg/status.sh
+ OK: 32 コンテナ / スモーク 12/12 / 22 schemas / 98 tables / pgBackRest ok   # exit 0
+```
+
+負の対照: 生成器の付与を外して再生成すると
+**`FAIL: G-10 … 方針が無いサービス: ['elasticsearch', 'kafka', 'kibana', 'minio', 'rabbitmq', 'redis']`**
+で非ゼロ終了する。
+
+限界: `unless-stopped` は**コンテナの再起動**を保証するだけで、
+「何度も落ちる」「起動しない」状態を検知して人へ伝える仕組みではない（§6.11）。
+`compose down` や systemd の `ExecStop`（`scripts/stg/down.sh`）では停止したままになる
+（これは意図どおり）。
+
+### 6.11 監視の通知経路（失敗が誰にも届かない問題）
+
+§6.6 で監視を 5 分ごとに回すようにしたが、**失敗は journald と systemd の `failed` に
+残るだけで、誰にも届かなかった**。§6.10 の「基盤が落ちても誰も起こさない」と同根である。
+
+`scripts/stg/monitor.sh` に通知の口を用意した。
+
+| 項目 | 内容 |
+|---|---|
+| 送信先 | 環境変数 `CEOS_STG_ALERT_WEBHOOK`（任意）。**資格情報ファイルは読まない** |
+| 送る条件 | 失敗の**初回**と、その後 **1 時間ごと**（5 分 × 12）。5 分ごとに同じ警報を並べると本当の変化が埋もれる |
+| 未設定のとき | **何もしないが、その事実を `status.log` に明示する**（「送ったつもり」を作らない） |
+| 状態 | `~/.local/state/ceos-stg/consecutive_failures` に連続失敗回数。成功で 0 に戻る |
+| 検査結果 | **通知の成否で終了コードを変えない**（通知の障害が検査を壊さない） |
+
+送信先の設定（オペレーター）:
+
+```bash
+sudo install -d -m 755 /etc/ceos
+printf 'CEOS_STG_ALERT_WEBHOOK=%s\n' 'https://hooks.example.com/services/XXX' \
+  | sudo tee /etc/ceos/stg-alert.env >/dev/null
+sudo chmod 600 /etc/ceos/stg-alert.env
+sudo systemctl restart ceos-stg-status.timer   # 次回実行から読まれる
+```
+
+`ceos-stg-status.service` が `EnvironmentFile=-/etc/ceos/stg-alert.env`
+（先頭の `-` は「無くても失敗しない」）で読む。
+
+#### 通知の落とし穴（実測で見つけた）
+
+最初の実装は `curl` の**終了コードだけ**で成否を判定していた。ところが
+**本環境のプロキシは到達不能な宛先へ 502 を返し、そのとき curl は 0 で終わる**（実測）:
+
+```
+$ curl -sS -o /dev/null -w '%{http_code}' --max-time 5 -X POST -d '{}' http://127.0.0.1:9/
+502        # ← 到達できないのに curl の終了コードは 0
+$ NO_PROXY=127.0.0.1 curl … http://127.0.0.1:9/
+curl: (7) Failed to connect        # プロキシを使わないと初めて失敗が見える
+```
+
+そのため **HTTP ステータスまで見て 2xx のときだけ「送信した」**と記録するように直した。
+
+検証（ローカルの HTTP サーバを送信先にした実測）:
+
+| 場合 | 期待 | 結果 |
+|---|---|---|
+| 到達できる送信先（初回の失敗） | 1 件送る | `ALERT 送信した（連続 1 回 / http=200）` / 受信 1 件 |
+| 同じ送信先（2 回目の失敗） | 送らない（間隔内） | 受信 1 件のまま |
+| 連続 12 回目の失敗 | 送る | `ALERT 送信した（連続 12 回）` / 受信 2 件 |
+| 到達できない送信先 | 失敗として記録し、**検査結果は変えない** | `ALERT 送信に失敗した（http=502）` / exit 3 のまま |
+| 送信先が未設定 | 何もせず、その事実を残す | `ALERT 通知先が未設定…` |
+| 検査が成功 | 連続失敗回数を戻す | `consecutive_failures` が空になる |
+
+限界（正直な記録）:
+
+- **現時点で通知先は設定されていない。** したがって失敗は依然として
+  journald と `status.log` に残るだけで、人へは届かない。
+  上の手順で送信先を設定すれば機能する（本番の webhook はこの環境から検証していない）。
+- 通知の宛先・文面・エスカレーションは**運用の設計判断**であり、ここでは口を用意しただけである。
 
 ## 7. ロールバック
 
