@@ -15,8 +15,11 @@
     B-2 `POST /api/v1/erp/ledger` が 201 で作成できる（合成データ・project_code=STG-ROUNDTRIP）
     B-3 `GET /api/v1/erp/ledger/{id}` で作成した行を読み戻せる（DB へ永続化されている）
     B-4 `GET /api/v1/erp/ledger/summary` の projects_count が 1 以上（集計に載る）
-    B-5 **テナント分離**: 別の organization_id を要求しても、トークンの組織の行しか返らない
-        （`MCDX-ADR-0004` / `AGENTS.md` §4.1。ボディやクエリの組織を信頼しない）
+    B-5 管理ユーザのスコープ（パラメータ無し / 自分の組織 / 他組織）。
+        2026-10-14 の実測で、旧 B-5 の「別組織を要求してもトークンの組織の行だけが返る」は
+        **分離の証拠になっていない**ことが判明した（このトークンは admin であり、
+        `scope_org()` は admin に要求された組織をそのまま返す設計）。
+        本来の分離は非 admin でしか測れないため `scripts/stg/check_tenant_isolation.py` へ分離した。
     B-6 後始末: 作成した 1 行を id 指定で削除する（業務 API に ledger の DELETE が無いため、
         stg の管理権限で SQL により消す。stg の合成データのみを対象にする）
 
@@ -160,7 +163,38 @@ def main(argv: list[str] | None = None) -> int:
             failures.append(f"B-4 集計に載っていない（status={status}, projects_count={count}）")
             print(f"FAIL: B-4 集計に載っていない（projects_count={count}）", file=sys.stderr)
 
-        # --- B-5 テナント分離 ---
+        # --- B-5 管理ユーザのスコープ（**分離の証拠ではない**） ---
+        # 2026-10-14 の実測で、旧 B-5 は「別組織を要求してもトークンの組織の行だけが返る」と
+        # 表示していたが、**分離の証拠になっていなかった**。このトークンは roles: ['admin'] で、
+        # scope_org() は admin には要求された組織をそのまま返す（クロス組織アクセスは設計）。
+        # したがって「他組織を要求 → 0 件」は「他組織にデータが無い」だけである。
+        # 本来の分離は非 admin でしか測れない → scripts/stg/check_tenant_isolation.py
+        status, body = request(f"{args.gateway}/api/v1/erp/ledger", token=token)
+        items = unwrap(body) if status == 200 else None
+        rows = (items or {}).get("items") if isinstance(items, dict) else None
+        if rows is None and isinstance(items, list):
+            rows = items
+        ids = [r.get("id") for r in (rows or [])]
+        if ledger_id in ids:
+            print(f"PASS: B-5 管理ユーザの一覧に自分の行が含まれる（{len(ids)} 件）")
+        else:
+            failures.append(f"B-5 管理ユーザの一覧に自分の行が無い（status={status}, {len(ids)} 件）")
+            print(f"FAIL: B-5 管理ユーザの一覧に自分の行が無い（{len(ids)} 件）", file=sys.stderr)
+
+        status, body = request(
+            f"{args.gateway}/api/v1/erp/ledger?organization_id={token_org}", token=token
+        )
+        items = unwrap(body) if status == 200 else None
+        rows = (items or {}).get("items") if isinstance(items, dict) else None
+        if rows is None and isinstance(items, list):
+            rows = items
+        own_ids = [r.get("id") for r in (rows or [])]
+        if status == 200 and ledger_id in own_ids:
+            print(f"PASS: B-5b 自分の組織を指定しても同じ行が返る（{len(own_ids)} 件）")
+        else:
+            failures.append(f"B-5b 自分の組織を指定した結果が一致しない（status={status}）")
+            print(f"FAIL: B-5b 自分の組織を指定した結果が一致しない（status={status}）", file=sys.stderr)
+
         status, body = request(
             f"{args.gateway}/api/v1/erp/ledger?organization_id={OTHER_ORG}", token=token
         )
@@ -168,12 +202,18 @@ def main(argv: list[str] | None = None) -> int:
         rows = (items or {}).get("items") if isinstance(items, dict) else None
         if rows is None and isinstance(items, list):
             rows = items
-        ids = [r.get("id") for r in (rows or [])]
-        if ledger_id not in ids:
-            print(f"PASS: B-5 別組織を要求してもトークンの組織の行だけが返る（{len(ids)} 件）")
+        other_ids = [r.get("id") for r in (rows or [])]
+        if status == 200 and not other_ids:
+            print(
+                "PASS: B-5c 他組織を指定すると 0 件（**admin のクロス組織仕様**。"
+                "テナント分離の証拠ではない）"
+            )
         else:
-            failures.append("B-5 別組織を要求したのに作成した行が返った（テナント分離が効いていない）")
-            print("FAIL: B-5 別組織を要求したのに作成した行が返った", file=sys.stderr)
+            failures.append(
+                f"B-5c 他組織の指定が想定と違う（status={status}, {len(other_ids)} 件）。"
+                " admin のクロス組織仕様が変わった可能性がある"
+            )
+            print(f"FAIL: B-5c 他組織の指定が想定と違う（status={status}）", file=sys.stderr)
 
         # --- B-6 後始末（業務 API に ledger の DELETE が無いため SQL で 1 行だけ消す） ---
         cleanup_sql = f"DELETE FROM erp.project_ledger WHERE id = '{ledger_id}'"
@@ -194,7 +234,9 @@ def main(argv: list[str] | None = None) -> int:
         for item in failures:
             print(f"NG: {item}", file=sys.stderr)
         return 1
-    print("OK: 業務 API の往復（作成・読取・集計・テナント分離・後始末）を実測した。")
+    print("OK: 業務 API の往復（作成・読取・集計・後始末）を実測した。")
+    print("    注意: **テナント分離**はこのスクリプトでは測れない（admin トークンのため）。")
+    print("          scripts/stg/check_tenant_isolation.py が非 admin の経路で実測する。")
     return 0
 
 
