@@ -194,6 +194,7 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
 | 状態監視 | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
+| **mobile の実行形態** | 完了 | 旧版は `output: 'export'` と書きながら `next dev`（開発サーバ）で配信しており、stg が本番の実行形態を練習していなかった（§9 D-1）。2 ステージビルドにして静的エクスポート `out/` を 依存ゼロの `serve.mjs` で配信する。smoke の S-10 が `x-ceos-static-export` で回帰検査する |
 | **Web → API プロキシ** | 完了 | `apps/web` は `output: "standalone"` のため `rewrites()` が**ビルド時**に確定し、Docker の runtime `API_GATEWAY` が効かない。ビルド引数で渡さないと`http://localhost:9000` が焼き込まれ `/api/*` が **500** になる（2026-10-14 実測）。`build.args.API_GATEWAY` を追加して修正し、smoke の S-9 で回帰検査する |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
@@ -280,6 +281,5 @@ Mirai-Platform-Infra の `db/roles.yaml` は
 
 | # | 内容 | 判断が要る理由 |
 |---|---|---|
-| D-1 | `apps/mobile` は `output: 'export'`（静的エクスポート）を宣言しながら、コンテナは `next dev`（開発サーバー）で配信している（`apps/mobile/Dockerfile` の CMD とコメントに明記）。 | stg が**本番の実行形態を練習していない**ことになる。開発サーバーは本番ビルドと挙動・性能が異なる。静的配信（nginx / Cloudflare Pages）へ寄せるか、`next start` にするかの設計判断が要る（MCDX-ADR-0002 は本番の新規 Docker 採用を禁じているため、配信方式の選択は ADR に関わる）。 |
 | D-2 | `scripts/db/init/01-init.sql` は開発用 compose の postgres コンテナ専用で、stg では実行されない（§4.1）。stg は `seed_stg.sh` で代替している。 | 将来 `01-init.sql` にスキーマやシードを足したとき、stg へ自動では反映されない。二重管理になっている。 |
 | D-3 | `kibana` に healthcheck が無く、`status.sh` の healthy 判定の対象外である。 | 監視上「起動しているが使えるか不明」なコンテナが 1 つ残る。 |
