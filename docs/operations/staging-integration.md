@@ -71,7 +71,7 @@ CEOS stg は CSSP stg の家族パターンに揃えた。次は両者で同じ�
 |---|---|---|---|
 | 1 | ロール `ceos_stg_*` を Infra の台帳へ登録する | Mirai-Platform-Infra | 台帳整合 |
 | 2 | `envs/stg/releases.yaml` に載せるための release 工程（`v*` タグ・digest 固定イメージ・署名/来歴・ITSM 番号） | Mirai-Platform-Infra + 変更管理 | 要人間判断（MCDX-ADR-0004 決定 4） |
-| 3 | Core 契約を 0.6.0 → 0.7.0 へ上げる | Mirai-Harness-Core | 契約更新 |
+| 3 | Core 契約を 0.6.0 → 0.7.0 へ上げる（**保留中**） | Mirai-Harness-Core | 契約更新。CEOS は public、Core は private であり、`contracts/vendor/harness-core/` の vendoring が公開範囲の越境になっている。版を上げると同じ問題が広がるため、統制上の確認が済むまで停止する（起案: Mirai-Architecture-Decisions Issue #5） |
 | 4 | read 系 MCP 契約 `ceos.json` を stg で公開し CSSP へ渡す | Construction-Site-Spatial-Platform | 連携実装 |
 | 5 | Portfolio catalog へ stg deployment を登録する | Mirai-Construction-DX-Portfolio | 台帳整合 |
 | 6 | stg の Pages/Tunnel を CDP・MCIP と共有するか、リポジトリごとに分けるか | 全社 | 要判断 |

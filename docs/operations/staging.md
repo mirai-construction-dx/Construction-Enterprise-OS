@@ -98,6 +98,10 @@ scripts/stg/smoke.sh              # スモークテスト
 scripts/stg/restore_drill.sh      # 復旧訓練（論理バックアップから別DBへ戻して照合）
 scripts/stg/e2e_stg.sh            # API の Playwright E2E を stg に向けて実行
 scripts/stg/rollback_drill.sh     # 停止→復帰のロールバック訓練
+scripts/stg/e2e_webui_stg.sh     # stg が配る WebUI 成果物をローカルで E2E
+python3 scripts/stg/gen_release_manifest.py --check   # release 前提の充足状況
+scripts/stg/status.sh            # 状態の要約（異常があれば非ゼロ終了）
+scripts/stg/check_gateway_upstreams.sh  # ゲートウェイ全ルートの到達性
 scripts/stg/rotate_stg_jwt.sh     # JWT 鍵の整合確認とローテーション
 python3 scripts/stg/check_staging_guards.py   # 統制の検査
 python3 scripts/stg/render_stg_compose.py --check
@@ -185,6 +189,12 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | **ログインの疎通** | 完了 | `POST /api/v1/auth/login` が gateway 経由で 200 + アクセストークン発行（実測） |
 | 復旧訓練（論理） | 完了 | `restore_drill.sh` — `ceos_stg` を別DBへ復元し、スキーマ 21 / テーブル 93 / 主要表の行数が一致。訓練用DBは削除済み |
 | ロールバック訓練 | 完了 | `scripts/stg/rollback_drill.sh` — 全 31 コンテナを停止し、同じリビジョンで復帰させ、health と smoke 10/10 を確認（2026-10-14）。**前リビジョンのイメージへ戻す訓練は digest 固定の release 工程が前提で未整備** |
+| WebUI 成果物の E2E | 完了 | `scripts/stg/e2e_webui_stg.sh` — Pages が配る単一 HTML をPages と同じ SPA フォールバックでローカル配信し、`mvp.spec.ts` + `crud.spec.ts` が **34 passed / 6 skipped / 0 failed**。**デプロイ前に成果物を検証する**経路になった（従来は本番 URL 直叩き） |
+| release マニフェスト | **NOT_READY（5 件）** | `gen_release_manifest.py --check` — RELEASE_TAG / SEMVER / ATTESTATION_WORKFLOW / IMAGE_DIGESTS / ITSM_CHANGE が未充足。`CORE_VERSION` と `DEPLOY_HOSTS` は充足。**創作せずに停止する**（Release は Human Gate） |
+| GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
+| 状態監視 | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
+| ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
+| **Web → API プロキシ** | 完了 | `apps/web` は `output: "standalone"` のため `rewrites()` が**ビルド時**に確定し、Docker の runtime `API_GATEWAY` が効かない。ビルド引数で渡さないと`http://localhost:9000` が焼き込まれ `/api/*` が **500** になる（2026-10-14 実測）。`build.args.API_GATEWAY` を追加して修正し、smoke の S-9 で回帰検査する |
 | PITR 復旧訓練（pgBackRest） | **未実施** | stanza `infra_stg` は `status: ok`（最新 diff 2026-10-14 02:30）。`pgbackrest restore` は `migrated` を書き換える破壊的操作のため Human Gate（§4.2） |
 | Pages プロジェクト `construction-os-stg` | 完了 | id `eeb3c5fd-e463-4245-a57d-6fffe32dbb96` / `construction-os-stg.pages.dev` / production_branch `main` |
 | Cloudflare Access アプリ | 完了 | id `f2939b1b-93b2-41a9-ab77-38a9fad953bc`（self_hosted / allow 1 件のみ・`bypass` 0 件） |
@@ -265,3 +275,11 @@ Mirai-Platform-Infra の `db/roles.yaml` は
 4. **stg に実データ（顧客・個人・現場）を入れない。** 合成データのみ（`AGENTS.md` §4.4）。
 5. stg から prod の DB・DNS・secret へ触れない。
 6. `docker-compose.stg.yml` を手で編集しない（生成物。`render_stg_compose.py` を直す）。
+
+## 9. stg で見つかったが未修正の設計課題
+
+| # | 内容 | 判断が要る理由 |
+|---|---|---|
+| D-1 | `apps/mobile` は `output: 'export'`（静的エクスポート）を宣言しながら、コンテナは `next dev`（開発サーバー）で配信している（`apps/mobile/Dockerfile` の CMD とコメントに明記）。 | stg が**本番の実行形態を練習していない**ことになる。開発サーバーは本番ビルドと挙動・性能が異なる。静的配信（nginx / Cloudflare Pages）へ寄せるか、`next start` にするかの設計判断が要る（MCDX-ADR-0002 は本番の新規 Docker 採用を禁じているため、配信方式の選択は ADR に関わる）。 |
+| D-2 | `scripts/db/init/01-init.sql` は開発用 compose の postgres コンテナ専用で、stg では実行されない（§4.1）。stg は `seed_stg.sh` で代替している。 | 将来 `01-init.sql` にスキーマやシードを足したとき、stg へ自動では反映されない。二重管理になっている。 |
+| D-3 | `kibana` に healthcheck が無く、`status.sh` の healthy 判定の対象外である。 | 監視上「起動しているが使えるか不明」なコンテナが 1 つ残る。 |
