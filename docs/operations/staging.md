@@ -202,7 +202,8 @@ stg でこの統制を緩めないこと（`scripts/stg/check_staging_guards.py`
 | WebUI 成果物の E2E | 完了 | `scripts/stg/e2e_webui_stg.sh` — Pages が配る単一 HTML をPages と同じ SPA フォールバックでローカル配信し、`mvp.spec.ts` + `crud.spec.ts` が **34 passed / 6 skipped / 0 failed**。**デプロイ前に成果物を検証する**経路になった（従来は本番 URL 直叩き） |
 | release マニフェスト | **NOT_READY（5 件）** | `gen_release_manifest.py --check` — RELEASE_TAG / SEMVER / ATTESTATION_WORKFLOW / IMAGE_DIGESTS / ITSM_CHANGE が未充足。`CORE_VERSION` と `DEPLOY_HOSTS` は充足。**創作せずに停止する**（Release は Human Gate） |
 | GitHub Environment `staging` | 完了 | `gh api .../environments` に `staging` と `production`（既存） |
-| 状態監視 | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
+| 状態監視（手動） | 完了 | `scripts/stg/status.sh` — クラスタ / db-bridge / コンテナ / スモーク / DB の中身（users 0 行の検出）/ pgBackRest を 1 コマンドで要約し、異常時は非ゼロ終了。cron・systemd timer から呼べる（実測: 全項目 OK / exit 0） |
+| **状態監視（常設）** | 完了 | 上記は「誰かが叩いたときだけ」走っており、**timer は 1 つも無かった**（2026-10-14 実測: `systemctl list-timers --all \| grep -i ceos` → 0 件）。`scripts/stg/monitor.sh` と `infra/systemd/ceos-stg-status.{service,timer}` を追加し、5 分ごとに検査するようにした。§6.6 |
 | ゲートウェイルーティング | 完了 | `scripts/stg/check_gateway_upstreams.sh` — **21 上流すべて**の `/health` に到達（ルート定義 30 件）＋ 外側から実測済み 14 ルートが応答。従来は auth 系しか見ておらず、他 20 サービスへのルートは未検証だった |
 | **MCP の実呼び出し** | 完了 | 未認証 401 / `initialize` / `tools/list` が契約と一致 / `tools/call` が上流から実データを取得。初回は `CONSTRUCTION_SERVICE_URL` / `ERP_SERVICE_URL` を compose で渡しておらず、`tools/call` が `isError: true`（「上流サービスに到達できません。」）を返していた。**`result` が返ること自体を成功とみなす検査は見逃す**ため、`isError` を不合格にする |
 | **CI が skip するテストの実行** | 完了 | `services/mcp/tests/test_upstream_live.py` は上流へ TCP 到達できないと **CI では常に skip** される。stg では上流が動いているので `scripts/stg/run_mcp_live_tests.sh` で実行できる。実行したところ、テストヘルパーが固定鍵で署名しており**実環境では必ず INVALID_TOKEN になる**ことが判明した（修正済み。live 2 passed / MCP 全体 95 passed） |
@@ -328,6 +329,56 @@ python3 scripts/stg/render_pages_functions.py \
   --dst .deploy-webui/functions \
   --upstream https://construction-os-stg-api.mirai-dx-platform.com
 make stg-pages-upstream
+```
+
+### 6.6 stg の健全性を常時検査する（2026-10-14 追加）
+
+`scripts/stg/status.sh` は「cron・systemd timer から呼べる」と書いてあったが、
+**timer は 1 つも無く**（`systemctl list-timers --all | grep -i ceos` → 0 件）、
+検査は誰かが叩いたときだけ走っていた。stg は常時監視されていなかった。
+
+| 実体（正本は `infra/systemd/`） | 役割 |
+|---|---|
+| `scripts/stg/monitor.sh` | 判定を持つ本体。unit に shell を書かない |
+| `infra/systemd/ceos-stg-status.service` | `monitor.sh` を oneshot で実行する |
+| `infra/systemd/ceos-stg-status.timer` | 5 分ごと（`OnCalendar=*:0/5` / `RandomizedDelaySec=20s`）に起動する |
+
+```bash
+sudo install -m 644 infra/systemd/ceos-stg-status.service /etc/systemd/system/
+sudo install -m 644 infra/systemd/ceos-stg-status.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now ceos-stg-status.timer
+
+systemctl list-timers ceos-stg-status     # NEXT を確認
+journalctl -u ceos-stg-status -n 50
+tail -40 ~/.local/state/ceos-stg/status.log
+```
+
+判定（`monitor.sh`）:
+
+1. `ceos-stg.service` が **active でなければ検査を省略**して 0 を返す。
+   「止まっていること」は `ceos-stg.service` の状態で見える。ここで失敗を積むと、
+   停止が常態のときに失敗が常態化して本当の異常が埋もれる
+   （スタックを自動起動するかは Infra の未決 B-2 と同時に決める。
+   `ceos-stg.service` は enable していない）。
+2. active なら `status.sh` を実行し、**その終了コードをそのまま返す**。
+   異常を握りつぶさないため、systemd が `failed` として記録する。
+3. 実行のたびに日時と要約を `~/.local/state/ceos-stg/status.log` へ追記する
+   （journald だけでは「いつから異常か」を追いにくい）。4000 行を超えたら直近だけ残す。
+
+実測（2026-10-14）:
+
+```
+$ systemctl list-timers ceos-stg-status
+NEXT                         LEFT      UNIT                  ACTIVATES
+Wed 2026-10-14 12:15:08 JST  2min 15s  ceos-stg-status.timer ceos-stg-status.service
+
+$ sudo systemctl start ceos-stg-status
+  Process: … (code=exited, status=0/SUCCESS)
+  OK  : 32 コンテナ / スモーク 12/12 / 22 schemas / 98 tables / pgBackRest ok
+
+# 陰性対照: status.sh が 3 を返す差し替えで monitor.sh が 3 を返す（握りつぶさない）
+# 陽性対照: 0 を返す差し替えで 0
 ```
 
 ## 7. ロールバック
