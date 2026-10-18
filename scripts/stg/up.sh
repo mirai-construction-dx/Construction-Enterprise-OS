@@ -42,13 +42,15 @@ else
   exit 1
 fi
 
-status="$(pg_lsclusters -h | awk -v c="$CLUSTER" '$1"/"$2 == c {print $4}')"
-if [ "$status" != "online" ]; then
-  echo "NG: ホスト PostgreSQL クラスタ $CLUSTER が online ではない（status=$status）。" >&2
+# 生死は接続受付で判定する（pg_lsclusters は external_pid_file 欠落だけで down を返す。
+# Mirai-Platform-Infra の docs/stg-inventory.md §3.1 を参照）。
+if ! pg_isready -h 127.0.0.1 -p "$PORT" >/dev/null 2>&1; then
+  status="$(pg_lsclusters -h | awk -v c="$CLUSTER" '$1"/"$2 == c {print $4}')"
+  echo "NG: ホスト PostgreSQL クラスタ $CLUSTER が接続を受け付けない（pg_lsclusters=${status:-unknown}）。" >&2
   echo "    自動起動は無効である。起動: sudo pg_ctlcluster ${CLUSTER%/*} ${CLUSTER#*/} start" >&2
   exit 1
 fi
-echo "OK: クラスタ $CLUSTER online（port $PORT）"
+echo "OK: クラスタ $CLUSTER は接続を受け付ける（port $PORT）"
 
 echo "== 生成物の一致確認 =="
 python3 "${REPO_ROOT}/scripts/stg/render_stg_compose.py" --check
