@@ -32,7 +32,7 @@ def token_org(user: TokenData) -> UUID:
         )
     try:
         return UUID(user.org)
-    except ValueError as exc:
+    except (TypeError, ValueError, AttributeError) as exc:
         raise HTTPException(
             status_code=403,
             detail={"code": "ORG_INVALID", "message": "トークンの組織情報が無効です。"},
