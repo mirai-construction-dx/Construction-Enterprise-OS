@@ -1004,6 +1004,24 @@ OK: … 実測した。                                          # exit 0
 - これは「監視が動いている」ことの検査であり、**stg の業務的な健全性の証明ではない**。
   stg 自体の異常は従来どおり `monitor.sh` が failed として記録する。
 
+### 6.18 第33バッチ修正の stg 実 API 検証（2026-10-21 追加）
+
+サービス単体テストだけでは、gateway・DB・RBAC を通した経路の挙動は分からない。
+第33バッチの修正を stg の実 API で検証する `scripts/stg/check_security_fixes.py` を追加した。
+
+| 検証 | 期待 | 実測（2026-10-21） |
+|---|---|---|
+| G-1 gateway の内部ジョブ API | `/api/v1/workflow/internal/*` は **404** | 3 パスとも 404 |
+| G-1b 近接パス | `/api/v1/workflow/internals` は遮断しない | 401（認証要求） |
+| D-1 document の不正 JSON | `metadata` が不正なら **400 INVALID_REQUEST**（500 にしない） | 400 / INVALID_REQUEST |
+| A-1 analytics の `connection_config` | 作成・取得・一覧の応答に含まれない（write-only） | 3 経路とも含まれない。作成物は削除済み |
+| M-1 maintenance の作成者 | 本文の `reported_by` を無視し、トークン `sub` を記録 | `sub` と一致。作成物は id 指定削除済み |
+
+- 実行: `python3 scripts/stg/check_security_fixes.py`（資格情報は `~/.config/ceos/stg.env` から読む。
+  コマンドライン・ログへ出さない）。合成データのみを使い、作った行は後始末する。
+- **限界**: これは第33バッチの修正の検証であり、全サービスの網羅ではない。
+  maintenance の状態遷移の妥当性・analytics の暗号化（未実装）は対象外。
+
 ## 7. ロールバック
 
 | 対象 | 手順 |
