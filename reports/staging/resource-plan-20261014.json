@@ -1,0 +1,391 @@
+{
+  "timestamp": "2026-10-14T07:02:05.485648+00:00",
+  "mode": "dry-run",
+  "plan": [
+    {
+      "id": "7e944a3b14c0",
+      "name": "ceos-stg-mcp",
+      "service": "mcp",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "30e579c5ad58",
+      "name": "ceos-stg-autonomous",
+      "service": "autonomous",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "e5fad9c60824",
+      "name": "ceos-stg-advanced",
+      "service": "advanced",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "33b51c4d9dac",
+      "name": "ceos-stg-mobile",
+      "service": "mobile",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 1073741824,
+      "cpus": 1.0
+    },
+    {
+      "id": "141be7cd0e40",
+      "name": "ceos-stg-web",
+      "service": "web",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 1073741824,
+      "cpus": 1.0
+    },
+    {
+      "id": "d2796175e34d",
+      "name": "ceos-stg-notification",
+      "service": "notification",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "bd7f050c3509",
+      "name": "ceos-stg-workflow",
+      "service": "workflow",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "40dbb9836c80",
+      "name": "ceos-stg-automation",
+      "service": "automation",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "d7662202969a",
+      "name": "ceos-stg-bim",
+      "service": "bim",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "13716fa97e33",
+      "name": "ceos-stg-vision",
+      "service": "vision",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "f791bab93a73",
+      "name": "ceos-stg-document",
+      "service": "document",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "e1f08defd326",
+      "name": "ceos-stg-iot",
+      "service": "iot",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "3f0fd2a93b9e",
+      "name": "ceos-stg-gateway",
+      "service": "gateway",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "db69296752dd",
+      "name": "ceos-stg-auth",
+      "service": "auth",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "6d7d1570ae2f",
+      "name": "ceos-stg-ai",
+      "service": "ai",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "806e23029904",
+      "name": "ceos-stg-kibana",
+      "service": "kibana",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 1073741824,
+      "cpus": 1.0
+    },
+    {
+      "id": "82c3f4f463d7",
+      "name": "ceos-stg-analytics",
+      "service": "analytics",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "122493c783c7",
+      "name": "ceos-stg-erp",
+      "service": "erp",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "310cadbf949b",
+      "name": "ceos-stg-minio",
+      "service": "minio",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 1073741824,
+      "cpus": 1.0
+    },
+    {
+      "id": "5d218d0e40a0",
+      "name": "ceos-stg-partner",
+      "service": "partner",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "bbab213c1500",
+      "name": "ceos-stg-gis",
+      "service": "gis",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "e9db1ee61b6b",
+      "name": "ceos-stg-safety",
+      "service": "safety",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "a3462c4aec09",
+      "name": "ceos-stg-kafka",
+      "service": "kafka",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 2147483648,
+      "cpus": 2.0
+    },
+    {
+      "id": "99491cd76279",
+      "name": "ceos-stg-redis",
+      "service": "redis",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 536870912,
+      "cpus": 0.5
+    },
+    {
+      "id": "0fdc3d8cd4eb",
+      "name": "ceos-stg-construction",
+      "service": "construction",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "f494320d01a2",
+      "name": "ceos-stg-security",
+      "service": "security",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "eccf1999ef57",
+      "name": "ceos-stg-maintenance",
+      "service": "maintenance",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "cfdaf253bfe3",
+      "name": "ceos-stg-elasticsearch",
+      "service": "elasticsearch",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 3221225472,
+      "cpus": 2.0
+    },
+    {
+      "id": "f1772c37abb7",
+      "name": "ceos-stg-rabbitmq",
+      "service": "rabbitmq",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 1073741824,
+      "cpus": 1.0
+    },
+    {
+      "id": "dc5adb32075a",
+      "name": "ceos-stg-field-dx",
+      "service": "field-dx",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "15461622af76",
+      "name": "ceos-stg-platform",
+      "service": "platform",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    },
+    {
+      "id": "1f96a7ab6407",
+      "name": "ceos-stg-db-bridge",
+      "service": "db-bridge",
+      "old": {
+        "Memory": 0,
+        "NanoCpus": 0,
+        "MemorySwap": 0
+      },
+      "memory": 805306368,
+      "cpus": 1.0
+    }
+  ],
+  "applied": []
+}

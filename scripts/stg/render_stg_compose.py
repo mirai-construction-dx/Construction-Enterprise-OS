@@ -208,6 +208,18 @@ def render() -> str:
             "retries": 3,
             "start_period": "5s",
         },
+        # 資源上限（2026-10-14 実測: 全 33 サービスに上限が無かった）。
+        # db-bridge は compose に存在しない stg 専用サービスなので、base の
+        # anchor では受け取れない。ここで明示する。
+        # 検査: scripts/ci/check_memory_limits.py
+        "deploy": {
+            "resources": {
+                "limits": {
+                    "cpus": "${CEOS_CPU_LIMIT:-1.0}",
+                    "memory": "${CEOS_MEM_LIMIT:-768M}",
+                }
+            }
+        },
     }
 
     for name, service in services.items():

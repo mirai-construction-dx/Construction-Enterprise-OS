@@ -11,6 +11,18 @@ x-python-service: &python-service
   restart: unless-stopped
   networks:
     - construction-net
+  # 暫定の資源上限宣言。「割当」ではなく、暴走による影響を抑えるための上限。
+  # Compose は `mem_limit`/`cpus` と `deploy.resources.limits` の両形式をサポート。
+  # deploy 形式への統一はリポジトリ方針であり、前者が非対応という意味ではない。
+  # staging32コンテナへ2026-10-14に適用。限定health負荷とカーネル上限は確認済み。
+  # 代表業務・ML容量の受入根拠ではなく、本番/開発への適用も確認していない。
+  # 静的検査の成功は実行時適用の証明ではない。証跡はreports/staging/を参照。
+  # サービス固有の暫定値は各サービス側で上書き。
+  deploy:
+    resources:
+      limits:
+        cpus: '${CEOS_CPU_LIMIT:-1.0}'
+        memory: ${CEOS_MEM_LIMIT:-768M}
 
 x-python-healthcheck: &python-healthcheck
   interval: 30s
@@ -19,15 +31,15 @@ x-python-healthcheck: &python-healthcheck
   start_period: 40s
 
 x-db-env: &db-env
-  DATABASE_URL: postgresql://construction-os:construction-os_dev@postgres:5432/construction-os
-  TIMESCALE_URL: postgresql://construction-os:construction-os_dev@timescaledb:5432/construction-os_ts
+  DATABASE_URL: ${DATABASE_URL}
+  TIMESCALE_URL: ${TIMESCALE_URL}
   REDIS_URL: redis://redis:6379/0
-  RABBITMQ_URL: amqp://construction-os:construction-os_dev@rabbitmq:5672/
+  RABBITMQ_URL: ${RABBITMQ_URL}
   KAFKA_BOOTSTRAP_SERVERS: kafka:9092
   ELASTICSEARCH_URL: http://elasticsearch:9200
   MINIO_ENDPOINT: minio:9000
-  MINIO_ACCESS_KEY: minioadmin
-  MINIO_SECRET_KEY: minioadmin
+  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
   # 開発用既定鍵での起動を禁止するため、鍵は .env / 環境変数で必須
   JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?set JWT_PUBLIC_KEY in .env}
   ENVIRONMENT: docker
@@ -41,7 +53,7 @@ services:
     container_name: construction-os-postgres
     environment:
       POSTGRES_USER: construction-os
-      POSTGRES_PASSWORD: construction-os_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: construction-os
     ports:
       - "5432:5432"
@@ -55,13 +67,19 @@ services:
       retries: 5
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
 
   timescaledb:
     image: timescale/timescaledb:2.16.1-pg16
     container_name: construction-os-timescaledb
     environment:
       POSTGRES_USER: construction-os
-      POSTGRES_PASSWORD: construction-os_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: construction-os_ts
     ports:
       - "5433:5432"
@@ -74,6 +92,12 @@ services:
       retries: 5
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
 
   redis:
     image: redis:7-alpine
@@ -90,13 +114,19 @@ services:
       retries: 5
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: construction-os-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: construction-os
-      RABBITMQ_DEFAULT_PASS: construction-os_dev
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -109,6 +139,12 @@ services:
       retries: 5
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   elasticsearch:
     image: elasticsearch:8.14.0
@@ -132,6 +168,12 @@ services:
       retries: 5
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
 
   kibana:
     image: kibana:8.14.0
@@ -155,6 +197,12 @@ services:
       start_period: 180s
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   minio:
     # 2026-10-14: `latest` をやめた。可変タグは再現性を壊す（同じ手順で作り直しても
@@ -166,8 +214,8 @@ services:
     container_name: construction-os-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
       - "9100:9000" # S3 API (9100 externally; gateway also uses 9000 externally)
       - "9001:9001" # Console
@@ -180,6 +228,12 @@ services:
       retries: 3
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
 
   kafka:
     # 2026-10-14: Bitnami のイメージ配布先変更により `bitnami/kafka:3.7` は
@@ -210,6 +264,12 @@ services:
       retries: 5
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
 
   # ============================================================
   # 🚪 API Gateway (external: 9000)
@@ -883,6 +943,12 @@ services:
     restart: unless-stopped
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     healthcheck:
       test:
         [
@@ -912,6 +978,12 @@ services:
     restart: unless-stopped
     networks:
       - construction-net
+    # 暫定上限（割当ではない。stg適用証跡はreports/staging/。業務容量は未受入）
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     healthcheck:
       test:
         [

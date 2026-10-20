@@ -1,0 +1,270 @@
+{
+  "scope": "200 read-only gateway /health requests at concurrency8; not business capacity proof",
+  "requests": 200,
+  "status_counts": {
+    "200": 100,
+    "429": 100
+  },
+  "elapsed_seconds": 1.3766841359902173,
+  "p95_seconds": 0.01922548102447763,
+  "max_seconds": 0.27157417696435004,
+  "initial_attempt": "aborted on HTTP429, no report generated; rerun captures429",
+  "containers": [
+    {
+      "name": "ceos-stg-mcp",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-autonomous",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-advanced",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-mobile",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 1073741824,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-web",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 1073741824,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-notification",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-workflow",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-automation",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-bim",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-vision",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-document",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-iot",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-gateway",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-auth",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-ai",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-kibana",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 1073741824,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-analytics",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-erp",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-minio",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 1073741824,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-partner",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-gis",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-safety",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-kafka",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 2147483648,
+      "nano_cpus": 2000000000
+    },
+    {
+      "name": "ceos-stg-redis",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 536870912,
+      "nano_cpus": 500000000
+    },
+    {
+      "name": "ceos-stg-construction",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-security",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-maintenance",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-elasticsearch",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 3221225472,
+      "nano_cpus": 2000000000
+    },
+    {
+      "name": "ceos-stg-rabbitmq",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 1073741824,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-field-dx",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-platform",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    },
+    {
+      "name": "ceos-stg-db-bridge",
+      "oom_killed": false,
+      "restart_count": 0,
+      "health": "healthy",
+      "memory_limit": 805306368,
+      "nano_cpus": 1000000000
+    }
+  ]
+}

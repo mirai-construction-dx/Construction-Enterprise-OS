@@ -1,6 +1,6 @@
 # Construction-Enterprise-OS 開発用 Makefile
 
-.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage repo-invariants repo-invariants-ci
+.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits secrets-hygiene static-guard-tests repo-invariants repo-invariants-ci
 
 help: ## ヘルプ表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -99,10 +99,22 @@ org-query-scoping: ## クエリの organization_id が必ずテナントヘル�
 health-coverage: ## 集約ヘルスがゲートウェイの全上流を見ているか検証
 	python3 scripts/ci/check_health_coverage.py
 
-repo-invariants: schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
+infra-consumers: ## 6基盤(redis/rabbitmq/kafka/elasticsearch/kibana/minio)の使われ方が実測どおりか検証
+	python3 scripts/ci/check_infra_consumers.py
+
+resource-limits: ## 全サービスに実行時へ反映される資源上限があるか検証
+	python3 scripts/ci/check_memory_limits.py
+
+secrets-hygiene: ## 秘密配置の限定ヒューリスティック検査（安全性証明ではない）
+	python3 scripts/ci/check_secrets_hygiene.py
+
+static-guard-tests: ## 静的ガードのオフライン回帰テスト
+	python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
+
+repo-invariants: secrets-hygiene static-guard-tests schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
 	@echo "✅ リポジトリ不変条件 OK"
 
-# CI 用（依存の軽い 8 検査だけを回す）。
+# CI 用（依存の軽い検査だけを回す）。
 # schema-check は各サービスのモデルを import するため sqlalchemy と各サービスの
 # 依存が要る（scripts/db/generate_base_schema.py の emit_metadata が
 # `sys.executable -c EMITTER` をサービス単位で起動する）。素のランナーでは失敗するので
@@ -112,7 +124,8 @@ repo-invariants: schema-check session-check ddl-coverage ci-coverage docs-links 
 # tenant-conformance は各サービスの src.middleware.tenant を import するため
 # fastapi / PyJWT / pydantic-settings が要る（docs/operations/repo-invariants.workflow.yml）。
 # org-query-scoping は標準ライブラリ（ast）だけで動く。health-coverage は PyYAML を使う。
-repo-invariants-ci: session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage ## CI で回す不変条件(軽量な依存のみ)
+# infra-consumers（ast + PyYAML）と resource-limits（PyYAML）も依存が軽いので CI で回す。
+repo-invariants-ci: secrets-hygiene static-guard-tests session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits ## CI で回す不変条件(軽量な依存のみ)
 	@echo "✅ CI 用のリポジトリ不変条件 OK（schema-check は python-checks が担当）"
 
 # ============================================
