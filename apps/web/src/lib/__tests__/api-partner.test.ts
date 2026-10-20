@@ -145,7 +145,7 @@ describe("listPartnerContracts", () => {
 });
 
 describe("createPartnerContract", () => {
-  it("sends POST to /partner/:id/contracts", async () => {
+  it("sends POST to /partners/contracts with partner_id in the body", async () => {
     mockFetch.mockReturnValueOnce(
       mockResponse({ id: "ct1", partner_id: "p1", title: "Contract A", contract_type: "service", status: "draft" }),
     );
@@ -155,9 +155,11 @@ describe("createPartnerContract", () => {
       status: "draft",
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/partner/p1/contracts",
+      "/api/v1/partners/contracts",
       expect.objectContaining({ method: "POST" }),
     );
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toMatchObject({ partner_id: "p1" });
   });
 });
 
@@ -173,38 +175,42 @@ describe("listPartnerEvaluations", () => {
 });
 
 describe("createPartnerEvaluation", () => {
-  it("sends POST to /partner/:id/evaluations", async () => {
+  it("sends POST to /partners/evaluations with partner_id in the body", async () => {
     mockFetch.mockReturnValueOnce(
       mockResponse({ id: "e1", partner_id: "p1", score: 4.5 }),
     );
     await createPartnerEvaluation("p1", { score: 4.5 });
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/partner/p1/evaluations",
+      "/api/v1/partners/evaluations",
       expect.objectContaining({ method: "POST" }),
     );
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toMatchObject({ partner_id: "p1" });
   });
 });
 
 describe("listPartnerAssignments", () => {
-  it("sends GET to /partner/:id/assignments", async () => {
+  it("sends GET to /partners/assignments filtered by partner_id", async () => {
     mockFetch.mockReturnValueOnce(mockResponse([]));
     await listPartnerAssignments("p1");
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/partner/p1/assignments",
+      "/api/v1/partners/assignments?partner_id=p1",
       expect.any(Object),
     );
   });
 });
 
 describe("createPartnerAssignment", () => {
-  it("sends POST to /partner/:id/assignments", async () => {
+  it("sends POST to /partners/assignments with partner_id in the body", async () => {
     mockFetch.mockReturnValueOnce(
       mockResponse({ id: "a1", partner_id: "p1", status: "active" }),
     );
     await createPartnerAssignment("p1", { status: "active" });
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/partner/p1/assignments",
+      "/api/v1/partners/assignments",
       expect.objectContaining({ method: "POST" }),
     );
+    const init = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(init.body as string)).toMatchObject({ partner_id: "p1" });
   });
 });

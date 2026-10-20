@@ -37,26 +37,27 @@ function mockResponse(body: unknown, status = 200) {
 }
 
 describe("listBudgetItems", () => {
-  it("sends GET to /erp/budget without params", async () => {
+  it("sends GET to /erp/ledger/:ledgerId/budgets without params", async () => {
     mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listBudgetItems();
+    await listBudgetItems("l1");
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/erp/budget",
+      "/api/v1/erp/ledger/l1/budgets",
       expect.any(Object),
     );
   });
 
   it("appends fiscal_year filter", async () => {
     mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listBudgetItems({ fiscal_year: 2026, organization_id: "org1" });
+    await listBudgetItems("l1", { fiscal_year: 2026, organization_id: "org1" });
     const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain("/erp/ledger/l1/budgets?");
     expect(url).toContain("fiscal_year=2026");
     expect(url).toContain("organization_id=org1");
   });
 });
 
 describe("createBudgetItem", () => {
-  it("sends POST to /erp/budget", async () => {
+  it("sends POST to /erp/ledger/:ledgerId/budgets", async () => {
     const item = {
       organization_id: "org1",
       category: "equipment",
@@ -64,9 +65,9 @@ describe("createBudgetItem", () => {
       status: "draft",
     };
     mockFetch.mockReturnValueOnce(mockResponse({ id: "b1", ...item }));
-    await createBudgetItem(item);
+    await createBudgetItem("l1", item);
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/erp/budget",
+      "/api/v1/erp/ledger/l1/budgets",
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -92,18 +93,18 @@ describe("updateBudgetItem", () => {
 });
 
 describe("listCosts", () => {
-  it("sends GET to /erp/costs", async () => {
+  it("sends GET to /erp/ledger/:ledgerId/costs", async () => {
     mockFetch.mockReturnValueOnce(mockResponse({ items: [], total: 0 }));
-    await listCosts();
+    await listCosts("l1");
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/erp/costs",
+      "/api/v1/erp/ledger/l1/costs",
       expect.any(Object),
     );
   });
 });
 
 describe("createCost", () => {
-  it("sends POST to /erp/costs", async () => {
+  it("sends POST to /erp/ledger/:ledgerId/costs", async () => {
     const cost = {
       organization_id: "org1",
       category: "labor",
@@ -111,9 +112,9 @@ describe("createCost", () => {
       status: "pending" as const,
     };
     mockFetch.mockReturnValueOnce(mockResponse({ id: "c1", ...cost }));
-    await createCost(cost);
+    await createCost("l1", cost);
     expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/erp/costs",
+      "/api/v1/erp/ledger/l1/costs",
       expect.objectContaining({ method: "POST" }),
     );
   });
