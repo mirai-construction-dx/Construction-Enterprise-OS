@@ -25,16 +25,39 @@ cd "$REPO_ROOT"
 echo "== MCP 上流結合テスト（stg ネットワーク内） =="
 echo "上流: CONSTRUCTION_SERVICE_URL / ERP_SERVICE_URL（compose の設定を使用）"
 
-# `compose run` は対象サービスの environment とネットワークを引き継ぐ。
-# ただし mcp のイメージには tests/ と requirements-dev.txt が入っていない
+# `compose run` は使わない（2026-10-21 実測）:
+#   stg は G-11 で全サービスに**静的 IPv4** を割り当てている。`compose run` は
+#   対象サービスのネットワーク定義をそのまま複製するため、稼働中の `mcp`
+#   コンテナと同じ IP を取ろうとして
+#   `failed to set up container networking: Address already in use` で必ず失敗する。
+#   代わりに `docker run` で同じイメージ・同じネットワーク・同じ環境変数を使い、
+#   IP だけを Docker に任せる（静的 IP を持たない一時コンテナ）。
+#
+# mcp のイメージには tests/ と requirements-dev.txt が入っていない
 # （Dockerfile は requirements.txt と src/ だけを写す）ため、ホストのリポジトリを
 # /repo へマウントして実行する。`/repo` にするのは、テストが
 # `Path(__file__).resolve().parents[3]` でリポジトリ根を求めるためである
 # （`/app/tests/...` に置くと parents[3] が存在せず IndexError: 3 になる。2026-10-14 実測）。
+CONTAINER="${CEOS_STG_MCP_CONTAINER:-ceos-stg-mcp}"
+if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
+  echo "NG: 稼働中の ${CONTAINER} が見つからない（先に stg を起動する）。" >&2
+  exit 1
+fi
+IMAGE="$(docker inspect -f '{{.Config.Image}}' "$CONTAINER")"
+NETWORK="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' "$CONTAINER")"
+if [ -z "$IMAGE" ] || [ -z "$NETWORK" ]; then
+  echo "NG: ${CONTAINER} のイメージ/ネットワークを特定できない。" >&2
+  exit 1
+fi
+echo "一時コンテナ: image=${IMAGE} network=${NETWORK}（静的 IP は使わない）"
+
 set +e
-"$REPO_ROOT/scripts/stg/compose.sh" run --rm --no-deps \
+# 環境変数は稼働コンテナから引き継ぐ。secret をファイルへ書き出さないため
+# プロセス置換（/dev/fd）を `--env-file` に渡す。
+docker run --rm --network "$NETWORK" \
+  --env-file <(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER") \
   -v "$REPO_ROOT:/repo" -w /repo/services/mcp \
-  --entrypoint sh mcp -c '
+  --entrypoint sh "$IMAGE" -c '
   set -e
   pip install -q -r requirements-dev.txt
   echo "--- pytest (live_upstream) ---"
