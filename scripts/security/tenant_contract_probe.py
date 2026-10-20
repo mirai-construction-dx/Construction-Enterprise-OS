@@ -20,7 +20,9 @@
     a_scope_none   admin が組織を指定しない      → None（全組織）
     a_scope_other  admin が他組織を指定          → その組織
     no_org         組織クレームが無い            → 403 ORG_REQUIRED
-    bad_org        組織クレームが UUID でない    → 403 ORG_INVALID
+    bad_org        組織クレームが UUID 文字列でない → 403 ORG_INVALID
+    bad_org_int    組織クレームが整数            → 403 ORG_INVALID（TypeError を 500 にしない）
+    bad_org_list   組織クレームが配列            → 403 ORG_INVALID（AttributeError を 500 にしない）
 
 使い方（単体）:
     PYTHONPATH=services/erp python3 scripts/security/tenant_contract_probe.py
@@ -71,6 +73,11 @@ def main() -> int:
     admin = SimpleNamespace(roles=["admin"], org=OWN)
     no_org = SimpleNamespace(roles=[], org=None)
     bad_org = SimpleNamespace(roles=[], org="not-a-uuid")
+    # 2026-10-21 追加（#147）: JWT の org クレームは型が保証されない。UUID() は
+    # 文字列以外で TypeError / AttributeError を送出し、except ValueError だけでは
+    # 500 になる（fail-closed ではあるが ADR-0004 の 403 ORG_INVALID と不一致）。
+    bad_org_int = SimpleNamespace(roles=[], org=12345)
+    bad_org_list = SimpleNamespace(roles=[], org=[OWN])
     other = UUID(OTHER)
 
     out["n_scope_none"] = outcome(lambda: scope_org(nonadmin, None))
@@ -81,6 +88,8 @@ def main() -> int:
     out["a_scope_other"] = outcome(lambda: scope_org(admin, other))
     out["no_org"] = outcome(lambda: scope_org(no_org, None))
     out["bad_org"] = outcome(lambda: scope_org(bad_org, None))
+    out["bad_org_int"] = outcome(lambda: scope_org(bad_org_int, None))
+    out["bad_org_list"] = outcome(lambda: scope_org(bad_org_list, None))
 
     print(json.dumps(out, ensure_ascii=False))
     return 0
