@@ -15,6 +15,58 @@ def _utcnow():
     return datetime.now(timezone.utc)
 
 
+# ── 状態遷移ガード（#139） ──
+#
+# リポジトリ内に正式な状態遷移仕様が無いため、既存実装・テストで使われている値と
+# 遷移だけを許可する暫定の許可表とする。終端状態からの差し戻しや未知の状態は拒否する。
+# 正式な語彙・遷移はドメイン担当の確認が必要（未確認事項）。
+DISASTER_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    "reported": frozenset({"assessing"}),
+    "assessing": frozenset({"contained"}),
+    "contained": frozenset({"recovering"}),
+    "recovering": frozenset({"resolved"}),
+    "resolved": frozenset(),
+}
+RECOVERY_PLAN_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    "planned": frozenset({"mobilized"}),
+    "mobilized": frozenset({"in_progress"}),
+    "in_progress": frozenset({"completed"}),
+    "completed": frozenset(),
+}
+MAINTENANCE_STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    "scheduled": frozenset({"in_progress", "deferred"}),
+    "in_progress": frozenset({"completed", "deferred"}),
+    "deferred": frozenset({"scheduled", "in_progress"}),
+    "overdue": frozenset({"in_progress", "completed", "deferred"}),
+    "completed": frozenset(),
+}
+
+
+class StatusTransitionError(ValueError):
+    """許可されない状態遷移。"""
+
+
+def _ensure_status_transition(
+    entity: str,
+    current: str,
+    new: str,
+    transitions: dict[str, frozenset[str]],
+) -> None:
+    if new == current:
+        return
+    allowed = transitions.get(current)
+    if allowed is None:
+        raise StatusTransitionError(
+            f"{entity}の現在の状態 '{current}' は不明なため '{new}' へ変更できません"
+        )
+    if new not in allowed:
+        raise StatusTransitionError(
+            f"{entity}の状態を '{current}' から '{new}' へ変更できません "
+            f"(許可される遷移: {', '.join(sorted(allowed)) or 'なし'})"
+        )
+
+
+
 # ═══════════════════════════════════════════════════════
 # Disaster Reports
 # ═══════════════════════════════════════════════════════
@@ -104,6 +156,10 @@ async def update_disaster_report(
     report = await get_disaster_report_by_id(db, report_id, organization_id)
     if not report:
         return None
+    if status is not None:
+        _ensure_status_transition(
+            "災害報告", report.status, status, DISASTER_STATUS_TRANSITIONS
+        )
     if title is not None:
         report.title = title
     if status is not None:
@@ -204,6 +260,10 @@ async def update_recovery_plan(
     plan = await get_recovery_plan_by_id(db, plan_id, organization_id)
     if not plan:
         return None
+    if status is not None:
+        _ensure_status_transition(
+            "復旧計画", plan.status, status, RECOVERY_PLAN_STATUS_TRANSITIONS
+        )
     if title is not None:
         plan.title = title
     if description is not None:
@@ -329,6 +389,10 @@ async def update_maintenance_record(
     record = await get_maintenance_record_by_id(db, record_id, organization_id)
     if not record:
         return None
+    if status is not None:
+        _ensure_status_transition(
+            "維持管理記録", record.status, status, MAINTENANCE_STATUS_TRANSITIONS
+        )
     if asset_name is not None:
         record.asset_name = asset_name
     if status is not None:

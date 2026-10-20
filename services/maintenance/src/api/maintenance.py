@@ -57,7 +57,8 @@ async def create_record(
         scheduled_date=body.scheduled_date,
         next_maintenance_date=body.next_maintenance_date,
         location=body.location,
-        performed_by=body.performed_by,
+        # #139: 作業者は本文ではなく認証済みユーザーから設定する。
+        performed_by=UUID(current_user.sub),
         notes=body.notes,
     )
     return APIResponse(data=_record_to_response(record))
@@ -120,20 +121,27 @@ async def update_record(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    record = await svc.update_maintenance_record(
-        db,
-        record_id,
-        organization_id=scope_org(current_user),
-        asset_name=body.asset_name,
-        status=body.status,
-        work_performed=body.work_performed,
-        cost=body.cost,
-        contractor=body.contractor,
-        completed_date=body.completed_date,
-        next_maintenance_date=body.next_maintenance_date,
-        performed_by=body.performed_by,
-        notes=body.notes,
-    )
+    try:
+        record = await svc.update_maintenance_record(
+            db,
+            record_id,
+            organization_id=scope_org(current_user),
+            asset_name=body.asset_name,
+            status=body.status,
+            work_performed=body.work_performed,
+            cost=body.cost,
+            contractor=body.contractor,
+            completed_date=body.completed_date,
+            next_maintenance_date=body.next_maintenance_date,
+            # #139: 更新者を本文ではなく認証済みユーザーから設定する。
+            performed_by=UUID(current_user.sub),
+            notes=body.notes,
+        )
+    except svc.StatusTransitionError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_STATUS_TRANSITION", "message": str(e)},
+        )
     if not record:
         raise HTTPException(
             status_code=404,

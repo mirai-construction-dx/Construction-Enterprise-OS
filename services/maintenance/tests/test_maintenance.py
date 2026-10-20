@@ -1159,3 +1159,189 @@ def test_update_inspection_not_found(mock_jwt, app):
     )
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "NOT_FOUND"
+
+
+# ═══════════════════════════════════════════════
+# Issue #139: 作成者の偽装防止・状態遷移の検証
+# ═══════════════════════════════════════════════
+
+
+def _hardening_db(items=None):
+    db_mock = AsyncMock()
+    db_mock.add = MagicMock()
+    db_mock.flush = AsyncMock()
+    db_mock.execute = AsyncMock(return_value=MockScalarResult(items or []))
+    db_mock.commit = AsyncMock()
+    db_mock.rollback = AsyncMock()
+    db_mock.close = AsyncMock()
+    return db_mock
+
+
+def _use_db(app, db_mock):
+    async def get_mock_db():
+        yield db_mock
+
+    app.dependency_overrides[get_db] = get_mock_db
+
+
+@patch("src.middleware.auth.jwt")
+def test_create_disaster_uses_token_sub_for_reported_by(mock_jwt, app):
+    """#139: 本文の reported_by ではなくトークンの sub を作成者に使う。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    spoofed = uuid.uuid4()
+    db_mock = _hardening_db()
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/maintenance/disasters",
+        json={
+            "organization_id": str(TEST_ORG_ID),
+            "title": "偽装テスト",
+            "disaster_type": "earthquake",
+            "severity": "severe",
+            "occurred_at": datetime(2025, 1, 15, tzinfo=timezone.utc).isoformat(),
+            "description": "偽装された reported_by は無視される",
+            "reported_by": str(spoofed),
+        },
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 201
+    created = db_mock.add.call_args[0][0]
+    assert created.reported_by == TEST_USER_ID
+    assert response.json()["data"]["reported_by"] == str(TEST_USER_ID)
+
+
+@patch("src.middleware.auth.jwt")
+def test_create_recovery_plan_uses_token_sub_for_created_by(mock_jwt, app):
+    """#139: 本文の created_by ではなくトークンの sub を作成者に使う。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    spoofed = uuid.uuid4()
+    disaster = MockDisaster(id=TEST_DISASTER_ID)
+    db_mock = _hardening_db([disaster])
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.post(
+        f"/api/v1/maintenance/disasters/{TEST_DISASTER_ID}/recovery-plans",
+        json={
+            "organization_id": str(TEST_ORG_ID),
+            "title": "偽装された復旧計画",
+            "created_by": str(spoofed),
+        },
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 201
+    created = db_mock.add.call_args[0][0]
+    assert created.created_by == TEST_USER_ID
+    assert response.json()["data"]["created_by"] == str(TEST_USER_ID)
+
+
+@patch("src.middleware.auth.jwt")
+def test_create_maintenance_record_uses_token_sub_for_performed_by(mock_jwt, app):
+    """#139: 本文の performed_by ではなくトークンの sub を作業者に使う。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    spoofed = uuid.uuid4()
+    db_mock = _hardening_db()
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/maintenance/records",
+        json={
+            "organization_id": str(TEST_ORG_ID),
+            "asset_name": "Bridge #1",
+            "asset_type": "bridge",
+            "maintenance_type": "preventive",
+            "description": "点検",
+            "performed_by": str(spoofed),
+        },
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 201
+    created = db_mock.add.call_args[0][0]
+    assert created.performed_by == TEST_USER_ID
+    assert response.json()["data"]["performed_by"] == str(TEST_USER_ID)
+
+
+@patch("src.middleware.auth.jwt")
+def test_update_maintenance_record_uses_token_sub_for_performed_by(mock_jwt, app):
+    """#139: PUT 本文の performed_by も無視し、更新したユーザーを記録する。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    spoofed = uuid.uuid4()
+    record = MockMaintenanceRecord(id=TEST_RECORD_ID, status="scheduled")
+    db_mock = _hardening_db([record])
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.put(
+        f"/api/v1/maintenance/records/{TEST_RECORD_ID}",
+        json={"performed_by": str(spoofed)},
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 200
+    assert record.performed_by == TEST_USER_ID
+
+
+@patch("src.middleware.auth.jwt")
+def test_update_maintenance_record_rejects_backward_status_transition(mock_jwt, app):
+    """#139: 完了済み記録を PUT で差し戻せない。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    record = MockMaintenanceRecord(id=TEST_RECORD_ID, status="completed")
+    db_mock = _hardening_db([record])
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.put(
+        f"/api/v1/maintenance/records/{TEST_RECORD_ID}",
+        json={"status": "scheduled"},
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_STATUS_TRANSITION"
+    assert record.status == "completed"
+
+
+@patch("src.middleware.auth.jwt")
+def test_update_disaster_rejects_backward_status_transition(mock_jwt, app):
+    """#139: 解決済みの災害報告を PUT で差し戻せない。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    disaster = MockDisaster(id=TEST_DISASTER_ID, status="resolved")
+    db_mock = _hardening_db([disaster])
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.put(
+        f"/api/v1/maintenance/disasters/{TEST_DISASTER_ID}",
+        json={"status": "assessing"},
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_STATUS_TRANSITION"
+    assert disaster.status == "resolved"
+
+
+@patch("src.middleware.auth.jwt")
+def test_update_recovery_plan_rejects_backward_status_transition(mock_jwt, app):
+    """#139: 完了済み復旧計画を PUT で差し戻せない。"""
+    mock_jwt.decode.return_value = VALID_TOKEN_PAYLOAD
+    plan = MockRecoveryPlan(id=TEST_PLAN_ID, status="completed")
+    db_mock = _hardening_db([plan])
+    _use_db(app, db_mock)
+    client = TestClient(app)
+
+    response = client.put(
+        f"/api/v1/maintenance/recovery-plans/{TEST_PLAN_ID}",
+        json={"status": "in_progress"},
+        headers=_make_auth_header(),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "INVALID_STATUS_TRANSITION"
+    assert plan.status == "completed"
