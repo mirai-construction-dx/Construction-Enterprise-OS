@@ -103,12 +103,17 @@ ADR-0001 は「CEOS は工程・原価・契約の正本を持ち、統合入口
   [ADR-0003](./ADR-0003-mcp-audience-token-exchange.md) で決定
 - **SBOM・成果物署名**（サプライチェーン統制）
 - **MCIP 側のツール登録 / Tool Gateway 連携**の実装
-- **`x-mirai.operation` の確定（BLOCKED・Core 判断）**: Core 承認階層表
+- **`x-mirai.operation` の確定（カテゴリ追加済み・CEOS 側の付与待ち）**: Core 承認階層表
   （`approval-tiers/tiers.yaml` の `operations`）に CEOS の工程・原価・契約の読み取りに
-  対応するカテゴリが無い。推測で既存カテゴリ（`document.search` 等）を流用せず未設定とした。
-  Core がカテゴリを追加した後、`operation` を付与してハッシュを更新し、Core の
-  `contracts/mcp-tools/ceos.json` と `registries/mcp-allowlist.yaml`（trust / surfaces / scopes を含む）
-  への登録を Core リポジトリへ提案する。
+  対応するカテゴリが無かったため、推測で既存カテゴリ（`document.search` 等）を流用せず未設定とした。
+  2026-10-21、Core が **`enterprise_data.read: R0`** を追加した
+  （Mirai-Harness-Core PR #95 / `7e799e5`）。CEOS 側は次を行う。
+  1. Core vendoring を更新する（**MAD Issue #5** の公開範囲の統制確認後。独断で上げない）。
+  2. `operation: enterprise_data.read` を付与し、5 ツールの `definition_sha256` を更新して
+     `contracts/mcp-tools/ceos.json` を再生成する。
+  3. Core の `contracts/mcp-tools/ceos.json` と `registries/mcp-allowlist.yaml`
+     （trust / surfaces / scopes を含む）へ**原本同一**で登録する。
+  追跡: Mirai-Harness-Core Issue #96。
 - **エラー応答形式の Core 整合（未決・判断待ち）**: CEOS の HTTP エラーは
   `{"success": false, "error": {"code", "message"}}` 形式で、Core の `core.error.response/1`
   （RFC 9457 整合。`schema` / `error_code` / `status` / `title` / `occurred_at` 必須）と異なる。
