@@ -1,21 +1,39 @@
 """MFA 有効化・バックアップコードの挙動テスト"""
 
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pyotp
 import pytest
 from fastapi.testclient import TestClient
 
+from src.api.auth import _create_mfa_session_token, _decode_mfa_session_token
 from src.main import create_app
 from src.middleware.auth_middleware import get_current_user
-from src.api.auth import _create_mfa_session_token
+from src.models import MfaSessionUse
 from src.models.base import get_db
 from src.schemas import TokenData
 from src.services.auth_service import hash_backup_code
 
 SECRET = "JBSWY3DPEHPK3PXP"
+# pyotp の既定タイムステップ（= settings.MFA_TOKEN_VALIDITY_SECONDS の既定値 30）
+TOTP_INTERVAL_SECONDS = 30
+
+
+def fresh_totp_code(secret: str = SECRET, margin: float = 5.0) -> str:
+    """時刻窓の境界をまたいで検証に失敗しない TOTP コードを返す。
+
+    #166: 実時刻から生成したコードは、生成と検証の間（CI では数〜数十 ms）に
+    30 秒のタイムステップが切り替わると `verify_mfa_code` が False になる。
+    残り時間が margin 秒未満なら次の窓まで待ってから生成する。
+    """
+    remaining = TOTP_INTERVAL_SECONDS - (time.time() % TOTP_INTERVAL_SECONDS)
+    if remaining < margin:
+        time.sleep(remaining + 0.05)
+    return pyotp.TOTP(secret).now()
 
 
 class FakeUser:
@@ -102,7 +120,7 @@ def test_mfa_activate_enables_mfa():
     user = FakeUser(mfa_secret=SECRET, mfa_enabled=False)
     client, _ = _client(user)
 
-    code = pyotp.TOTP(SECRET).now()
+    code = fresh_totp_code()
     res = client.post("/api/v1/auth/mfa/activate", json={"code": code})
 
     assert res.status_code == 200
@@ -253,18 +271,38 @@ def test_mfa_verify_counts_failed_attempts():
     assert user.login_attempts == 1
 
 
-def test_mfa_verify_rejects_consumed_session_token():
+@pytest.fixture
+def consumed_session(monkeypatch):
+    """消費済み MFA セッションの状態をテスト内で明示的に組み立てる。
+
+    #166: 以前は実時刻の TOTP コードに依存していたため、30 秒の時刻窓をまたぐ
+    （生成直後にタイムステップが切り替わる）と `verify_mfa_code` が False になり、
+    期待する 400 MFA_SESSION_USED ではなく 200 INVALID_MFA_CODE が返るフレークがあった。
+    このテストの関心は「消費済み jti の拒否」だけなので、コード検証は成功に固定し、
+    消費済み状態は db.get の戻り値として明示的に与える（他テストとの共有状態は使わない）。
+    """
+    monkeypatch.setattr("src.api.auth.verify_mfa_code", lambda secret, code: True)
     user = FakeUser(mfa_secret=SECRET, mfa_enabled=True)
     client, db = _client(user)
     db.get = AsyncMock(return_value=object())
+    return SimpleNamespace(client=client, db=db, user=user, token=_session_token(user))
 
-    res = client.post(
+
+def test_mfa_verify_rejects_consumed_session_token(consumed_session):
+    session = consumed_session
+
+    res = session.client.post(
         "/api/v1/auth/mfa/verify",
-        json={
-            "session_token": _session_token(user),
-            "code": pyotp.TOTP(SECRET).now(),
-        },
+        json={"session_token": session.token, "code": "123456"},
     )
 
     assert res.status_code == 400
     assert res.json()["detail"]["code"] == "MFA_SESSION_USED"
+
+    # 消費済み判定は、トークンに埋め込まれた jti を MfaSessionUse から引いて行われる
+    payload = _decode_mfa_session_token(session.token)
+    assert payload is not None
+    session.db.get.assert_awaited_once()
+    model, jti = session.db.get.await_args.args
+    assert model is MfaSessionUse
+    assert jti == payload["jti"]
