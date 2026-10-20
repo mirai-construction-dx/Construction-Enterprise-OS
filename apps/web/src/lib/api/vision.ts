@@ -1,4 +1,4 @@
-import { get, post, put, del } from "../api-client";
+import { get, post, patch, del } from "../api-client";
 
 export interface OcrResult {
   id: string;
@@ -145,7 +145,8 @@ export function updateVectorIndex(
   indexId: string,
   body: { is_active?: boolean },
 ) {
-  return put<VectorIndex>(`/vectors/indices/${indexId}`, body);
+  // サービス側は PATCH のみ（PUT は 405）。Issue #125。
+  return patch<VectorIndex>(`/vectors/indices/${indexId}`, body);
 }
 
 export function deleteVectorIndex(indexId: string) {
