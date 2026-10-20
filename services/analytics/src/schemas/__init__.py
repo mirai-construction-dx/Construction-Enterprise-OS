@@ -16,7 +16,7 @@ class DataSourceCreateRequest(BaseModel):
     connection_config: dict = Field(default_factory=dict)
     status: str = "active"
     description: str | None = None
-    created_by: UUID | None = None
+    # #139: 作成者 (created_by) はトークンの sub から設定する。本文では受け付けない。
 
 
 class DataSourceUpdateRequest(BaseModel):
@@ -70,16 +70,17 @@ class PipelineCreateRequest(BaseModel):
     transform_logic: dict = Field(default_factory=dict)
     schedule: str | None = None
     status: str = "draft"
-    created_by: UUID | None = None
+    # #139: 作成者 (created_by) はトークンの sub から設定する。本文では受け付けない。
 
 
 class PipelineUpdateRequest(BaseModel):
+    # #139: status は更新対象から除外する。実行状態は /pipelines/{id}/run など
+    # 専用アクションでのみ変更する。
     name: str | None = None
     source_id: UUID | None = None
     target_id: UUID | None = None
     transform_logic: dict | None = None
     schedule: str | None = None
-    status: str | None = None
 
 
 class PipelineResponse(BaseModel):
@@ -124,7 +125,7 @@ class ReportCreateRequest(BaseModel):
     query_config: dict = Field(default_factory=dict)
     schedule: str | None = None
     status: str = "draft"
-    created_by: UUID | None = None
+    # #139: 作成者 (created_by) はトークンの sub から設定する。本文では受け付けない。
 
 
 class ReportUpdateRequest(BaseModel):

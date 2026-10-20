@@ -47,6 +47,8 @@ async def create_datasource(
     # （delete と同じ順序）。ロール検証は DB アクセスより前に行う。
     data = body.model_dump()
     data["organization_id"] = create_org(user, body.organization_id)
+    # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+    data["created_by"] = UUID(user.sub)
     require_any_role(user, MANAGEMENT_ROLES)
     ds = await service.create_datasource(db, data)
     return ds
