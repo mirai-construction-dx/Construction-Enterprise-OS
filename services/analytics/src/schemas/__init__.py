@@ -27,11 +27,16 @@ class DataSourceUpdateRequest(BaseModel):
 
 
 class DataSourceResponse(BaseModel):
+    """データソース応答。
+
+    `connection_config` は認証情報を含み得るため **write-only** とし、応答には含めない
+    （#138）。受け取った値は保存にのみ使い、クライアントへ返さない。
+    """
+
     id: UUID
     organization_id: UUID
     name: str
     source_type: str
-    connection_config: dict
     status: str
     description: str | None
     created_by: UUID | None

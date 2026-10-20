@@ -1,5 +1,6 @@
 """文書管理 API ルーター"""
 
+import logging
 from uuid import UUID
 
 from fastapi import (
@@ -37,6 +38,7 @@ from ..services import document_service, storage_service
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 MAX_UPLOAD_BYTES = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
@@ -210,11 +212,20 @@ async def upload_document(
             tags=parsed_tags,
             metadata=parsed_metadata,
         )
-    except Exception as e:
+    except HTTPException:
+        # 認可・検証などで発生した 4xx はそのまま返す（500 に化けさせない）。
+        raise
+    except Exception:
+        # #135: 例外文字列は内部情報（接続情報・パス等）を含み得るため応答に出さない。
+        # 詳細はサーバーログにのみ残し、クライアントには汎用メッセージを返す。
+        logger.exception("Failed to create document")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": "UPLOAD_FAILED", "message": str(e)},
-        )
+            detail={
+                "code": "UPLOAD_FAILED",
+                "message": "文書のアップロードに失敗しました。管理者に連絡してください。",
+            },
+        ) from None
 
     return _api_response(data=DocumentResponse.model_validate(document).model_dump())
 
@@ -408,11 +419,18 @@ async def upload_new_version(
             change_description=change_description,
             organization_id=org_filter,
         )
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
+        # #135: versions の失敗も例外文字列を応答に含めず、詳細はサーバーログのみ。
+        logger.exception("Failed to create document version")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": "VERSION_UPLOAD_FAILED", "message": str(e)},
-        )
+            detail={
+                "code": "VERSION_UPLOAD_FAILED",
+                "message": "文書の新しいバージョンのアップロードに失敗しました。管理者に連絡してください。",
+            },
+        ) from None
 
     if not version:
         raise HTTPException(

@@ -209,14 +209,14 @@ describe("getVectorIndex", () => {
 });
 
 describe("updateVectorIndex", () => {
-  it("sends PUT to /vectors/indices/:id", async () => {
+  it("sends PATCH to /vectors/indices/:id", async () => {
     mockFetch.mockReturnValueOnce(
       mockResponse({ ...mockIndex, is_active: false }),
     );
     await updateVectorIndex("idx1", { is_active: false });
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/v1/vectors/indices/idx1",
-      expect.objectContaining({ method: "PUT" }),
+      expect.objectContaining({ method: "PATCH" }),
     );
   });
 });

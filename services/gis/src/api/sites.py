@@ -274,11 +274,23 @@ async def update_site(
 
     update_data = body.model_dump(exclude_unset=True)
     if "location" in update_data:
-        update_data["location"] = geojson_to_wkt(update_data["location"])
-    if "work_area" in update_data and update_data["work_area"]:
-        update_data["work_area"] = geojson_to_wkt(update_data["work_area"])
-    if update_data.get("work_area") is None and "work_area" in update_data:
-        update_data["work_area"] = None
+        # location は現場の必須属性。null での消去は許可せず 422 にする
+        # （修正前は geojson_to_wkt(None) の AttributeError が 500 になっていた）。
+        if body.location is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": "INVALID_LOCATION",
+                    "message": "location は null にできません。",
+                },
+            )
+        # model_dump() は GeoJSONGeometry を dict にするため、WKT 化には検証済みの
+        # モデル（body.location）を使う（dict を渡すと AttributeError で 500 になる）。
+        update_data["location"] = geojson_to_wkt(body.location)
+    if "work_area" in update_data:
+        update_data["work_area"] = (
+            geojson_to_wkt(body.work_area) if body.work_area is not None else None
+        )
     if "metadata" in update_data:
         update_data["metadata_"] = update_data.pop("metadata")
 

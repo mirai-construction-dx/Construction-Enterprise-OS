@@ -34,6 +34,9 @@ class DataSource(Base):
     source_type: Mapped[str] = mapped_column(
         String(50), nullable=False
     )  # postgresql|timescaledb|elasticsearch|minio|kafka|csv_api
+    # 保存時暗号化は「未実装」。connection_config は平文 JSONB として保存される（#138）。
+    # API 応答には返さない（write-only）が、DB/バックアップには平文で残るため、
+    # 暗号化（KMS/Secrets Manager 等）を実装するまでは認証情報の保存を前提にしない。
     connection_config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="active")
     description: Mapped[str | None] = mapped_column(Text)

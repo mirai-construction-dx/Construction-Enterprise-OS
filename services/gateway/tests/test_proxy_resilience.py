@@ -248,6 +248,37 @@ def test_request_hop_by_hop_headers_are_not_forwarded(gw_client, fake_upstream):
     assert sent["x-request-id"] == "req-123"
 
 
+# ============================================
+# 重複ヘッダー (#118)
+# ============================================
+def test_multiple_set_cookie_headers_are_all_forwarded(gw_client, fake_upstream):
+    """上流が複数の Set-Cookie を返したら、すべてをそのまま転送する (#118)。
+
+    以前は応答ヘッダーを dict に詰めていたため、同名ヘッダーが最後の 1 本に
+    潰れていた（#107 対応時に発見）。ログインで refresh/access の 2 本を
+    同時に発行する上流では、片方の Cookie が失われて認証が壊れる。
+    """
+    fake_upstream.behavior = httpx.Response(
+        200,
+        content=b"{}",
+        headers=[
+            ("set-cookie", "access_token=abc; Path=/; HttpOnly; SameSite=Lax"),
+            ("set-cookie", "refresh_token=def; Path=/; HttpOnly; SameSite=Lax"),
+            ("x-custom", "kept"),
+        ],
+    )
+
+    response = gw_client.post(PUBLIC_UPSTREAM_PATH, json={})
+
+    assert response.status_code == 200
+    assert response.headers.get_list("set-cookie") == [
+        "access_token=abc; Path=/; HttpOnly; SameSite=Lax",
+        "refresh_token=def; Path=/; HttpOnly; SameSite=Lax",
+    ]
+    assert response.headers["x-custom"] == "kept"
+    assert response.headers["x-upstream-service"] == "api-v1-auth"
+
+
 def _make_request(
     headers: list[tuple[bytes, bytes]],
     request_id: str | None = None,
