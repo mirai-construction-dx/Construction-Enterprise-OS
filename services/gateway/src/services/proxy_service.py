@@ -103,20 +103,32 @@ class ProxyService:
                 )
                 if request.method != "HEAD":
                     excluded = excluded | _STALE_ENTITY_HEADERS
-                response_headers = {
-                    key: value
-                    for key, value in upstream_response.headers.items()
-                    if key.lower() not in excluded
-                }
 
-                if upstream_name:
-                    response_headers["X-Upstream-Service"] = upstream_name
-
-                return Response(
+                # Multiple fields with the same name must survive: Set-Cookie in
+                # particular is never comma-joined (RFC 6265 §3). A dict (or
+                # headers.items()) collapses duplicates to one value, so iterate
+                # multi_items() and append each field individually (#118).
+                response = Response(
                     content=upstream_response.content,
                     status_code=upstream_response.status_code,
-                    headers=response_headers,
                 )
+
+                # HEAD carries no body: the upstream content-length is the only
+                # correct representation metadata, so drop the value Starlette
+                # derived from the empty body before copying the upstream field.
+                if request.method == "HEAD":
+                    del response.headers["content-length"]
+
+                for key, value in upstream_response.headers.multi_items():
+                    if key.lower() in excluded:
+                        continue
+                    response.headers.append(key, value)
+
+                if upstream_name:
+                    # Single gateway-owned value; replaces any upstream field.
+                    response.headers["X-Upstream-Service"] = upstream_name
+
+                return response
 
         except httpx.TimeoutException:
             logger.error("upstream timeout", target_url=target_url)
