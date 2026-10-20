@@ -273,6 +273,50 @@ class TestUploadValidation:
         assert response.status_code == 400
         assert response.json()["detail"]["code"] == "INVALID_METADATA"
 
+    def test_malformed_metadata_returns_400(self, client_no_raise):
+        """#135: metadata の JSON として不正な文字列は 500 ではなく 400。"""
+        response = client_no_raise.post(
+            "/api/v1/documents/upload",
+            files={"file": ("drawing.pdf", b"hello", "application/pdf")},
+            data={"name": "テスト", "metadata": "{not-json"},
+            headers=_auth_headers(),
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"]["code"] == "INVALID_REQUEST"
+
+    def test_upload_failure_does_not_leak_exception_details(self, client):
+        """#135: 500 応答に例外文字列（内部情報）を含めない。詳細はサーバーログのみ。"""
+        secret_detail = "postgresql://app:super-secret-password@db.internal:5432/prod"
+        create = AsyncMock(side_effect=RuntimeError(secret_detail))
+        with patch.object(document_service, "create_document", create):
+            response = client.post(
+                "/api/v1/documents/upload",
+                files={"file": ("drawing.pdf", b"hello", "application/pdf")},
+                data={"name": "テスト"},
+                headers=_auth_headers(),
+            )
+        assert response.status_code == 500
+        assert response.json()["detail"]["code"] == "UPLOAD_FAILED"
+        assert "super-secret-password" not in response.text
+        assert "RuntimeError" not in response.text
+        assert "db.internal" not in response.text
+
+    def test_version_upload_failure_does_not_leak_exception_details(self, client):
+        """#135: versions の 500 応答にも例外文字列を含めない。"""
+        secret_detail = "minio:super-secret-access-key@internal"
+        create_version = AsyncMock(side_effect=RuntimeError(secret_detail))
+        with patch.object(document_service, "create_new_version", create_version):
+            response = client.post(
+                f"/api/v1/documents/{DOC_ID}/versions",
+                files={"file": ("drawing.pdf", b"hello", "application/pdf")},
+                headers=_auth_headers(),
+            )
+        assert response.status_code == 500
+        assert response.json()["detail"]["code"] == "VERSION_UPLOAD_FAILED"
+        assert "super-secret-access-key" not in response.text
+        assert "RuntimeError" not in response.text
+        assert "minio:" not in response.text
+
     def test_invalid_project_id_returns_400(self, client_no_raise):
         """[修正済 DEFECT-DOC-4] project_id の不正 UUID は 500 ではなく 400 を返す。"""
         response = client_no_raise.post(
