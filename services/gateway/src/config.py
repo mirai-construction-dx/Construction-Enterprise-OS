@@ -94,6 +94,11 @@ class Settings(BaseSettings):
     # トークン交換（ADR-0003）は MCP 等の内部サービスが auth を直接呼ぶ。外部公開は別判断。
     INTERNAL_ONLY_PATHS: list[str] = [
         r"^/+api/v1/auth/token/*$",
+        # workflow の内部ジョブ API（Issue #103）。`^/api/v1/workflow` は
+        # UPSTREAM_SERVICES で workflow へ転送されるため、明示的に遮断しないと
+        # gateway 経由で内部 API に到達できてしまう。パス境界を明示し、
+        # "/internal" に前方一致するだけの近接パス（例: "/internals"）は遮断しない。
+        r"^/+api/v1/workflow/internal(?:/|$)",
     ]
 
     PUBLIC_PATHS: list[str] = [

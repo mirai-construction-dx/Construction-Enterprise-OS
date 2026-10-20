@@ -11,6 +11,9 @@ from src.main import create_app
 from src.middleware.auth import TokenData, get_current_user
 from src.models.base import get_db
 
+# #139: created_by はトークンの sub から導出するため、sub は有効な UUID で固定する。
+USER_ID = uuid.UUID("00000000-0000-0000-0000-0000000000b1")
+
 
 class MockScalarResult:
     def __init__(self, value=None, items=None, total=0):
@@ -72,7 +75,7 @@ def app(mock_db):
 
     async def mock_get_current_user():
         return TokenData(
-            sub="test-user-id", type="user", org="test-org", roles=["admin"]
+            sub=str(USER_ID), type="user", org="test-org", roles=["admin"]
         )
 
     _app.dependency_overrides[get_db] = mock_get_db
@@ -698,3 +701,94 @@ class TestReportCRUD:
         )
         assert response.status_code == 204
         mock_db.delete.assert_called_once_with(report)
+
+
+# ============================================
+# Issue #139: 作成者の偽装防止 / status 直接変更の防止
+# ============================================
+class TestIdentityAndStatusHardening:
+    def test_create_datasource_uses_token_sub_for_created_by(self, client, mock_db):
+        """#139: 本文の created_by ではなくトークンの sub を作成者に使う。"""
+        spoofed = uuid.uuid4()
+
+        response = client.post(
+            "/api/v1/analytics/datasources",
+            json={
+                "organization_id": str(uuid.uuid4()),
+                "name": "偽装DS",
+                "source_type": "postgresql",
+                "created_by": str(spoofed),
+            },
+            headers=_auth_headers(),
+        )
+
+        assert response.status_code == 201
+        created = mock_db.add.call_args[0][0]
+        assert created.created_by == USER_ID
+        assert response.json()["created_by"] == str(USER_ID)
+
+    def test_create_pipeline_uses_token_sub_for_created_by(self, client, mock_db):
+        """#139: 本文の created_by ではなくトークンの sub を作成者に使う。"""
+        spoofed = uuid.uuid4()
+
+        response = client.post(
+            "/api/v1/analytics/pipelines",
+            json={
+                "organization_id": str(uuid.uuid4()),
+                "name": "偽装パイプライン",
+                "created_by": str(spoofed),
+            },
+            headers=_auth_headers(),
+        )
+
+        assert response.status_code == 201
+        created = mock_db.add.call_args[0][0]
+        assert created.created_by == USER_ID
+        assert response.json()["created_by"] == str(USER_ID)
+
+    def test_create_report_uses_token_sub_for_created_by(self, client, mock_db):
+        """#139: 本文の created_by ではなくトークンの sub を作成者に使う。"""
+        spoofed = uuid.uuid4()
+
+        response = client.post(
+            "/api/v1/analytics/reports",
+            json={
+                "organization_id": str(uuid.uuid4()),
+                "name": "偽装レポート",
+                "report_type": "table",
+                "created_by": str(spoofed),
+            },
+            headers=_auth_headers(),
+        )
+
+        assert response.status_code == 201
+        created = mock_db.add.call_args[0][0]
+        assert created.created_by == USER_ID
+        assert response.json()["created_by"] == str(USER_ID)
+
+    def test_update_pipeline_does_not_change_status(self, client, mock_db):
+        """#139: status は実行などの専用アクションでのみ変更する。"""
+        from src.models import DataPipeline
+
+        pipeline = DataPipeline(
+            id=uuid.uuid4(),
+            organization_id=uuid.uuid4(),
+            name="状態偽装パイプライン",
+            source_id=None,
+            target_id=None,
+            transform_logic={"op": "copy"},
+            status="draft",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        mock_db.get = AsyncMock(return_value=pipeline)
+
+        response = client.put(
+            f"/api/v1/analytics/pipelines/{pipeline.id}",
+            json={"status": "running"},
+            headers=_auth_headers(),
+        )
+
+        assert response.status_code == 200
+        assert pipeline.status == "draft"
+        assert response.json()["status"] == "draft"

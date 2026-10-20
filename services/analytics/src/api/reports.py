@@ -38,6 +38,8 @@ async def create_report(
 ):
     data = body.model_dump()
     data["organization_id"] = create_org(user, body.organization_id)
+    # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+    data["created_by"] = UUID(user.sub)
     report = await service.create_report(db, data)
     return report
 

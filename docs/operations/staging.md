@@ -955,7 +955,7 @@ OK: … 実測した。                                          # exit 0
 
 訓練は**対象サービスを必ず元に戻す**（`trap ... EXIT`）。中断しても復旧する。
 
-### 6.15 2026-10-21 の再実測（第31バッチ）
+### 6.16 2026-10-21 の再実測（第31バッチ）
 
 第30バッチを main へ統合し（PR #207 / `bffa97d`）、稼働ツリーを main へ切り替えた。
 以下は同日 06:48〜07:10 JST の実測である。
@@ -986,6 +986,23 @@ OK: … 実測した。                                          # exit 0
 
 必要なオーナー操作は `reports/staging/batch31-20261021.md` §2.2 に記載した。
 **DNS と Pages を AI が実施したとは書かない**（権限が無く、迂回もしていない）。
+
+### 6.17 監視そのものの死活（2026-10-21 追加）
+
+`ceos-stg-status.timer` は 5 分ごとに `monitor.sh` を実行するが、**監視が止まったこと**は
+誰も検査していなかった。timer が無効化・失敗・停止すると、stg の異常も静かに見えなくなる。
+
+- 実体: `scripts/stg/check_monitoring_health.sh`
+  - `ceos-stg-status.timer` が active か
+  - `~/.local/state/ceos-stg/status.log` の最終実行が **15 分以内**か（timer は 5 分間隔）
+  - `~/.local/state/ceos-stg/consecutive_failures` が **0** か
+- 定期実行: `ceos-stg-watchdog.timer`（15 分ごと、`OnBootSec=5min` / `OnUnitActiveSec=15min`）。
+  監視本体とは**別の timer** にして、片方の停止がもう片方を止めないようにする。
+- 設置: `infra/systemd/ceos-stg-watchdog.{service,timer}` を `/etc/systemd/system/` へ。
+- 実測（2026-10-21 07:53 JST）: 設置・`enable --now` 後、初回実行が
+  `Result=success` / `ExecMainStatus=0`、次回 08:08。journal に 3 項目の OK が記録された。
+- これは「監視が動いている」ことの検査であり、**stg の業務的な健全性の証明ではない**。
+  stg 自体の異常は従来どおり `monitor.sh` が failed として記録する。
 
 ## 7. ロールバック
 
