@@ -10,12 +10,46 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import AutonomousAgent, AutonomousControl, AutonomousOperation, AutonomousTask, ConstructionSimulation, DigitalTwin, MarineRobot
 
 
+class CrossOrgChildrenError(Exception):
+    """親レコード配下に他組織の子レコードがあり、cascade 削除すると越境削除になる。
+
+    ``cascade="all, delete-orphan"`` は FK だけで子を削除するため、親の組織と子の
+    組織が一致することは保証されない（Issue #149）。削除前に子の ``organization_id``
+    を検査し、不一致があれば削除を拒否する。
+    """
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
 def _by_id(model: Any, record_id: UUID, organization_id: UUID | None) -> Select:
     """Select a record by id, restricted to ``organization_id`` unless it is None (admin, ADR-0004)."""
     stmt = select(model).where(model.id == record_id)
     if organization_id is not None:
         stmt = stmt.where(model.organization_id == organization_id)
     return stmt
+
+
+async def _count_cross_org_children(
+    db: AsyncSession,
+    child_model: Any,
+    parent_fk_column: Any,
+    parent: Any,
+) -> int:
+    """親を参照する子のうち、親と ``organization_id`` が異なる行の件数を返す。
+
+    0 件のときだけ cascade 削除してよい。1 件でもあれば、その子は他組織の所有物で
+    あり、親の削除に巻き込むと越境削除になる。
+    """
+    result = await db.execute(
+        select(func.count(child_model.id)).where(
+            parent_fk_column == parent.id,
+            child_model.organization_id != parent.organization_id,
+        )
+    )
+    return result.scalar() or 0
 
 
 # ============================================
@@ -94,6 +128,14 @@ async def delete_agent(db: AsyncSession, agent_id: UUID, organization_id: UUID |
     agent = result.scalar_one_or_none()
     if not agent:
         return False
+    # cascade="all, delete-orphan" は他組織の task も消し得るため、削除前に拒否する (Issue #149)。
+    if await _count_cross_org_children(
+        db, AutonomousTask, AutonomousTask.agent_id, agent
+    ):
+        raise CrossOrgChildrenError(
+            "AGENT_HAS_CROSS_ORG_TASKS",
+            "他組織のタスクが紐づいているため、このエージェントは削除できません。",
+        )
     await db.delete(agent)
     await db.flush()
     return True
@@ -217,6 +259,22 @@ async def delete_twin(db: AsyncSession, twin_id: UUID, organization_id: UUID | N
     twin = result.scalar_one_or_none()
     if not twin:
         return False
+    # cascade="all, delete-orphan"（tasks / simulations）が他組織の子を消し得るため、
+    # 削除前に件数を検査して拒否する (Issue #149)。
+    if await _count_cross_org_children(
+        db, AutonomousTask, AutonomousTask.digital_twin_id, twin
+    ):
+        raise CrossOrgChildrenError(
+            "TWIN_HAS_CROSS_ORG_TASKS",
+            "他組織のタスクが紐づいているため、このデジタルツインは削除できません。",
+        )
+    if await _count_cross_org_children(
+        db, ConstructionSimulation, ConstructionSimulation.digital_twin_id, twin
+    ):
+        raise CrossOrgChildrenError(
+            "TWIN_HAS_CROSS_ORG_SIMULATIONS",
+            "他組織のシミュレーションが紐づいているため、このデジタルツインは削除できません。",
+        )
     await db.delete(twin)
     await db.flush()
     return True
