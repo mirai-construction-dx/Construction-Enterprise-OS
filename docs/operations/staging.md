@@ -3,7 +3,7 @@
 - 正本: 本ファイル（手順）、`docs/architecture/ADR-0005-staging-environment.md`（決定）
 - リポジトリ間連携: `docs/operations/staging-integration.md`
 - 対象: Construction-Enterprise-OS（CEOS）
-- 最終更新: 2026-10-14
+- 最終更新: 2026-10-21
 
 ## 1. 全体像
 
@@ -954,6 +954,38 @@ OK: … 実測した。                                          # exit 0
 | 対象を `erp` に変える | D-2 / D-4 とも PASS（対象を差し替えられる） |
 
 訓練は**対象サービスを必ず元に戻す**（`trap ... EXIT`）。中断しても復旧する。
+
+### 6.15 2026-10-21 の再実測（第31バッチ）
+
+第30バッチを main へ統合し（PR #207 / `bffa97d`）、稼働ツリーを main へ切り替えた。
+以下は同日 06:48〜07:10 JST の実測である。
+
+| 項目 | 実測 | 備考 |
+|---|---|---|
+| 稼働 stg | 32 コンテナ healthy / smoke 12 PASS 0 FAIL / 22 schemas 98 tables | `scripts/stg/status.sh` exit 0 |
+| 監視 | `ceos-stg-status.timer` 5 分ごと / `Result=success` / `ExecMainStatus=0` | main 切替後に実行（#206 の解消） |
+| 業務往復 | B-1〜B-6 PASS（合成 1 行を作成→読取→集計→削除、残留 0） | `check_business_roundtrip.py` |
+| テナント分離 | T-1〜T-5 PASS（非 admin ＋ 陽性対照） | `check_tenant_isolation.py` |
+| ゲートウェイ | 上流 21/21 到達 / 外側 16 ルート応答 | `check_gateway_upstreams.sh` |
+| MCP 上流結合 | live_upstream 2 passed | #208 で `compose run` の静的 IP 衝突を修正 |
+| 監視の通知 | 送信先は**未設定**（`CEOS_STG_ALERT_WEBHOOK` 不在） | 失敗は journald と `~/.local/state/ceos-stg/status.log` に残る |
+| 公開入口 | フロント DNS **NXDOMAIN** / Pages **522** / API Tunnel **未作成** | 家族パターンの DNS 2 行が欠けている |
+
+#### 公開入口のブロッカー（資格情報の権限）
+
+読み取り専用の実測で、次のことが分かった。
+
+- ゾーン `mirai-dx-platform.com` の DNS レコードは読める（112 件）。`construction-os*` は
+  本番 api / 本番 web / mvp の 3 件で、**stg は 0 件**。
+- `POST /zones/{id}/dns_records` は **403 / 10000（`dns.write` が必要）** で拒否された。
+- Pages のプロジェクト/デプロイの読み取りは **403 / 10000（`page.read` が無い）**。
+  `construction-os-stg.pages.dev` は全パス 522 であり、プロジェクトは存在するが
+  配信中のデプロイが無い/不正である可能性が高い（断定はできない）。
+- Access アプリ `construction-os-stg` は存在（policy 1 / bypass 0）。
+  `construction-os-stg-api` の Access アプリは**無い**ため、Tunnel を開ける前に作成が必須。
+
+必要なオーナー操作は `reports/staging/batch31-20261021.md` §2.2 に記載した。
+**DNS と Pages を AI が実施したとは書かない**（権限が無く、迂回もしていない）。
 
 ## 7. ロールバック
 
