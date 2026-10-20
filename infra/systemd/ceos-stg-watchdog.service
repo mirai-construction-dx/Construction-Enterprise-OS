@@ -1,0 +1,34 @@
+# Construction-Enterprise-OS — staging (stg) の監視そのものの健全性検査
+#
+# 設計: docs/operations/staging.md §6.16
+#   2026-10-21 実測: `ceos-stg-status.timer` は 5 分ごとに動いていたが、
+#   **監視が止まったこと**を検査する仕組みが無かった。timer が無効化・失敗すると
+#   stg の異常も静かに見えなくなる。
+#
+# 設置（正本はこのファイル。手で /etc を編集しない）:
+#   sudo install -m 644 infra/systemd/ceos-stg-watchdog.service /etc/systemd/system/
+#   sudo install -m 644 infra/systemd/ceos-stg-watchdog.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ceos-stg-watchdog.timer
+#
+# 見る:
+#   systemctl list-timers ceos-stg-watchdog
+#   systemctl status ceos-stg-watchdog
+#   journalctl -u ceos-stg-watchdog -n 50
+
+[Unit]
+Description=Construction-Enterprise-OS staging monitoring watchdog (scripts/stg/check_monitoring_health.sh)
+Documentation=file:///home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/docs/operations/staging.md
+After=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=kensan
+Group=kensan
+Environment=HOME=/home/kensan
+# 通知先は任意（status と同じファイルを読む）。
+EnvironmentFile=-/etc/ceos/stg-alert.env
+WorkingDirectory=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS
+ExecStart=/home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/scripts/stg/check_monitoring_health.sh
+TimeoutStartSec=120

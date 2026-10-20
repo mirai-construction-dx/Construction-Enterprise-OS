@@ -1,0 +1,25 @@
+# Construction-Enterprise-OS — staging 監視の watchdog を定期実行する
+#
+# 設計: docs/operations/staging.md §6.16
+#   監視（ceos-stg-status.timer）の停止・遅延・連続失敗を 15 分ごとに検査する。
+#   監視本体とは別の timer にして、片方の停止がもう片方を止めないようにする。
+#
+# 設置:
+#   sudo install -m 644 infra/systemd/ceos-stg-watchdog.service /etc/systemd/system/
+#   sudo install -m 644 infra/systemd/ceos-stg-watchdog.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ceos-stg-watchdog.timer
+
+[Unit]
+Description=Construction-Enterprise-OS staging monitoring watchdog timer (every 15 minutes)
+Documentation=file:///home/kensan/Projects/Mirai-Construction-DX/Construction-Enterprise-OS/docs/operations/staging.md
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+RandomizedDelaySec=30s
+AccuracySec=15s
+Unit=ceos-stg-watchdog.service
+
+[Install]
+WantedBy=timers.target
