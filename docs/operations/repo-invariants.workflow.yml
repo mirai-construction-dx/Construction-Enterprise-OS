@@ -14,7 +14,9 @@
 #   git push origin <branch>   # 以降は通常の PR フロー
 #
 # 設計: docs/operations/ci-hardening.md
-#   - ローカルの `make repo-invariants`（9 検査）のうち、**依存の軽い 8 検査**を回す。
+#   - `make repo-invariants-ci` は schema-check を除く静的検査を回す。
+#     infra-consumers / resource-limits / secrets-hygiene と static-guard-tests も含む。
+#     秘密検査のホスト不在は NOT_CHECKED と表示し、安全性の証明とはしない。
 #   - **`schema-check` は入れない。** `scripts/db/generate_base_schema.py` は
 #     サービスごとに `sys.executable -c EMITTER` を起動してモデルを import するため、
 #     sqlalchemy と各サービスの依存が必要で、素のランナーでは必ず失敗する。
@@ -55,9 +57,12 @@ jobs:
       # src/config.py が要求する外部依存の和集合。2026-10-14 実測）。
       # PyYAML は ci-coverage と health-coverage が使う。
       - name: Install dependencies
-        run: pip install PyYAML==6.0.2 fastapi PyJWT pydantic-settings
+        run: pip install PyYAML==6.0.2 fastapi==0.141.1 PyJWT==2.15.1 pydantic-settings==2.5.2
 
       # session-check / ddl-coverage / ci-coverage / docs-links /
-      # stg-pages-upstream / tenant-conformance / org-query-scoping / health-coverage
+      # stg-pages-upstream / tenant-conformance / org-query-scoping / health-coverage /
+      # infra-consumers / resource-limits / secrets-hygiene / static-guard-tests
       - name: Repository invariants
-        run: make repo-invariants-ci
+        env:
+          ENVIRONMENT: test
+        run: env -u DATABASE_URL make repo-invariants-ci
