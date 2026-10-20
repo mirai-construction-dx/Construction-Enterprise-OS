@@ -137,11 +137,19 @@ CEOS stg は CSSP stg の家族パターンに揃えた。次は両者で同じ�
 | Mirai-Architecture-Decisions | #7（MCDX-ADR-0010） | **マージ済み**（2026-10-21。ruleset は承認 0・必須 checks 3 件で、checks PASS 後に squash） |
 
 - ADR-0010 は `status: proposed` のまま記録された（採択ではない）。
-- CEOS の MCP 契約（`contracts/mcp-tools/ceos.json`、5 ツールすべて read/R0）を
-  **Mirai-Harness-Core の allowlist へ登録する作業を開始**した。Core の `systems.yaml` には
-  既に `ceos` があり、欠けていたのは `registries/mcp-allowlist.yaml` と
-  `contracts/mcp-tools/ceos.json` である。**契約は CEOS 原本と同一**にし、Core 側で
-  `x-mirai` を書き換えない（書き換えると `definition_sha256` が公開契約と一致しなくなる）。
+- CEOS の MCP 契約（`contracts/mcp-tools/ceos.json`、5 ツールすべて read/R0）の
+  **Core allowlist 登録は未完**である。Core の `systems.yaml` には既に `ceos` があり、
+  欠けているのは `registries/mcp-allowlist.yaml` と `contracts/mcp-tools/ceos.json`。
+  - 2026-10-21: Core が受け皿の操作カテゴリ **`enterprise_data.read: R0`** を追加した
+    （Mirai-Harness-Core PR #95 / `7e799e5`）。
+  - ただし Core の `tools/check_consistency.py` は全ツールに `x-mirai.operation` を要求する。
+    CEOS の契約は ADR-0002 の未決事項として operation を付与していないため、**このままでは
+    Core の `make check` を通らない**。
+  - CEOS が operation を付与するには Core vendoring の更新が必要で、それは
+    **MAD Issue #5**（private Core のファイルが public CEOS 経由で読める統制問題）の
+    解決後に行う。**独断で vendoring を上げない。**
+  - 追跡: Mirai-Harness-Core Issue #96。Core 側の契約を書き換えて登録する迂回はしない
+    （`definition_sha256` が CEOS の公開契約と一致しなくなり、照合の正本が 2 つになる）。
 - CEOS の公開入口（DNS / Pages）は**資格情報の権限**で止まっている。
   DNS Write と Pages の read/write が無く、`POST /dns_records` は 403 / 10000。
   詳細とオーナー操作は `reports/staging/batch31-20261021.md` §2。
