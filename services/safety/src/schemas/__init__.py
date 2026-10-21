@@ -96,7 +96,7 @@ class IncidentUpdate(BaseModel):
     description: str | None = None
     status: str | None = None
     severity: str | None = None
-    investigated_by: UUID | None = None
+    # #139: 調査者はトークンの sub から設定する（本文では受け付けない）。
     root_cause: str | None = None
     corrective_actions: str | None = None
     injured_count: int | None = Field(None, ge=0)

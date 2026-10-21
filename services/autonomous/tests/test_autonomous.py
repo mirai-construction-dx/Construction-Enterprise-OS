@@ -883,6 +883,8 @@ def test_send_control_command(client, auth_headers, monkeypatch):
     assert response.status_code == 201
     data = response.json()
     assert data["success"] is True
+    sent = ctrl_module.send_control_command.call_args.args[1]
+    assert sent["issued_by"] == UUID("00000000-0000-0000-0000-000000000001")
 
 
 # ============================================

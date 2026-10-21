@@ -65,6 +65,8 @@ async def send_command_endpoint(
         )
     data = body.model_dump()
     data["organization_id"] = org
+    # #139: 発行者は本文ではなく認証済みユーザーから設定する。
+    data["issued_by"] = UUID(current_user.sub)
     ctrl = await send_control_command(db, data)
     return APIResponse(data=_ctrl_to_response(ctrl))
 

@@ -15,7 +15,7 @@
 #
 # 設計: docs/operations/ci-hardening.md
 #   - `make repo-invariants-ci` は schema-check を除く静的検査を回す。
-#     infra-consumers / resource-limits / secrets-hygiene と static-guard-tests も含む。
+#     infra-consumers / resource-limits / secrets-hygiene / identity-fields と static-guard-tests も含む。
 #     秘密検査のホスト不在は NOT_CHECKED と表示し、安全性の証明とはしない。
 #   - **`schema-check` は入れない。** `scripts/db/generate_base_schema.py` は
 #     サービスごとに `sys.executable -c EMITTER` を起動してモデルを import するため、
@@ -61,7 +61,7 @@ jobs:
 
       # session-check / ddl-coverage / ci-coverage / docs-links /
       # stg-pages-upstream / tenant-conformance / org-query-scoping / health-coverage /
-      # infra-consumers / resource-limits / secrets-hygiene / static-guard-tests
+      # infra-consumers / resource-limits / secrets-hygiene / identity-fields / static-guard-tests
       - name: Repository invariants
         env:
           ENVIRONMENT: test
