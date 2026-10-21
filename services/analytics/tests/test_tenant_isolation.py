@@ -100,7 +100,7 @@ def _datasource(org=ORG_A, **kw) -> DataSource:
         organization_id=org,
         name="ds",
         source_type="postgresql",
-        connection_config={},
+        connection_config=kw.pop("connection_config", {}),
         status="active",
         created_at=_now(),
         updated_at=_now(),
@@ -357,12 +357,91 @@ def test_create_without_token_org_is_rejected(resource, body):
 
 @pytest.mark.parametrize("resource,body", CREATE_CASES)
 def test_create_in_own_org_succeeds(resource, body):
-    client, db = _client(_user())
+    # データソース作成は管理ロール限定（#138）。他リソースは従来どおり。
+    client, db = _client(_user(roles=["site_manager"]))
     response = client.post(
         f"{BASE}/{resource}", json={**body, "organization_id": str(ORG_A)}
     )
     assert response.status_code == 201
     assert db.add.call_args.args[0].organization_id == ORG_A
+
+
+def test_create_datasource_requires_management_role():
+    """#138: 非管理ロール（analyst）はデータソースを作成できない。"""
+    client, db = _client(_user())  # analyst
+    response = client.post(
+        f"{BASE}/datasources",
+        json={
+            "organization_id": str(ORG_A),
+            "name": "ds",
+            "source_type": "postgresql",
+            "connection_config": {},
+        },
+    )
+    assert response.status_code == 403
+    assert _code(response) == "FORBIDDEN"
+    db.add.assert_not_called()
+
+
+# ── connection_config is write-only (#138) ───────────────────
+
+SECRET_CONFIG = {
+    "host": "db.internal",
+    "username": "app",
+    "password": "pw-super-secret-9f3",
+    "api_key": "api-super-secret-9f3",
+}
+
+
+def _assert_no_secret(response):
+    assert "connection_config" not in response.json()
+    assert "pw-super-secret-9f3" not in response.text
+    assert "api-super-secret-9f3" not in response.text
+
+
+def test_get_datasource_response_excludes_connection_config():
+    ds = _datasource(connection_config=dict(SECRET_CONFIG))
+    client, _ = _client(_user(), _Result(value=ds))
+    response = client.get(f"{BASE}/datasources/{ds.id}")
+    assert response.status_code == 200
+    _assert_no_secret(response)
+
+
+def test_list_datasources_response_excludes_connection_config():
+    ds = _datasource(connection_config=dict(SECRET_CONFIG))
+    client, _ = _client(_user(), _Result(total=1), _Result(items=[ds]))
+    response = client.get(f"{BASE}/datasources")
+    assert response.status_code == 200
+    assert len(response.json()["items"]) == 1
+    _assert_no_secret(response)
+
+
+def test_create_datasource_response_excludes_connection_config():
+    client, db = _client(_user(roles=["site_manager"]))
+    response = client.post(
+        f"{BASE}/datasources",
+        json={
+            "organization_id": str(ORG_A),
+            "name": "ds",
+            "source_type": "postgresql",
+            "connection_config": dict(SECRET_CONFIG),
+        },
+    )
+    assert response.status_code == 201
+    # 書き込みは受け付ける（write-only）が、応答には返さない。
+    assert db.add.call_args.args[0].connection_config["password"] == "pw-super-secret-9f3"
+    _assert_no_secret(response)
+
+
+def test_update_datasource_response_excludes_connection_config():
+    ds = _datasource(connection_config=dict(SECRET_CONFIG))
+    client, _ = _client(_user(), _Result(value=ds))
+    response = client.put(
+        f"{BASE}/datasources/{ds.id}",
+        json={"connection_config": dict(SECRET_CONFIG)},
+    )
+    assert response.status_code == 200
+    _assert_no_secret(response)
 
 
 # ── pipeline → datasource references ─────────────────────────

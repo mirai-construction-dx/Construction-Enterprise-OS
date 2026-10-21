@@ -3,7 +3,8 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from geoalchemy2 import Geography
+from sqlalchemy import cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..middleware.auth import (
@@ -13,7 +14,7 @@ from ..middleware.auth import (
     require_any_role,
 )
 from ..middleware.tenant import create_org, scope_org
-from ..models import Infrastructure
+from ..models import ConstructionSite, Infrastructure
 from ..models.base import get_db
 from ..schemas import (
     APIResponse,
@@ -150,7 +151,7 @@ async def infrastructure_near_site(
     token_data: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """指定工事現場の近くにあるインフラ設備を検索"""
+    """指定工事現場の近くにあるインフラ設備を検索 (ST_DWithin / geography)"""
     # The parent site lookup and the child spatial query use the same organization filter.
     org = scope_org(token_data, organization_id)
     site = await get_scoped_site(db, site_id, org)
@@ -160,10 +161,19 @@ async def infrastructure_near_site(
             detail={"code": "NOT_FOUND", "message": "工事現場が見つかりません。"},
         )
 
+    # geometry 同士の ST_DWithin は radius_m を度として解釈するため、
+    # 両オペランドを geography にキャストしてメートル評価にする（#133）。
+    # site.location は ORM インスタンスの値（WKBElement）でバインド型が曖昧になるため、
+    # 列式（geometry, SRID=4326）を副問い合わせで参照して確実にキャストする。
+    site_location = (
+        select(ConstructionSite.location)
+        .where(ConstructionSite.id == site.id)
+        .scalar_subquery()
+    )
     query = select(Infrastructure).where(
         func.ST_DWithin(
-            Infrastructure.location,
-            site.location,
+            cast(Infrastructure.location, Geography(srid=4326)),
+            cast(site_location, Geography(srid=4326)),
             radius_m,
         )
     )
@@ -219,9 +229,23 @@ async def update_infrastructure(
 
     update_data = body.model_dump(exclude_unset=True)
     if "location" in update_data:
-        update_data["location"] = geojson_to_wkt(update_data["location"])
-    if "line_geom" in update_data and update_data["line_geom"]:
-        update_data["line_geom"] = geojson_to_wkt(update_data["line_geom"])
+        # location は必須属性。null での消去は許可せず 422 にする
+        # （修正前は geojson_to_wkt(None) の AttributeError が 500 になっていた）。
+        if body.location is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={
+                    "code": "INVALID_LOCATION",
+                    "message": "location は null にできません。",
+                },
+            )
+        # model_dump() は GeoJSONGeometry を dict にするため、WKT 化には検証済みの
+        # モデル（body.location）を使う（dict を渡すと AttributeError で 500 になる）。
+        update_data["location"] = geojson_to_wkt(body.location)
+    if "line_geom" in update_data:
+        update_data["line_geom"] = (
+            geojson_to_wkt(body.line_geom) if body.line_geom is not None else None
+        )
     if "metadata" in update_data:
         update_data["metadata_"] = update_data.pop("metadata")
 

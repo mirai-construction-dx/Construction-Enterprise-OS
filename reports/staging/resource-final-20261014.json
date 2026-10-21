@@ -1,0 +1,322 @@
+[
+  {
+    "id": "7e944a3b14c0b3a1c2d2e686e627ecb3b594ea5e1f0326be60005ad8d2eb5759",
+    "name": "ceos-stg-mcp",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "30e579c5ad58602d636deac8382d1813719d04cdd4f5456a26ab191c3dd5dab0",
+    "name": "ceos-stg-autonomous",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "e5fad9c608242168e83ae5d4a1fa8c24f374ccc3a6ff023e6ec2b968edbb93bd",
+    "name": "ceos-stg-advanced",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "33b51c4d9dac96e9aab85cd4203504ea08921eaeb34c957b8b6e40071af52100",
+    "name": "ceos-stg-mobile",
+    "memory": 1073741824,
+    "nano_cpus": 1000000000,
+    "memory_swap": 2147483648,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "141be7cd0e4032a6d87071cf3b0b1c8e29eec3cfee69097f935a3c9c1c1c4e85",
+    "name": "ceos-stg-web",
+    "memory": 1073741824,
+    "nano_cpus": 1000000000,
+    "memory_swap": 2147483648,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "d2796175e34deffd598256bb21194e720c37b2c3dac3395d358ffea0a5c2ba00",
+    "name": "ceos-stg-notification",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "bd7f050c35096d95bde392db9fa5c34e2bcc891e4b555c62dde61549eca49c31",
+    "name": "ceos-stg-workflow",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "40dbb9836c802dbf26fe4a8465a20db64fbc0d7ee8027139d5f5e2c2607ad354",
+    "name": "ceos-stg-automation",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "d7662202969a4e5dfd3889fe443fc9a3e114dd6869e645fa8622f8cba21044f2",
+    "name": "ceos-stg-bim",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "13716fa97e33c6b473ca37b6b4a761952b699c189710a9b9f1ca5fe8b75585c7",
+    "name": "ceos-stg-vision",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "f791bab93a73054961e9ef2fab161643151080d28b474bb3037b247f510d6332",
+    "name": "ceos-stg-document",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "e1f08defd3269a8729640f627ac05620dbe3961fb43c0a0485e4b035e6435a29",
+    "name": "ceos-stg-iot",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "3f0fd2a93b9e5064867db52ca0c41bc3c844484d388af6e7654455c27a68d34e",
+    "name": "ceos-stg-gateway",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "db69296752ddf515b97d04e36c82401b9dcc3157142fb0b9a34493826960946e",
+    "name": "ceos-stg-auth",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "6d7d1570ae2f61fda89fede5ad4f263f4aafbd047f10a92b830057193fea2d1b",
+    "name": "ceos-stg-ai",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "806e23029904cd82ae332b159377638c293360b35e51ef4eb5f90b7a8cd02c1b",
+    "name": "ceos-stg-kibana",
+    "memory": 1073741824,
+    "nano_cpus": 1000000000,
+    "memory_swap": 2147483648,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "82c3f4f463d7c8fa8c232b862f4b7d71e4118b1f68a3bf56f8adc27810cb43fb",
+    "name": "ceos-stg-analytics",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "122493c783c72103ab5e5c397b97fbaa3d65765aea3791e15ebc86be5032080b",
+    "name": "ceos-stg-erp",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "310cadbf949bf4cc626c5a21e2cb430df749f5054a343b29fae23e0c5edcc663",
+    "name": "ceos-stg-minio",
+    "memory": 1073741824,
+    "nano_cpus": 1000000000,
+    "memory_swap": 2147483648,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "5d218d0e40a0b93a479832cfe7a37f2692024a5ca14ebb82a5296a53b40a7b18",
+    "name": "ceos-stg-partner",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "bbab213c1500cb4241bd844d03468aaddfbae068242826085f631a18cc4f09cc",
+    "name": "ceos-stg-gis",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "e9db1ee61b6b8d7aae16889ba3afd4ba2545883b4705e3b21c96a8069dcd805a",
+    "name": "ceos-stg-safety",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "a3462c4aec09c45f84daa153725f32fc396f6641bf5c071ac92b830b583cceee",
+    "name": "ceos-stg-kafka",
+    "memory": 2147483648,
+    "nano_cpus": 2000000000,
+    "memory_swap": 4294967296,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "99491cd76279044dc4857957721236969ab5a878c9a3fcb28de9c838aeea47b8",
+    "name": "ceos-stg-redis",
+    "memory": 536870912,
+    "nano_cpus": 500000000,
+    "memory_swap": 1073741824,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "0fdc3d8cd4eb13221fda2a6b0002e805613ec79c93905171c7a630e2fd1e58c5",
+    "name": "ceos-stg-construction",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "f494320d01a21fa8b32dfade288a95fddf09b29e7475632dcd6f2bf8caf213da",
+    "name": "ceos-stg-security",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "eccf1999ef57b835e4c6d822f5adaafc66d610b181ffc43b14b12c4ca27b85ce",
+    "name": "ceos-stg-maintenance",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "cfdaf253bfe3707957d62cfd22d76fd32ad9dce93f7339c43bf1dd15ba8c17c7",
+    "name": "ceos-stg-elasticsearch",
+    "memory": 3221225472,
+    "nano_cpus": 2000000000,
+    "memory_swap": 6442450944,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "f1772c37abb741ab67db6b01cb4f22c7c2ff6449706498186327b497eef98cdd",
+    "name": "ceos-stg-rabbitmq",
+    "memory": 1073741824,
+    "nano_cpus": 1000000000,
+    "memory_swap": 2147483648,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "dc5adb32075a8b7ae670bf219cd627a632f8894999587e8eb3a574b4c2cce9c5",
+    "name": "ceos-stg-field-dx",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "15461622af76f96472cc6103c42b7274f36871872522162f0d70793b4881b20b",
+    "name": "ceos-stg-platform",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  },
+  {
+    "id": "1f96a7ab64077a04db070a055d7fc362d697db5fd60a2ce307b9885bb8d6e800",
+    "name": "ceos-stg-db-bridge",
+    "memory": 805306368,
+    "nano_cpus": 1000000000,
+    "memory_swap": 1610612736,
+    "health": "healthy",
+    "oom": false,
+    "restarts": 0
+  }
+]

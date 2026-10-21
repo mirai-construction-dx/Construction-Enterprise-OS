@@ -69,48 +69,56 @@ interface ListResponse<T> {
   total: number;
 }
 
-export function listBudgetItems(params?: {
-  organization_id?: string;
-  project_id?: string;
-  fiscal_year?: number;
-}) {
+export function listBudgetItems(
+  ledgerId: string,
+  params?: {
+    organization_id?: string;
+    project_id?: string;
+    fiscal_year?: number;
+  },
+) {
   const q = new URLSearchParams();
   if (params?.organization_id) q.set("organization_id", params.organization_id);
   if (params?.project_id) q.set("project_id", params.project_id);
   if (params?.fiscal_year) q.set("fiscal_year", String(params.fiscal_year));
   return get<ListResponse<BudgetItem>>(
-    `/erp/budget${q.toString() ? `?${q}` : ""}`,
+    `/erp/ledger/${ledgerId}/budgets${q.toString() ? `?${q}` : ""}`,
   );
 }
 
 export function createBudgetItem(
+  ledgerId: string,
   body: Omit<BudgetItem, "id" | "created_at" | "updated_at">,
 ) {
-  return post<BudgetItem>("/erp/budget", body);
+  return post<BudgetItem>(`/erp/ledger/${ledgerId}/budgets`, body);
 }
 
 export function updateBudgetItem(id: string, body: Partial<BudgetItem>) {
   return put<BudgetItem>(`/erp/budgets/${id}`, body);
 }
 
-export function listCosts(params?: {
-  organization_id?: string;
-  project_id?: string;
-  status?: string;
-}) {
+export function listCosts(
+  ledgerId: string,
+  params?: {
+    organization_id?: string;
+    project_id?: string;
+    status?: string;
+  },
+) {
   const q = new URLSearchParams();
   if (params?.organization_id) q.set("organization_id", params.organization_id);
   if (params?.project_id) q.set("project_id", params.project_id);
   if (params?.status) q.set("status", params.status);
   return get<ListResponse<CostItem>>(
-    `/erp/costs${q.toString() ? `?${q}` : ""}`,
+    `/erp/ledger/${ledgerId}/costs${q.toString() ? `?${q}` : ""}`,
   );
 }
 
 export function createCost(
+  ledgerId: string,
   body: Omit<CostItem, "id" | "created_at" | "updated_at">,
 ) {
-  return post<CostItem>("/erp/costs", body);
+  return post<CostItem>(`/erp/ledger/${ledgerId}/costs`, body);
 }
 
 export function updateCost(id: string, body: Partial<CostItem>) {

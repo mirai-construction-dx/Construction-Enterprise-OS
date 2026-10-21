@@ -1,7 +1,7 @@
 # Staging 環境のリポジトリ間連携 — 実測レジスタ
 
 - 対象: `mirai-construction-dx` 配下の主要リポジトリ
-- 基準日: 2026-10-14（**同日に再実測**。CEOS 側は `99a2740`）
+- 基準日: 2026-10-14（同日に再実測。CEOS 側は `99a2740`）。**2026-10-21 に第31バッチで再実測**（§6）
 - 正本: 本ファイル（CEOS 側の視点）。全社台帳は
   `Mirai-Construction-DX-Portfolio/catalog/repositories.yaml`、
   System Registry は `Mirai-Platform-Infra/systems.yaml`。
@@ -123,3 +123,35 @@ CEOS stg は CSSP stg の家族パターンに揃えた。次は両者で同じ�
 4. **Mirai-Platform-Infra の merge-gate を維持するか。** 同リポジトリの `AGENTS.md` は
    中央ポリシー v3 §10 の Repo 限定除外により、人間の `/merge Y|N` を最終判断にしている（施行前）。
    本作業でも同リポジトリへの PR は**自動マージしない**。
+
+## 6. 2026-10-21 の再実測（第31バッチ）
+
+- CEOS の `main` は `bffa97d`（PR #207 の squash）。稼働ツリーも main へ切り替えた。
+- CEOS stg は **32 コンテナ healthy / smoke 12 PASS / 22 schemas 98 tables**。
+- 前回「人間のマージ判断だけが残っている」と記録した 3 件は、次の状態になった。
+
+| リポジトリ | PR | 2026-10-21 の状態 |
+|---|---|---|
+| Mirai-Construction-DX-Portfolio | #24 | **マージ済み**（2026-10-14） |
+| Mirai-Platform-Infra | #55 | **マージ済み**（2026-10-18） |
+| Mirai-Architecture-Decisions | #7（MCDX-ADR-0010） | **マージ済み**（2026-10-21。ruleset は承認 0・必須 checks 3 件で、checks PASS 後に squash） |
+
+- ADR-0010 は `status: proposed` のまま記録された（採択ではない）。
+- CEOS の MCP 契約（`contracts/mcp-tools/ceos.json`、5 ツールすべて read/R0）の
+  **Core allowlist 登録は未完**である。Core の `systems.yaml` には既に `ceos` があり、
+  欠けているのは `registries/mcp-allowlist.yaml` と `contracts/mcp-tools/ceos.json`。
+  - 2026-10-21: Core が受け皿の操作カテゴリ **`enterprise_data.read: R0`** を追加した
+    （Mirai-Harness-Core PR #95 / `7e799e5`）。
+  - ただし Core の `tools/check_consistency.py` は全ツールに `x-mirai.operation` を要求する。
+    CEOS の契約は ADR-0002 の未決事項として operation を付与していないため、**このままでは
+    Core の `make check` を通らない**。
+  - CEOS が operation を付与するには Core vendoring の更新が必要で、それは
+    **MAD Issue #5**（private Core のファイルが public CEOS 経由で読める統制問題）の
+    解決後に行う。**独断で vendoring を上げない。**
+  - 追跡: Mirai-Harness-Core Issue #96。Core 側の契約を書き換えて登録する迂回はしない
+    （`definition_sha256` が CEOS の公開契約と一致しなくなり、照合の正本が 2 つになる）。
+- CEOS の公開入口（DNS / Pages）は**資格情報の権限**で止まっている。
+  DNS Write と Pages の read/write が無く、`POST /dns_records` は 403 / 10000。
+  詳細とオーナー操作は `reports/staging/batch31-20261021.md` §2。
+- 実行時のリポジトリ間接続は引き続き**設計のみ**（CSSP は MCDX-ADR-0007 採択まで
+  CEOS 実データ連携を対象外としている）。今回の連携は**契約レベルの登録**までである。

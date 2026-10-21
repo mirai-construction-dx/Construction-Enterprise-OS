@@ -83,6 +83,8 @@ async def create_pipeline(
     data = body.model_dump()
     org_id = create_org(user, body.organization_id)
     data["organization_id"] = org_id
+    # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+    data["created_by"] = UUID(user.sub)
     await _ensure_datasources_in_org(db, user, org_id, [body.source_id, body.target_id])
     pipeline = await service.create_pipeline(db, data)
     return pipeline

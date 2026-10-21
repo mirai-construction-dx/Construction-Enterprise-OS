@@ -3,7 +3,7 @@
 - 正本: 本ファイル（手順）、`docs/architecture/ADR-0005-staging-environment.md`（決定）
 - リポジトリ間連携: `docs/operations/staging-integration.md`
 - 対象: Construction-Enterprise-OS（CEOS）
-- 最終更新: 2026-10-14
+- 最終更新: 2026-10-21
 
 ## 1. 全体像
 
@@ -954,6 +954,73 @@ OK: … 実測した。                                          # exit 0
 | 対象を `erp` に変える | D-2 / D-4 とも PASS（対象を差し替えられる） |
 
 訓練は**対象サービスを必ず元に戻す**（`trap ... EXIT`）。中断しても復旧する。
+
+### 6.16 2026-10-21 の再実測（第31バッチ）
+
+第30バッチを main へ統合し（PR #207 / `bffa97d`）、稼働ツリーを main へ切り替えた。
+以下は同日 06:48〜07:10 JST の実測である。
+
+| 項目 | 実測 | 備考 |
+|---|---|---|
+| 稼働 stg | 32 コンテナ healthy / smoke 12 PASS 0 FAIL / 22 schemas 98 tables | `scripts/stg/status.sh` exit 0 |
+| 監視 | `ceos-stg-status.timer` 5 分ごと / `Result=success` / `ExecMainStatus=0` | main 切替後に実行（#206 の解消） |
+| 業務往復 | B-1〜B-6 PASS（合成 1 行を作成→読取→集計→削除、残留 0） | `check_business_roundtrip.py` |
+| テナント分離 | T-1〜T-5 PASS（非 admin ＋ 陽性対照） | `check_tenant_isolation.py` |
+| ゲートウェイ | 上流 21/21 到達 / 外側 16 ルート応答 | `check_gateway_upstreams.sh` |
+| MCP 上流結合 | live_upstream 2 passed | #208 で `compose run` の静的 IP 衝突を修正 |
+| 監視の通知 | 送信先は**未設定**（`CEOS_STG_ALERT_WEBHOOK` 不在） | 失敗は journald と `~/.local/state/ceos-stg/status.log` に残る |
+| 公開入口 | フロント DNS **NXDOMAIN** / Pages **522** / API Tunnel **未作成** | 家族パターンの DNS 2 行が欠けている |
+
+#### 公開入口のブロッカー（資格情報の権限）
+
+読み取り専用の実測で、次のことが分かった。
+
+- ゾーン `mirai-dx-platform.com` の DNS レコードは読める（112 件）。`construction-os*` は
+  本番 api / 本番 web / mvp の 3 件で、**stg は 0 件**。
+- `POST /zones/{id}/dns_records` は **403 / 10000（`dns.write` が必要）** で拒否された。
+- Pages のプロジェクト/デプロイの読み取りは **403 / 10000（`page.read` が無い）**。
+  `construction-os-stg.pages.dev` は全パス 522 であり、プロジェクトは存在するが
+  配信中のデプロイが無い/不正である可能性が高い（断定はできない）。
+- Access アプリ `construction-os-stg` は存在（policy 1 / bypass 0）。
+  `construction-os-stg-api` の Access アプリは**無い**ため、Tunnel を開ける前に作成が必須。
+
+必要なオーナー操作は `reports/staging/batch31-20261021.md` §2.2 に記載した。
+**DNS と Pages を AI が実施したとは書かない**（権限が無く、迂回もしていない）。
+
+### 6.17 監視そのものの死活（2026-10-21 追加）
+
+`ceos-stg-status.timer` は 5 分ごとに `monitor.sh` を実行するが、**監視が止まったこと**は
+誰も検査していなかった。timer が無効化・失敗・停止すると、stg の異常も静かに見えなくなる。
+
+- 実体: `scripts/stg/check_monitoring_health.sh`
+  - `ceos-stg-status.timer` が active か
+  - `~/.local/state/ceos-stg/status.log` の最終実行が **15 分以内**か（timer は 5 分間隔）
+  - `~/.local/state/ceos-stg/consecutive_failures` が **0** か
+- 定期実行: `ceos-stg-watchdog.timer`（15 分ごと、`OnBootSec=5min` / `OnUnitActiveSec=15min`）。
+  監視本体とは**別の timer** にして、片方の停止がもう片方を止めないようにする。
+- 設置: `infra/systemd/ceos-stg-watchdog.{service,timer}` を `/etc/systemd/system/` へ。
+- 実測（2026-10-21 07:53 JST）: 設置・`enable --now` 後、初回実行が
+  `Result=success` / `ExecMainStatus=0`、次回 08:08。journal に 3 項目の OK が記録された。
+- これは「監視が動いている」ことの検査であり、**stg の業務的な健全性の証明ではない**。
+  stg 自体の異常は従来どおり `monitor.sh` が failed として記録する。
+
+### 6.18 第33バッチ修正の stg 実 API 検証（2026-10-21 追加）
+
+サービス単体テストだけでは、gateway・DB・RBAC を通した経路の挙動は分からない。
+第33バッチの修正を stg の実 API で検証する `scripts/stg/check_security_fixes.py` を追加した。
+
+| 検証 | 期待 | 実測（2026-10-21） |
+|---|---|---|
+| G-1 gateway の内部ジョブ API | `/api/v1/workflow/internal/*` は **404** | 3 パスとも 404 |
+| G-1b 近接パス | `/api/v1/workflow/internals` は遮断しない | 401（認証要求） |
+| D-1 document の不正 JSON | `metadata` が不正なら **400 INVALID_REQUEST**（500 にしない） | 400 / INVALID_REQUEST |
+| A-1 analytics の `connection_config` | 作成・取得・一覧の応答に含まれない（write-only） | 3 経路とも含まれない。作成物は削除済み |
+| M-1 maintenance の作成者 | 本文の `reported_by` を無視し、トークン `sub` を記録 | `sub` と一致。作成物は id 指定削除済み |
+
+- 実行: `python3 scripts/stg/check_security_fixes.py`（資格情報は `~/.config/ceos/stg.env` から読む。
+  コマンドライン・ログへ出さない）。合成データのみを使い、作った行は後始末する。
+- **限界**: これは第33バッチの修正の検証であり、全サービスの網羅ではない。
+  maintenance の状態遷移の妥当性・analytics の暗号化（未実装）は対象外。
 
 ## 7. ロールバック
 

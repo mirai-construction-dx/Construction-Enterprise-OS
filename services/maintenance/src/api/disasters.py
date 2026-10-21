@@ -79,7 +79,8 @@ async def create_disaster(
         severity=body.severity,
         occurred_at=body.occurred_at,
         description=body.description,
-        reported_by=body.reported_by,
+        # #139: 報告者は本文ではなく認証済みユーザーから設定する。
+        reported_by=UUID(current_user.sub),
         project_id=body.project_id,
         location=body.location,
         estimated_cost=body.estimated_cost,
@@ -141,18 +142,24 @@ async def update_disaster(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    report = await svc.update_disaster_report(
-        db,
-        disaster_id,
-        organization_id=scope_org(current_user),
-        title=body.title,
-        status=body.status,
-        severity=body.severity,
-        damage_assessment=body.damage_assessment,
-        estimated_cost=body.estimated_cost,
-        casualties=body.casualties,
-        evacuation_required=body.evacuation_required,
-    )
+    try:
+        report = await svc.update_disaster_report(
+            db,
+            disaster_id,
+            organization_id=scope_org(current_user),
+            title=body.title,
+            status=body.status,
+            severity=body.severity,
+            damage_assessment=body.damage_assessment,
+            estimated_cost=body.estimated_cost,
+            casualties=body.casualties,
+            evacuation_required=body.evacuation_required,
+        )
+    except svc.StatusTransitionError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_STATUS_TRANSITION", "message": str(e)},
+        )
     if not report:
         raise HTTPException(
             status_code=404,
@@ -189,7 +196,8 @@ async def create_recovery_plan(
         organization_id=plan_org,
         disaster_report_id=disaster_id,
         title=body.title,
-        created_by=body.created_by,
+        # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+        created_by=UUID(current_user.sub),
         description=body.description,
         priority=body.priority,
         estimated_duration_days=body.estimated_duration_days,
@@ -223,23 +231,29 @@ async def update_recovery_plan(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(get_current_user),
 ):
-    plan = await svc.update_recovery_plan(
-        db,
-        plan_id,
-        organization_id=scope_org(current_user),
-        title=body.title,
-        description=body.description,
-        priority=body.priority,
-        status=body.status,
-        estimated_duration_days=body.estimated_duration_days,
-        estimated_cost=body.estimated_cost,
-        actual_cost=body.actual_cost,
-        start_date=body.start_date,
-        completed_date=body.completed_date,
-        contractor=body.contractor,
-        resources_needed=body.resources_needed,
-        progress_percent=body.progress_percent,
-    )
+    try:
+        plan = await svc.update_recovery_plan(
+            db,
+            plan_id,
+            organization_id=scope_org(current_user),
+            title=body.title,
+            description=body.description,
+            priority=body.priority,
+            status=body.status,
+            estimated_duration_days=body.estimated_duration_days,
+            estimated_cost=body.estimated_cost,
+            actual_cost=body.actual_cost,
+            start_date=body.start_date,
+            completed_date=body.completed_date,
+            contractor=body.contractor,
+            resources_needed=body.resources_needed,
+            progress_percent=body.progress_percent,
+        )
+    except svc.StatusTransitionError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_STATUS_TRANSITION", "message": str(e)},
+        )
     if not plan:
         raise HTTPException(
             status_code=404,

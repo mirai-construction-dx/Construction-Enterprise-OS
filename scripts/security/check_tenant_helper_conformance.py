@@ -36,8 +36,10 @@
     H-6 admin ＋ 組織未指定      → **None**（全組織。設計どおり）
     H-7 admin ＋ 他組織を要求    → **その組織**（設計どおり）
     H-8 組織クレームが無い       → **403 ORG_REQUIRED**（fail closed）
-    H-9 組織クレームが UUID でない → **403 ORG_INVALID**（fail closed）
-    H-10 `tenant.py` を持たないのに `organization_id` を参照するサービスは、
+    H-9 組織クレームが UUID 文字列でない → **403 ORG_INVALID**（fail closed）
+    H-10 組織クレームが整数 → **403 ORG_INVALID**（TypeError を 500 にしない。2026-10-21 追加）
+    H-11 組織クレームが配列 → **403 ORG_INVALID**（AttributeError を 500 にしない。2026-10-21 追加）
+    H-12 `tenant.py` を持たないのに `organization_id` を参照するサービスは、
         `INLINE_ORG_SCOPING` に**理由つきで宣言**されている（独自実装の見落としを防ぐ）
 
 `SKIP` を作らない。import できないサービスも FAIL として報告する
@@ -71,6 +73,8 @@ EXPECTED: dict[str, str] = {
     "a_scope_other": OTHER,
     "no_org": "403:ORG_REQUIRED",
     "bad_org": "403:ORG_INVALID",
+    "bad_org_int": "403:ORG_INVALID",
+    "bad_org_list": "403:ORG_INVALID",
 }
 
 # tenant.py を持たないが `organization_id` を参照するサービス。
@@ -152,7 +156,7 @@ def main() -> int:
             failures.append(f"{name}: " + " / ".join(deviations))
             print(f"  NG {name}: " + " / ".join(deviations))
         else:
-            print(f"  OK {name}: H-1〜H-9 適合")
+            print(f"  OK {name}: H-1〜H-11 適合")
 
     # 参考: tenant.py を持たないが auth.py を持つサービス（欠落の可能性を可視化する）
     with_auth = {
@@ -162,12 +166,12 @@ def main() -> int:
     if missing:
         print(f"  参考: auth.py はあるが tenant.py が無いサービス: {missing}")
 
-    # ---- H-10 独自実装の見落としを検出する ----
+    # ---- H-12 独自実装の見落としを検出する ----
     # tenant.py を持たないサービスが organization_id を参照しているなら、
     # 分離の統制を**独自に**実装している。宣言されていなければ FAIL とする
     # （新しいサービスが独自実装で分離を忘れても、これまでは検出できなかった）。
     print()
-    print("H-10 独自に組織スコープを持つサービスが宣言されているか")
+    print("H-12 独自に組織スコープを持つサービスが宣言されているか")
     inline: list[str] = []
     for service_dir in sorted(p for p in SERVICES.iterdir() if (p / "src").is_dir()):
         if service_dir.name in names:
@@ -188,7 +192,7 @@ def main() -> int:
             print(f"  NG {name}: 独自に organization_id を使うが宣言が無い")
     if undeclared:
         failures.append(
-            "H-10 tenant.py を持たず organization_id を参照するサービスが未宣言: "
+            "H-12 tenant.py を持たず organization_id を参照するサービスが未宣言: "
             f"{undeclared}。実測して INLINE_ORG_SCOPING に理由つきで宣言するか、tenant ヘルパを使わせること"
         )
     elif not inline:
@@ -200,7 +204,7 @@ def main() -> int:
         for item in failures:
             print(f"  - {item}", file=sys.stderr)
         return 1
-    print(f"OK: {len(names)} サービスの tenant ヘルパが同じ分離の振る舞いをする（H-1〜H-9）")
+    print(f"OK: {len(names)} サービスの tenant ヘルパが同じ分離の振る舞いをする（H-1〜H-11）")
     return 0
 
 

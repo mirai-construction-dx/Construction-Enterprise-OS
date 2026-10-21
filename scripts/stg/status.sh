@@ -28,11 +28,15 @@ bad() { echo "$@" >&2; fails=$((fails + 1)); }
 cd "$REPO_ROOT"
 
 # --- 1. 前提 ---------------------------------------------------------------
-status="$(pg_lsclusters -h 2>/dev/null | awk -v c="$CLUSTER" '$1"/"$2 == c {print $4}')"
-if [ "$status" = "online" ]; then
-  say "OK  : ホスト PG クラスタ ${CLUSTER} online（port ${PORT}）"
+# 生死は「接続を受け付けるか」で判定する。`pg_lsclusters` は external_pid_file を優先して
+# 判定するため（PgCommon.pm）、`/var/run/postgresql/18-infra_stg.pid` が失われているだけで
+# 稼働中のクラスタを `down` と表示する。2026-10-19 にこれが原因で本監視が 732 回連続で
+# 失敗し、恒常的な赤が本当の異常を覆い隠した。`pg_lsclusters` は失敗時の診断にだけ使う。
+if pg_isready -h 127.0.0.1 -p "$PORT" >/dev/null 2>&1; then
+  say "OK  : ホスト PG クラスタ ${CLUSTER} は接続を受け付ける（port ${PORT}）"
 else
-  bad "NG  : ホスト PG クラスタ ${CLUSTER} が online ではない（status=${status:-unknown}）"
+  listing="$(pg_lsclusters -h 2>/dev/null | awk -v c="$CLUSTER" '$1"/"$2 == c {print $4}')"
+  bad "NG  : ホスト PG クラスタ ${CLUSTER} が接続を受け付けない（pg_lsclusters=${listing:-unknown}）"
 fi
 
 if ss -lnt 2>/dev/null | awk '{print $4}' | grep -qx "10.201.0.1:${PORT}"; then

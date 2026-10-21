@@ -32,7 +32,7 @@ class DisasterCreate(BaseModel):
     estimated_cost: Decimal | None = None
     casualties: int = Field(0, ge=0)
     evacuation_required: bool = False
-    reported_by: UUID
+    # #139: 作成者 (reported_by) はトークンの sub から設定する。本文では受け付けない。
 
 
 class DisasterUpdate(BaseModel):
@@ -58,7 +58,7 @@ class RecoveryPlanCreate(BaseModel):
     start_date: date | None = None
     contractor: str | None = Field(None, max_length=255)
     resources_needed: str | None = None
-    created_by: UUID
+    # #139: 作成者 (created_by) はトークンの sub から設定する。本文では受け付けない。
 
 
 class RecoveryPlanUpdate(BaseModel):
@@ -91,7 +91,7 @@ class MaintenanceRecordCreate(BaseModel):
     scheduled_date: date | None = None
     next_maintenance_date: date | None = None
     location: str | None = Field(None, max_length=500)
-    performed_by: UUID | None = None
+    # #139: 作業者 (performed_by) はトークンの sub から設定する。本文では受け付けない。
     notes: str | None = None
 
 
@@ -103,7 +103,6 @@ class MaintenanceRecordUpdate(BaseModel):
     contractor: str | None = Field(None, max_length=255)
     completed_date: date | None = None
     next_maintenance_date: date | None = None
-    performed_by: UUID | None = None
     notes: str | None = None
 
 

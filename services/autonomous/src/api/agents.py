@@ -16,6 +16,7 @@ from ..schemas import (
     AgentUpdateRequest,
 )
 from ..services.autonomous_service import (
+    CrossOrgChildrenError,
     create_agent,
     delete_agent,
     get_agent_by_id,
@@ -123,7 +124,14 @@ async def delete_agent_endpoint(
 ):
     org = scope_org(current_user)
     require_any_role(current_user, MANAGEMENT_ROLES)
-    deleted = await delete_agent(db, agent_id, organization_id=org)
+    try:
+        deleted = await delete_agent(db, agent_id, organization_id=org)
+    except CrossOrgChildrenError as exc:
+        # 他組織の子を cascade で巻き込まないよう削除を拒否する (Issue #149)。
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
