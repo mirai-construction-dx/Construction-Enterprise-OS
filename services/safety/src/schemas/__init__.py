@@ -59,7 +59,7 @@ class HazardCreate(BaseModel):
     risk_level: str = Field(min_length=1, max_length=20)
     severity: str = Field(min_length=1, max_length=20)
     location: str | None = Field(None, max_length=500)
-    reported_by: UUID
+    # #139: 報告者はトークンの sub から設定する（本文では受け付けない）。
     assigned_to: UUID | None = None
 
 
@@ -87,7 +87,7 @@ class IncidentCreate(BaseModel):
     location: str | None = Field(None, max_length=500)
     injured_count: int = Field(0, ge=0)
     fatality_count: int = Field(0, ge=0)
-    reported_by: UUID
+    # #139: 報告者はトークンの sub から設定する（本文では受け付けない）。
     is_osha_reportable: bool = False
 
 

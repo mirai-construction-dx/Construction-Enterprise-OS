@@ -149,7 +149,7 @@ class CostCreateRequest(BaseModel):
     vendor_name: str | None = None
     invoice_number: str | None = None
     receipt_file_key: str | None = None
-    created_by: UUID | None = None
+    # #139: 作成者はトークンの sub から設定する（本文では受け付けない）。
 
 
 class CostUpdateRequest(BaseModel):
@@ -163,7 +163,11 @@ class CostUpdateRequest(BaseModel):
 
 
 class CostApproveRequest(BaseModel):
-    approved_by: UUID
+    """承認リクエスト。
+
+    #139: 承認者はトークンの sub から設定する。本文では受け付けない
+    （旧クライアントが ``approved_by`` を送っても extra=ignore で無視される）。
+    """
 
 
 class CostItemResponse(BaseModel):

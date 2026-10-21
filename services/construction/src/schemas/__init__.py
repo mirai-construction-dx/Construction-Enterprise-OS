@@ -252,7 +252,7 @@ class MethodCreateRequest(BaseModel):
     required_materials: list[str] | None = None
     required_labor: str | None = None
     attachments: list[str] = []
-    created_by: UUID | None = None
+    # #139: 作成者はトークンの sub から設定する（本文では受け付けない）。
 
 
 class MethodUpdateRequest(BaseModel):

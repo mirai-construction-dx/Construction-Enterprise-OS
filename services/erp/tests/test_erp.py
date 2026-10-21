@@ -495,11 +495,13 @@ class TestCostFlow:
                 "amount": "50000",
                 "cost_date": "2026-05-01",
                 "vendor_name": "建材商事",
+                "created_by": "00000000-0000-0000-0000-0000000000ff",
             },
             headers=_auth_headers(),
         )
         assert response.status_code == 201
         added = mock_db.add.call_args[0][0]
+        assert added.created_by == USER
         assert added.category == "materials"
         assert added.description == "セメント購入"
         assert float(added.amount) == 50000

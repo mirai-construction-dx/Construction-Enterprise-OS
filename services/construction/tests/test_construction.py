@@ -594,11 +594,13 @@ class TestMethodStatement:
                 "required_equipment": ["クローラクレーン", "バイブロハンマ"],
                 "required_materials": ["生コンクリート", "鉄筋"],
                 "required_labor": "型枠大工 4名, 鉄筋工 3名",
+                "created_by": "00000000-0000-0000-0000-0000000000ff",
             },
             headers=_auth_headers(),
         )
         assert response.status_code == 201
         called = mock_db.add.call_args[0][0]
+        assert called.created_by == TEST_USER_ID
         assert called.title == "基礎工事施工計画書"
         assert called.document_type == "method_statement"
         assert called.status == "draft"

@@ -517,6 +517,32 @@ def test_create_simulation(client, auth_headers):
     assert data["data"]["name"] == "Mock Simulation"
 
 
+def test_create_simulation_ignores_body_created_by(client, auth_headers):
+    """#139: 本文の created_by を信用せず、トークンの sub を記録する。"""
+    from uuid import UUID
+
+    mock_sim = _make_mock_simulation()
+
+    import src.api.simulations as sim_module
+    sim_module.create_simulation = AsyncMock(return_value=mock_sim)
+
+    spoofed = "00000000-0000-0000-0000-0000000000ff"
+    response = client.post(
+        "/api/v1/autonomous/simulations",
+        json={
+            "organization_id": "00000000-0000-0000-0000-000000000001",
+            "name": "Schedule Simulation",
+            "simulation_type": "schedule",
+            "created_by": spoofed,
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 201
+    data = sim_module.create_simulation.call_args.args[1]
+    assert data["created_by"] == UUID("00000000-0000-0000-0000-000000000001")
+    assert str(data["created_by"]) != spoofed
+
+
 # ============================================
 # Test 14: Simulation Run
 # ============================================

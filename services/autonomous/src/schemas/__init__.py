@@ -188,7 +188,7 @@ class SimulationCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=500)
     simulation_type: str = Field(min_length=1, max_length=50)
     parameters: dict = Field(default_factory=dict)
-    created_by: UUID | None = None
+    # #139: 作成者はトークンの sub から設定する（本文では受け付けない）。
 
 
 class SimulationResponse(BaseModel):
