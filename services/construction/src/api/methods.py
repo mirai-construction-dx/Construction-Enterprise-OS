@@ -51,6 +51,8 @@ async def create_method(
     await ensure_wbs_in_org(db, user, body.wbs_item_id, org)
     data = body.model_dump()
     data["organization_id"] = org
+    # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+    data["created_by"] = _actor_id(user)
     return await construction_service.create_method(db, data)
 
 

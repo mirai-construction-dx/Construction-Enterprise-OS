@@ -44,6 +44,8 @@ async def create_simulation_endpoint(
     )
     data = body.model_dump()
     data["organization_id"] = org
+    # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+    data["created_by"] = UUID(current_user.sub)
     sim = await create_simulation(db, data)
     return APIResponse(data=_sim_to_response(sim))
 
