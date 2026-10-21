@@ -1,6 +1,6 @@
 # Construction-Enterprise-OS 開発用 Makefile
 
-.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits secrets-hygiene static-guard-tests repo-invariants repo-invariants-ci
+.PHONY: help dev up down build test lint clean schema-bootstrap schema-generate schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits secrets-hygiene static-guard-tests identity-fields repo-invariants repo-invariants-ci
 
 help: ## ヘルプ表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -111,7 +111,10 @@ secrets-hygiene: ## 秘密配置の限定ヒューリスティック検査（安
 static-guard-tests: ## 静的ガードのオフライン回帰テスト
 	python3 -B -m unittest discover -s scripts/ci -p 'test_*.py' -v
 
-repo-invariants: secrets-hygiene static-guard-tests schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
+identity-fields: ## リクエストスキーマが actor フィールドを本文から受け付けていないか検証
+	python3 scripts/ci/check_identity_fields.py
+
+repo-invariants: secrets-hygiene static-guard-tests identity-fields schema-check session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits ## リポジトリ横断の不変条件をまとめて検証(CI の matrix では検出できないもの)
 	@echo "✅ リポジトリ不変条件 OK"
 
 # CI 用（依存の軽い検査だけを回す）。
@@ -125,7 +128,7 @@ repo-invariants: secrets-hygiene static-guard-tests schema-check session-check d
 # fastapi / PyJWT / pydantic-settings が要る（docs/operations/repo-invariants.workflow.yml）。
 # org-query-scoping は標準ライブラリ（ast）だけで動く。health-coverage は PyYAML を使う。
 # infra-consumers（ast + PyYAML）と resource-limits（PyYAML）も依存が軽いので CI で回す。
-repo-invariants-ci: secrets-hygiene static-guard-tests session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits ## CI で回す不変条件(軽量な依存のみ)
+repo-invariants-ci: secrets-hygiene static-guard-tests identity-fields session-check ddl-coverage ci-coverage docs-links stg-pages-upstream tenant-conformance org-query-scoping health-coverage infra-consumers resource-limits ## CI で回す不変条件(軽量な依存のみ)
 	@echo "✅ CI 用のリポジトリ不変条件 OK（schema-check は python-checks が担当）"
 
 # ============================================

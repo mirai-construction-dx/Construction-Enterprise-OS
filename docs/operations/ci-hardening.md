@@ -10,7 +10,7 @@
 
 `.github/workflows/` の 3 ワークフローは **`make` を一切呼んでいない**
 （2026-10-14 実測: `grep -rn "make " .github/workflows/*.yml` → 0 件）。
-そのため `make repo-invariants` の13ターゲット（回帰試験ターゲットを含む）は**ローカルでしか回っていない**。
+そのため `make repo-invariants` の14ターゲット（回帰試験ターゲットを含む）は**ローカルでしか回っていない**。
 人が実行し忘れれば「気付かず緑」のまま main へ入る。
 
 | 検査 | CI での被覆（2026-10-14 実測） |
@@ -27,12 +27,12 @@
 
 ## CI に入れるもの / 入れないもの
 
-**入れる: 依存の軽い12ターゲット（回帰試験を含む）**（`make repo-invariants-ci`）
+**入れる: 依存の軽い13ターゲット（回帰試験を含む）**（`make repo-invariants-ci`）
 
 ```
 session-check / ddl-coverage / ci-coverage / docs-links / stg-pages-upstream /
 tenant-conformance / org-query-scoping / health-coverage /
-infra-consumers / resource-limits / secrets-hygiene / static-guard-tests
+infra-consumers / resource-limits / secrets-hygiene / static-guard-tests / identity-fields
 ```
 
 必要な追加依存は **PyYAML**（`ci-coverage`）、**fastapi / PyJWT / pydantic-settings**
@@ -93,12 +93,13 @@ CI ジョブが失敗していた**。
 
 ## 参考
 
-- ローカル実行（モデルimport依存を含む13ターゲット。DB操作なし）: `env -u DATABASE_URL ENVIRONMENT=test make repo-invariants`
+- ローカル実行（モデルimport依存を含む14ターゲット。DB操作なし）: `env -u DATABASE_URL ENVIRONMENT=test make repo-invariants`
   - 環境に他システムの `DATABASE_URL` があると `schema-check` が落ちる。
     `scripts/db/check_target_db.py` が DB 操作系のターゲットを守るが、
     `schema-check` 自体は環境の URL を読むため `env -u DATABASE_URL` を付ける。
-- ローカル実行（依存の軽い12ターゲット）: `env -u DATABASE_URL ENVIRONMENT=test make repo-invariants-ci`
+- ローカル実行（依存の軽い13ターゲット）: `env -u DATABASE_URL ENVIRONMENT=test make repo-invariants-ci`
 - 2026-10-14の再実測: 全13ターゲット成功、static-guard-testsは44件成功。
+- 2026-10-21: #139 の再発防止として `identity-fields` を追加し、14/13 ターゲットへ。
   workflow書込みはDEPLOY criticalゲートで拒否され、CI設置・GitHub実行は未完了。
   新規ガード・回帰ファイルをコミットに含めないとfresh checkoutでは実行できない。
 - 追加検出器: `scripts/ci/check_infra_consumers.py` / `scripts/ci/check_memory_limits.py` /

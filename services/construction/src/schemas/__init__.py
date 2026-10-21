@@ -269,8 +269,11 @@ class MethodUpdateRequest(BaseModel):
 
 
 class MethodApprovalRequest(BaseModel):
-    # 後方互換のため受理するが、承認者同定には使用しない（トークン由来に変更）。
-    approved_by: UUID | None = None
+    """承認リクエスト。
+
+    #139: 承認者はトークンの sub から設定する。本文では受け付けない
+    （旧クライアントが ``approved_by`` を送っても extra=ignore で無視される）。
+    """
 
 
 class MethodResponse(BaseModel):

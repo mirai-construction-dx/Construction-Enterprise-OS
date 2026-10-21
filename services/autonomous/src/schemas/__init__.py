@@ -349,7 +349,7 @@ class ControlSendRequest(BaseModel):
     target_type: str = Field(min_length=1, max_length=50)
     command_type: str = Field(min_length=1, max_length=50)
     parameters: dict = Field(default_factory=dict)
-    issued_by: UUID
+    # #139: 指令の発行者はトークンの sub から設定する（本文では受け付けない）。
 
 
 class ControlResponse(BaseModel):
