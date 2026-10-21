@@ -347,9 +347,44 @@ def test_chat_template_lookup_is_org_scoped(client, db, path):
         },
         headers=USER_A,
     )
-    assert response.status_code == 200
+    # #136: 他組織（=組織スコープ付き検索で見つからない）テンプレートは
+    # /complete と同じ 404 に統一する。黙ってテンプレートなしで 200 にしない。
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "NOT_FOUND"
     assert len(db.statements) == 1
     assert _org_filter_value(db.statements[0], db.params[0]) == ORG_A
+
+
+class _FailingDB(_RecordingDB):
+    """DB 障害を再現する。テンプレート参照の例外を握り潰してはいけない。"""
+
+    async def execute(self, stmt, params=None):
+        raise RuntimeError("database connection lost")
+
+
+def _make_client_no_raise(db: _RecordingDB) -> TestClient:
+    app = create_app()
+
+    async def _get_db():
+        yield db
+
+    app.dependency_overrides[get_db] = _get_db
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.mark.parametrize("path", ["/api/v1/ai/chat", "/api/v1/ai/chat/stream"])
+def test_chat_does_not_swallow_database_errors(path):
+    """#136: except Exception で DB 障害まで握り潰して 200 にしない。"""
+    client = _make_client_no_raise(_FailingDB())
+    response = client.post(
+        path,
+        json={
+            "messages": [{"role": "user", "content": "hi"}],
+            "prompt_template_id": str(TEMPLATE_ID),
+        },
+        headers=USER_A,
+    )
+    assert response.status_code == 500
 
 
 def test_admin_complete_uses_any_org_template():
@@ -414,7 +449,9 @@ def test_rag_generate_template_lookup_is_org_scoped(client, db):
         json={"query": "q", "prompt_template_id": str(TEMPLATE_ID)},
         headers=USER_A,
     )
-    assert response.status_code == 200
+    # #136: /rag/generate も他組織テンプレートは黙って既定プロンプトで 200 にせず 404。
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "NOT_FOUND"
     # [0] vector search, [1] prompt template lookup
     assert len(db.statements) == 2
     assert _org_filter_value(db.statements[0], db.params[0]) == ORG_A

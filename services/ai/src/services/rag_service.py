@@ -3,6 +3,7 @@
 import logging
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,8 +83,15 @@ class RAGService:
                 temperature = temperature if temperature is not None else template.temperature
                 max_tokens = max_tokens or template.max_tokens
             else:
-                system_prompt = DEFAULT_RAG_SYSTEM_PROMPT
-                user_template = DEFAULT_RAG_USER_TEMPLATE
+                # #136: 他組織（=組織スコープ付き検索で見つからない）テンプレートを
+                # 黙って既定プロンプトへフォールバックさせず、/complete と同じ 404 に統一する。
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "code": "NOT_FOUND",
+                        "message": "プロンプトテンプレートが見つかりません。",
+                    },
+                )
         else:
             system_prompt = DEFAULT_RAG_SYSTEM_PROMPT
             user_template = DEFAULT_RAG_USER_TEMPLATE

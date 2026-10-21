@@ -1,4 +1,11 @@
-"""データソース API"""
+"""データソース API
+
+`connection_config` は認証情報（パスワード・API キー等）を含み得るため write-only とし、
+応答（DataSourceResponse）には含めない（#138）。
+保存時の暗号化は未実装であり、DB には平文 JSONB として保存される。
+暗号化を実装するまでは認証情報の登録を前提にせず、必要になった時点で
+KMS/Secrets Manager 等の導入方針を別途決定する。
+"""
 
 from uuid import UUID
 
@@ -35,8 +42,14 @@ async def create_datasource(
     db: AsyncSession = Depends(get_db),
     user: TokenData = Depends(get_current_user),
 ):
+    # #138: データソース（接続情報）の作成は管理ロールに限定する。
+    # 組織の検証を先に行い、ORG_REQUIRED / ORG_FORBIDDEN を従来どおり返す
+    # （delete と同じ順序）。ロール検証は DB アクセスより前に行う。
     data = body.model_dump()
     data["organization_id"] = create_org(user, body.organization_id)
+    # #139: 作成者は本文ではなく認証済みユーザーから設定する。
+    data["created_by"] = UUID(user.sub)
+    require_any_role(user, MANAGEMENT_ROLES)
     ds = await service.create_datasource(db, data)
     return ds
 

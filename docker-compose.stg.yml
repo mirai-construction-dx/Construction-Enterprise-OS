@@ -31,6 +31,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: ${CEOS_CPU_LIMIT:-1.0}
+          memory: ${CEOS_MEM_LIMIT:-768M}
   redis:
     image: redis:7-alpine
     container_name: ceos-stg-redis
@@ -50,6 +55,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.35
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
     environment:
       ENVIRONMENT: staging
@@ -100,6 +110,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.34
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     restart: unless-stopped
   elasticsearch:
     image: elasticsearch:8.14.0
@@ -136,6 +151,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.19
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
     restart: unless-stopped
   kibana:
     image: kibana:8.14.0
@@ -172,6 +192,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.26
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     restart: unless-stopped
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -209,6 +234,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.29
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     restart: unless-stopped
   kafka:
     image: bitnamilegacy/kafka:3.7
@@ -249,6 +279,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.25
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
     restart: unless-stopped
   gateway:
     build:
@@ -257,6 +292,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.22
+    deploy: &id001
+      resources:
+        limits:
+          cpus: ${CEOS_CPU_LIMIT:-1.0}
+          memory: ${CEOS_MEM_LIMIT:-768M}
     container_name: ceos-stg-gateway
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -346,6 +386,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.13
+    deploy: *id001
     container_name: ceos-stg-auth
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -389,6 +430,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.37
+    deploy: *id001
     container_name: ceos-stg-security
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -428,6 +470,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.31
+    deploy: *id001
     container_name: ceos-stg-notification
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -479,6 +522,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.18
+    deploy: *id001
     container_name: ceos-stg-document
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -530,6 +574,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.23
+    deploy: *id001
     container_name: ceos-stg-gis
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -569,6 +614,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.24
+    deploy: *id001
     container_name: ceos-stg-iot
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -611,6 +657,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.11
+    deploy: *id001
     container_name: ceos-stg-ai
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -653,6 +700,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.16
+    deploy: *id001
     container_name: ceos-stg-bim
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -695,6 +743,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.12
+    deploy: *id001
     container_name: ceos-stg-analytics
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -737,6 +786,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.38
+    deploy: *id001
     container_name: ceos-stg-vision
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -779,6 +829,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.40
+    deploy: *id001
     container_name: ceos-stg-workflow
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -828,6 +879,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.33
+    deploy: *id001
     container_name: ceos-stg-platform
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -867,6 +919,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.32
+    deploy: *id001
     container_name: ceos-stg-partner
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -906,6 +959,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.14
+    deploy: *id001
     container_name: ceos-stg-automation
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -948,6 +1002,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.17
+    deploy: *id001
     container_name: ceos-stg-construction
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -987,6 +1042,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.20
+    deploy: *id001
     container_name: ceos-stg-erp
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1026,6 +1082,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.36
+    deploy: *id001
     container_name: ceos-stg-safety
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1065,6 +1122,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.21
+    deploy: *id001
     container_name: ceos-stg-field-dx
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1104,6 +1162,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.27
+    deploy: *id001
     container_name: ceos-stg-maintenance
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1143,6 +1202,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.15
+    deploy: *id001
     container_name: ceos-stg-autonomous
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1187,6 +1247,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.10
+    deploy: *id001
     container_name: ceos-stg-advanced
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1229,6 +1290,7 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.28
+    deploy: *id001
     container_name: ceos-stg-mcp
     environment:
       DATABASE_URL: ${STG_DATABASE_URL:-postgresql+asyncpg://ceos_stg_app@10.201.0.1:55438/ceos_stg}
@@ -1303,6 +1365,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.39
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     healthcheck:
       test:
       - CMD
@@ -1342,6 +1409,11 @@ services:
     networks:
       construction-net:
         ipv4_address: 10.201.0.30
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     healthcheck:
       test:
       - CMD

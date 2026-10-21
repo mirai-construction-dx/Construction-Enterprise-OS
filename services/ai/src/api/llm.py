@@ -43,22 +43,35 @@ async def chat(
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
 
     if body.prompt_template_id:
-        try:
-            template = await PromptService.get_template(
-                db, body.prompt_template_id, org_id
+        # #136: 他組織のテンプレートは /complete と同じ 404 に統一する。
+        # DB 例外はここで握り潰さず 500 として表面化させる（捕捉する例外を限定）。
+        template = await PromptService.get_template(
+            db, body.prompt_template_id, org_id
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "NOT_FOUND",
+                    "message": "プロンプトテンプレートが見つかりません。",
+                },
             )
-            if template:
-                variables = body.variables or {}
-                user_content = render_user_template(
-                    template.user_prompt_template, variables
-                )
-                messages = [
-                    {"role": "system", "content": template.system_prompt},
-                ] + messages
-                if user_content.strip():
-                    messages.append({"role": "user", "content": user_content})
-        except Exception:
-            logger.exception("Failed to apply prompt template")
+        variables = body.variables or {}
+        try:
+            user_content = render_user_template(
+                template.user_prompt_template, variables
+            )
+        except ValueError as exc:
+            # 利用者が保存したテンプレートが評価できない場合のみ 400 に変換する。
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_TEMPLATE", "message": str(exc)},
+            ) from exc
+        messages = [
+            {"role": "system", "content": template.system_prompt},
+        ] + messages
+        if user_content.strip():
+            messages.append({"role": "user", "content": user_content})
 
     kwargs: dict[str, object] = {}
     if body.model:
@@ -100,22 +113,35 @@ async def chat_stream(
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
 
     if body.prompt_template_id:
-        try:
-            template = await PromptService.get_template(
-                db, body.prompt_template_id, org_id
+        # #136: 他組織のテンプレートは /complete と同じ 404 に統一する。
+        # DB 例外はここで握り潰さず 500 として表面化させる（捕捉する例外を限定）。
+        template = await PromptService.get_template(
+            db, body.prompt_template_id, org_id
+        )
+        if not template:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "NOT_FOUND",
+                    "message": "プロンプトテンプレートが見つかりません。",
+                },
             )
-            if template:
-                variables = body.variables or {}
-                user_content = render_user_template(
-                    template.user_prompt_template, variables
-                )
-                messages = [
-                    {"role": "system", "content": template.system_prompt},
-                ] + messages
-                if user_content.strip():
-                    messages.append({"role": "user", "content": user_content})
-        except Exception:
-            logger.exception("Failed to apply prompt template")
+        variables = body.variables or {}
+        try:
+            user_content = render_user_template(
+                template.user_prompt_template, variables
+            )
+        except ValueError as exc:
+            # 利用者が保存したテンプレートが評価できない場合のみ 400 に変換する。
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_TEMPLATE", "message": str(exc)},
+            ) from exc
+        messages = [
+            {"role": "system", "content": template.system_prompt},
+        ] + messages
+        if user_content.strip():
+            messages.append({"role": "user", "content": user_content})
 
     kwargs: dict[str, object] = {}
     if body.model:

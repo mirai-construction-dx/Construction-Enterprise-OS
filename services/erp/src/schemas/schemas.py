@@ -212,10 +212,11 @@ class InvoiceCreateRequest(BaseModel):
 
 
 class InvoiceUpdateRequest(BaseModel):
+    # #122: status は更新対象から除外する。状態遷移は /invoices/{id}/pay など
+    # 専用エンドポイントの検証（現在状態の確認）を必ず通す。
     amount: Decimal | None = None
     tax_amount: Decimal | None = None
     due_date: date | None = None
-    status: str | None = None
     payment_method: str | None = None
     notes: str | None = None
 

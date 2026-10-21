@@ -101,8 +101,17 @@ def test_request_id_forwarded(client):
     assert response.headers["X-Request-ID"] == "test-id-12345"
 
 
-def test_proxy_request_with_valid_token_format(client):
-    """有効なJWT形式のトークンでプロキシーリクエスト（上流未起動のため502）"""
+def test_proxy_request_with_valid_token_format(client, monkeypatch):
+    """有効なJWTは転送され、模擬した接続失敗は502になる（実上流へ接続しない）。"""
+    import httpx
+
+    calls = []
+
+    async def unavailable(_client, **kwargs):
+        calls.append(kwargs)
+        raise httpx.ConnectError("synthetic upstream unavailable")
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", unavailable)
     import jwt as jose_jwt
     from src.config import get_settings
 
@@ -124,7 +133,12 @@ def test_proxy_request_with_valid_token_format(client):
         "/api/v1/construction/test",
         headers={"Authorization": f"Bearer {token}"},
     )
-    # 認証は通るが上流サービス未起動なので 502
+    # Assertions stay outside the proxy's broad exception handler.
+    assert len(calls) == 1
+    assert calls[0]["method"] == "GET"
+    assert calls[0]["url"].endswith("/api/v1/construction/test")
+    assert calls[0]["headers"]["authorization"] == f"Bearer {token}"
+    # Synthetic ConnectError, independent of real upstream availability.
     assert response.status_code == 502
     data = response.json()
     assert data["success"] is False

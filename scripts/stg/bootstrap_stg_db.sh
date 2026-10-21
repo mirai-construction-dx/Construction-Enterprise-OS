@@ -63,14 +63,16 @@ if ! pg_lsclusters -h | awk '{print $1"/"$2}' | grep -qx "$CLUSTER"; then
   pg_lsclusters
   exit 1
 fi
-status="$(pg_lsclusters -h | awk -v c="$CLUSTER" '$1"/"$2 == c {print $4}')"
-if [ "$status" != "online" ]; then
-  echo "NG: クラスタ $CLUSTER は online ではない（status=$status）。" >&2
+# 生死は接続受付で判定する（pg_lsclusters は external_pid_file 欠落だけで down を返す。
+# Mirai-Platform-Infra の docs/stg-inventory.md §3.1 を参照）。
+if ! pg_isready -h 127.0.0.1 -p "$PORT" >/dev/null 2>&1; then
+  status="$(pg_lsclusters -h | awk -v c="$CLUSTER" '$1"/"$2 == c {print $4}')"
+  echo "NG: クラスタ $CLUSTER は接続を受け付けない（pg_lsclusters=${status:-unknown}）。" >&2
   echo "    自動起動は無効（UnitFileState=disabled）である。手動で起動する:" >&2
   echo "      sudo pg_ctlcluster ${CLUSTER%/*} ${CLUSTER#*/} start" >&2
   exit 1
 fi
-echo "OK: クラスタ $CLUSTER は online（port $PORT）"
+echo "OK: クラスタ $CLUSTER は接続を受け付ける（port $PORT）"
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "NG: $ENV_FILE が無い。先に scripts/stg/gen_stg_env.sh を実行すること。" >&2

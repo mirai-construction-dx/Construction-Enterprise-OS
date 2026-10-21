@@ -830,3 +830,34 @@ class TestInvoiceManagement:
         assert float(inv.amount) == 200000
         assert float(inv.tax_amount) == 20000
         assert float(inv.total_amount) == 220000
+
+    def test_update_invoice_does_not_change_status(self, client, mock_db):
+        """#122: PUT で status を書き換えて /pay の状態チェックを迂回できない。"""
+        from src.models.models import Invoice
+
+        inv_id = uuid.uuid4()
+        inv = Invoice(
+            id=inv_id,
+            organization_id=uuid.uuid4(),
+            invoice_number="INV-001",
+            invoice_type="payable",
+            vendor_name="建材商事",
+            amount=100000,
+            tax_amount=10000,
+            total_amount=110000,
+            issue_date=date(2026, 5, 20),
+            status="issued",
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        mock_db.get = AsyncMock(return_value=inv)
+
+        response = client.put(
+            f"/api/v1/erp/invoices/{inv_id}",
+            json={"status": "paid"},
+            headers=_auth_headers(),
+        )
+
+        assert response.status_code == 200
+        assert inv.status == "issued"
+        assert response.json()["status"] == "issued"

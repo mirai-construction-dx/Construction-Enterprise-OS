@@ -15,6 +15,7 @@
   G-11 上流の**名前解決を DNS に依存させていない**（静的 IP ＋ gateway の extra_hosts。2026-10-14 追加）。
   G-12 訓練スクリプトに**実行記録**がある（reports/staging/。2026-10-14 追加）。
   G-13 API Tunnel の値が文書・workflow・スクリプト・compose で一致している（2026-10-14 追加）。
+  G-14 全サービスの資源上限宣言が静的方針に適合する（実行時適用・負荷妥当性は未確認）。
 
 `SKIP` を作らない。判定できないものは FAIL として報告する（AGENTS.md「未確認を成功と書かない」）。
 
@@ -218,6 +219,27 @@ def check_restart_policy(stg: dict) -> None:
     )
 
 
+def check_resource_limits(stg: dict) -> None:
+    """資源上限宣言の静的検査。実行時適用や負荷妥当性は証明しない。
+
+    Compose は mem_limit/cpus と deploy.resources.limits の両形式をサポート。
+    後者への統一は本リポジトリの方針であり、前者が非対応という意味ではない。
+    暫定値には負荷試験の根拠がなく、稼働コンテナへの適用確認は別工程が必要。
+    """
+    sys.path.insert(0, str(ROOT / "scripts" / "ci"))
+    import check_memory_limits
+
+    services = stg.get("services") if isinstance(stg, dict) else None
+    failures = check_memory_limits.check_compose(STG_COMPOSE, "stg", services)
+    record(
+        "G-14 resource limits are present",
+        not failures,
+        "資源上限宣言が静的方針に適合。実行時適用・負荷妥当性は未確認。"
+        if not failures
+        else "; ".join(failures),
+    )
+
+
 def _static_ip(service: dict) -> str | None:
     """サービスの静的 IP を取り出す。無ければ None。
 
@@ -405,12 +427,23 @@ def check_dev_not_polluted() -> None:
 
 
 def main() -> int:
+    results.clear()
     for required in (STG_COMPOSE, BASE_COMPOSE):
         if not required.exists():
             record("G-0 prerequisites", False, f"{required.name} が無い")
             break
     else:
-        stg = load_stg()
+        try:
+            stg = load_stg()
+            if not isinstance(stg, dict) or not isinstance(stg.get("services"), dict) or not stg["services"]:
+                raise ValueError("services は空でない mapping でなければならない")
+            if any(not isinstance(name, str) or not name or not isinstance(body, dict)
+                   for name, body in stg["services"].items()):
+                raise ValueError("service 名と service mapping が不正")
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            record("G-0 prerequisites", False, f"stg compose の読み込み/構造が不正: {exc}")
+            print(f"FAIL: G-0 prerequisites: {exc}")
+            return 1
         check_compose_in_sync()
         check_loopback_only(stg)
         check_environment(stg)
@@ -420,6 +453,7 @@ def main() -> int:
         check_service_guards()
         check_no_mutable_tags(stg)
         check_restart_policy(stg)
+        check_resource_limits(stg)
         check_static_ip_and_hosts(stg)
         check_drill_records()
         check_api_tunnel_consistency(stg)

@@ -117,7 +117,11 @@ export function createPartnerContract(
     "id" | "partner_id" | "created_at" | "updated_at"
   >,
 ) {
-  return post<PartnerContract>(`/partner/${partnerId}/contracts`, body);
+  // 契約はトップレベルのコレクション。相手先はパスではなく本文で指定する。
+  return post<PartnerContract>("/partners/contracts", {
+    ...body,
+    partner_id: partnerId,
+  });
 }
 
 export function listPartnerEvaluations(partnerId: string) {
@@ -130,16 +134,27 @@ export function createPartnerEvaluation(
   partnerId: string,
   body: Omit<PartnerEvaluation, "id" | "partner_id" | "created_at">,
 ) {
-  return post<PartnerEvaluation>(`/partner/${partnerId}/evaluations`, body);
+  // 評価もトップレベルのコレクション。partner_id は本文で指定する。
+  return post<PartnerEvaluation>("/partners/evaluations", {
+    ...body,
+    partner_id: partnerId,
+  });
 }
 
 export function listPartnerAssignments(partnerId: string) {
-  return get<PartnerAssignment[]>(`/partner/${partnerId}/assignments`);
+  // アサインは一覧がトップレベル。相手先はクエリで絞り込む。
+  return get<PartnerAssignment[]>(
+    `/partners/assignments?partner_id=${encodeURIComponent(partnerId)}`,
+  );
 }
 
 export function createPartnerAssignment(
   partnerId: string,
   body: Omit<PartnerAssignment, "id" | "partner_id" | "created_at">,
 ) {
-  return post<PartnerAssignment>(`/partner/${partnerId}/assignments`, body);
+  // 作成もトップレベル。partner_id は本文で指定する。
+  return post<PartnerAssignment>("/partners/assignments", {
+    ...body,
+    partner_id: partnerId,
+  });
 }

@@ -1,0 +1,536 @@
+{
+  "scope": "20 requests per Python service /health at concurrency4; no authenticated business/ML validation",
+  "services": [
+    {
+      "service": "autonomous",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.27037868596380576,
+      "max_seconds": 0.27500746899750084
+    },
+    {
+      "service": "advanced",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15337377996183932,
+      "max_seconds": 0.154962025990244
+    },
+    {
+      "service": "notification",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15571241697762161,
+      "max_seconds": 0.16439928399631754
+    },
+    {
+      "service": "workflow",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.14993845799472183,
+      "max_seconds": 0.15505494899116457
+    },
+    {
+      "service": "automation",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.1514530529966578,
+      "max_seconds": 0.15256018395302817
+    },
+    {
+      "service": "bim",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15145251201465726,
+      "max_seconds": 0.155095981026534
+    },
+    {
+      "service": "vision",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.17072260502027348,
+      "max_seconds": 0.17131802096264437
+    },
+    {
+      "service": "document",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15055999002652243,
+      "max_seconds": 0.1539352080435492
+    },
+    {
+      "service": "iot",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.11409533303231001,
+      "max_seconds": 0.11456754000391811
+    },
+    {
+      "service": "gateway",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.01189620397053659,
+      "max_seconds": 0.013132104999385774
+    },
+    {
+      "service": "auth",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.13463012099964544,
+      "max_seconds": 0.13494282896863297
+    },
+    {
+      "service": "ai",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.1504702099482529,
+      "max_seconds": 0.15353736997349188
+    },
+    {
+      "service": "analytics",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15342100500129163,
+      "max_seconds": 0.15930216200649738
+    },
+    {
+      "service": "erp",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.16686190100153908,
+      "max_seconds": 0.16962460801005363
+    },
+    {
+      "service": "partner",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.14544803596800193,
+      "max_seconds": 0.1466058660298586
+    },
+    {
+      "service": "gis",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15330775699112564,
+      "max_seconds": 0.15911418001633137
+    },
+    {
+      "service": "safety",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15616398898418993,
+      "max_seconds": 0.1588711699587293
+    },
+    {
+      "service": "construction",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.15138056699652225,
+      "max_seconds": 0.1532484469935298
+    },
+    {
+      "service": "security",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.2549090369720943,
+      "max_seconds": 0.2563570900238119
+    },
+    {
+      "service": "maintenance",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.2576049080234952,
+      "max_seconds": 0.25925864098826423
+    },
+    {
+      "service": "field-dx",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.200767645961605,
+      "max_seconds": 0.20778511103708297
+    },
+    {
+      "service": "platform",
+      "statuses": {
+        "200": 20
+      },
+      "p95_seconds": 0.17700672702630982,
+      "max_seconds": 0.1779043810092844
+    }
+  ],
+  "containers": [
+    {
+      "service": "mcp",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "autonomous",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "advanced",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "mobile",
+      "cgroup": {
+        "memory.max": "1073741824",
+        "memory.swap.max": "1073741824",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "web",
+      "cgroup": {
+        "memory.max": "1073741824",
+        "memory.swap.max": "1073741824",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "notification",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "workflow",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "automation",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "bim",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "vision",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "document",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "iot",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "gateway",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "auth",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "ai",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "kibana",
+      "cgroup": {
+        "memory.max": "1073741824",
+        "memory.swap.max": "1073741824",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "analytics",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "erp",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "minio",
+      "cgroup": {
+        "memory.max": "1073741824",
+        "memory.swap.max": "1073741824",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "partner",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "gis",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "safety",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "kafka",
+      "cgroup": {
+        "memory.max": "2147483648",
+        "memory.swap.max": "2147483648",
+        "cpu.max": "200000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "redis",
+      "cgroup": {
+        "memory.max": "536870912",
+        "memory.swap.max": "536870912",
+        "cpu.max": "50000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "construction",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "security",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "maintenance",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "elasticsearch",
+      "cgroup": {
+        "memory.max": "3221225472",
+        "memory.swap.max": "3221225472",
+        "cpu.max": "200000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "rabbitmq",
+      "cgroup": {
+        "memory.max": "1073741824",
+        "memory.swap.max": "1073741824",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "field-dx",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "platform",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    },
+    {
+      "service": "db-bridge",
+      "cgroup": {
+        "memory.max": "805306368",
+        "memory.swap.max": "805306368",
+        "cpu.max": "100000 100000"
+      },
+      "health": "healthy",
+      "oom": false,
+      "restart_count": 0
+    }
+  ],
+  "failures": []
+}
