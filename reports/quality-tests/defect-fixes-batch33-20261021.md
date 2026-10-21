@@ -33,6 +33,7 @@
 | watchdog | 設置＋`enable --now`、初回 `Result=success` / `ExecMainStatus=0`、次回 08:08 |
 | stg 再ビルド | 変更 5 サービス（erp / maintenance / analytics / gateway / autonomous）を再作成 |
 | **stg の gateway 遮断** | `/api/v1/workflow/internal/{jobs/deadline-notifications,jobs/workload-notifications,notification-callback}` → **404**、`/api/v1/workflow/internals` → 401（近接パスは巻き込まない） |
+| **stg の修正検証（実 API）** | `scripts/stg/check_security_fixes.py` → **G-1 / D-1 / A-1 / M-1 すべて PASS**（合成データ、作成した行は削除済み） |
 | stg の健全性 | 32 コンテナ / smoke 12 PASS 0 FAIL / 22 schemas 98 tables / pgBackRest ok |
 | stg API E2E | **16 passed** |
 
