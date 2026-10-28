@@ -68,7 +68,8 @@ echo "== 起動 =="
 docker compose "${args[@]}"
 
 echo "== db-bridge の実測（ホスト loopback への転送） =="
-if ss -lnt | awk '{print $4}' | grep -qx "${BRIDGE_BIND}:${PORT}"; then
+listeners="$(ss -lnt | awk '{print $4}')"  # SIGPIPE 回避（status.sh の注記を参照）
+if grep -qx "${BRIDGE_BIND}:${PORT}" <<<"$listeners"; then
   echo "OK: ${BRIDGE_BIND}:${PORT} が LISTEN している"
 else
   echo "NG: ${BRIDGE_BIND}:${PORT} が LISTEN していない。stg のコンテナから DB へ到達できない。" >&2

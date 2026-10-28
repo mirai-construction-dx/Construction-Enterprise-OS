@@ -166,7 +166,8 @@ fi
 
 echo
 echo "== DB 到達性（db-bridge 経由） =="
-if ss -lnt | awk '{print $4}' | grep -qx "10.201.0.1:55438"; then
+listeners="$(ss -lnt | awk '{print $4}')"  # SIGPIPE 回避（status.sh の注記を参照）
+if grep -qx "10.201.0.1:55438" <<<"$listeners"; then
   echo "PASS: S-6a db-bridge が 10.201.0.1:55438 で LISTEN"
   pass=$((pass + 1))
 else
