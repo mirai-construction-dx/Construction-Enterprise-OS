@@ -39,7 +39,10 @@ else
   bad "NG  : ホスト PG クラスタ ${CLUSTER} が接続を受け付けない（pg_lsclusters=${listing:-unknown}）"
 fi
 
-if ss -lnt 2>/dev/null | awk '{print $4}' | grep -qx "10.201.0.1:${PORT}"; then
+# ss の出力を先に変数へ取り込む。pipefail 下で `grep -q` が一致時に早く終わると、上流の awk が
+# SIGPIPE で 141 終了し、パイプ全体が偽になって稼働中でも NG を出す（2026-10-28 に 1 日 12 回の偽陽性）。
+listeners="$(ss -lnt 2>/dev/null | awk '{print $4}')"
+if grep -qx "10.201.0.1:${PORT}" <<<"$listeners"; then
   say "OK  : db-bridge が 10.201.0.1:${PORT} で LISTEN"
 else
   bad "NG  : db-bridge が LISTEN していない（コンテナから DB へ到達できない）"

@@ -57,7 +57,8 @@ echo
 echo "-- 2. db-bridge を停止（コンテナから DB へ到達不能にする） --"
 scripts/stg/compose.sh stop db-bridge >/dev/null 2>&1
 sleep 5
-if ss -lnt 2>/dev/null | awk '{print $4}' | grep -qx "${BRIDGE_BIND}:${PORT}"; then
+listeners="$(ss -lnt 2>/dev/null | awk '{print $4}')"  # SIGPIPE 回避（status.sh の注記を参照）
+if grep -qx "${BRIDGE_BIND}:${PORT}" <<<"$listeners"; then
   echo "NG: 停止したのに ${BRIDGE_BIND}:${PORT} が LISTEN している。" >&2
   exit 1
 fi
