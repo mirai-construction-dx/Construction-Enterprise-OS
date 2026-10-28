@@ -19,19 +19,18 @@ from ..services.llm_service import (
     MockLLMProvider,
     OpenAICompatibleProvider,
 )
+from ..services.provider_policy import LLMMode, resolve_llm_mode
 from ..services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _get_rag_service() -> RAGService:
-    from ..config import get_settings
-
-    s = get_settings()
+def _get_rag_service(mode: LLMMode) -> RAGService:
+    # mode は resolve_llm_mode() の結果（ADR-0008）。埋め込みと生成の両方に同じ判定を使う
     embedding_service = EmbeddingService()
     llm_provider: LLMProvider
-    if s.LLM_API_KEY:
+    if mode is LLMMode.DIRECT:
         llm_provider = OpenAICompatibleProvider()
     else:
         llm_provider = MockLLMProvider()
@@ -45,11 +44,9 @@ async def rag_search(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = scope_org(token_data)
-    service = _get_rag_service()
-
-    from ..config import get_settings
-
-    use_mock = not get_settings().LLM_API_KEY
+    mode = resolve_llm_mode()
+    service = _get_rag_service(mode)
+    use_mock = mode is LLMMode.MOCK
 
     try:
         results = await service.semantic_search(
@@ -91,11 +88,9 @@ async def rag_generate(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = scope_org(token_data)
-    service = _get_rag_service()
-
-    from ..config import get_settings
-
-    use_mock = not get_settings().LLM_API_KEY
+    mode = resolve_llm_mode()
+    service = _get_rag_service(mode)
+    use_mock = mode is LLMMode.MOCK
 
     try:
         chunks = await service.semantic_search(
