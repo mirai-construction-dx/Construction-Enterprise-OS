@@ -16,16 +16,15 @@ from ..schemas import (
 from ..services.llm_service import MockLLMProvider, OpenAICompatibleProvider
 from ..services.masking_service import mask_messages
 from ..services.prompt_service import PromptService, render_user_template
+from ..services.provider_policy import LLMMode, resolve_llm_mode
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
 def _get_llm_provider() -> OpenAICompatibleProvider | MockLLMProvider:
-    from ..config import get_settings
-
-    s = get_settings()
-    if s.LLM_API_KEY:
+    # 経路の判定は provider_policy.resolve_llm_mode に一本化する（ADR-0008）
+    if resolve_llm_mode() is LLMMode.DIRECT:
         return OpenAICompatibleProvider()
     return MockLLMProvider()
 

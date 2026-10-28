@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_DEFAULT_MODEL: str = "gpt-4"
     LLM_EMBEDDING_MODEL: str = "text-embedding-ada-002"
+    # 本番相当の環境（development / test / docker 以外）で LLM を直接呼ぶことを明示的に許す。
+    # 既定 False。stg・本番の定義には入れない（ADR-0008、services/provider_policy.py）。
+    ALLOW_DIRECT_LLM_IN_NONDEV: bool = False
 
     JWT_PUBLIC_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
