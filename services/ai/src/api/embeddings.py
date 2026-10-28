@@ -21,6 +21,7 @@ from ..schemas import (
 )
 from ..services.embedding_service import EmbeddingService
 from ..services.provider_policy import LLMMode, resolve_llm_mode
+from ..services.send_audit import bind_audit_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,6 +38,7 @@ async def create_embeddings(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = token_org(token_data)
+    bind_audit_context("embeddings", token_data)
     # 経路の判定は provider_policy.resolve_llm_mode に一本化する（ADR-0008）
     use_mock = resolve_llm_mode() is LLMMode.MOCK
     service = _get_embedding_service()
@@ -73,6 +75,7 @@ async def search_embeddings(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = scope_org(token_data)
+    bind_audit_context("embeddings", token_data)
     # 経路の判定は provider_policy.resolve_llm_mode に一本化する（ADR-0008）
     use_mock = resolve_llm_mode() is LLMMode.MOCK
     service = _get_embedding_service()

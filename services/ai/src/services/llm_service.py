@@ -7,6 +7,7 @@ from typing import AsyncGenerator
 import httpx
 
 from ..config import get_settings
+from . import send_audit
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -62,8 +63,16 @@ class OpenAICompatibleProvider(LLMProvider):
         }
 
         client = await self._get_client()
-        resp = await client.post(f"{self.base_url}/chat/completions", json=payload)
-        resp.raise_for_status()
+        request = client.build_request(
+            "POST", f"{self.base_url}/chat/completions", json=payload
+        )
+        resp = await send_audit.audited_send(
+            client,
+            request,
+            api="chat.completions",
+            provider=send_audit.provider_host(self.base_url),
+            model=model,
+        )
         data = resp.json()
         return data["choices"][0]["message"]["content"]
 
@@ -83,10 +92,18 @@ class OpenAICompatibleProvider(LLMProvider):
         }
 
         client = await self._get_client()
-        async with client.stream(
+        request = client.build_request(
             "POST", f"{self.base_url}/chat/completions", json=payload
-        ) as resp:
-            resp.raise_for_status()
+        )
+        resp = await send_audit.audited_send(
+            client,
+            request,
+            api="chat.completions",
+            provider=send_audit.provider_host(self.base_url),
+            model=model,
+            stream=True,
+        )
+        try:
             async for line in resp.aiter_lines():
                 if line.startswith("data: ") and line != "data: [DONE]":
                     import json
@@ -102,6 +119,8 @@ class OpenAICompatibleProvider(LLMProvider):
                             yield delta
                     except json.JSONDecodeError:
                         continue
+        finally:
+            await resp.aclose()
 
     async def close(self):
         if self._client:
