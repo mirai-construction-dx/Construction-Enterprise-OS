@@ -44,7 +44,7 @@ CEOS はその例外 ADR を持っていなかった。
 | 本番相当の環境では無効 | `services/provider_policy.py` の `resolve_llm_mode()` に一本化。`ENVIRONMENT` が development / test / docker 以外ではキーがあっても 503（明示フラグ `ALLOW_DIRECT_LLM_IN_NONDEV`、既定 false の場合だけ許可。stg・本番の定義には入れない） | 充足（PR #235） |
 | 既定は `disabled` | キーが空ならモック | 充足 |
 | Gateway が使えないときに直接呼び出しへ切り替えない | Gateway の経路がまだ無いため、切り替えも無い | 充足（経路追加時に再確認） |
-| 送るのは internal 以下のデータだけ | 区分による送信制御は無い。RAG・埋め込みはマスキングも無い | **未充足** |
+| 送るのは internal 以下のデータだけ | 区分による送信制御は無い。RAG・埋め込みはマスキングも無い。設計案は [ai-send-classification-control.md](../design/ai-send-classification-control.md)（未承認） | **未充足**（設計案あり） |
 | 監査に Provider 名を残す | 送信 1 回につき監査イベント `ai.provider_send` を専用ロガー `ceos_ai.audit` へ JSON 1 行で記録する（`services/send_audit.py`）。項目は時刻・組織・主体・経路・Provider（ホスト名のみ）・モデル・送信バイト数・結果。本文・プロンプト・キー・トークンは記録しない。サービス共通の監査 DB が無いため構造化ログとした | 充足（PR #236） |
 | 期限 2026-12-25 | 本 ADR で提案 | 本 ADR で充足（承認後） |
 
