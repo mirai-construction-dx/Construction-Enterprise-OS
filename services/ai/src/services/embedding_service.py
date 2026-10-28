@@ -8,6 +8,7 @@ from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import get_settings
+from . import send_audit
 from ..models import Embedding
 
 logger = logging.getLogger(__name__)
@@ -52,12 +53,7 @@ class EmbeddingService:
         return chunks
 
     async def generate_embedding(self, text: str) -> list[float]:
-        client = await self._get_client()
-        resp = await client.post(
-            f"{self.base_url}/embeddings",
-            json={"model": self.embedding_model, "input": text},
-        )
-        resp.raise_for_status()
+        resp = await self._post_embeddings(text)
         data = resp.json()
         return data["data"][0]["embedding"]
 
@@ -73,14 +69,24 @@ class EmbeddingService:
         return vec
 
     async def batch_embed(self, texts: list[str]) -> list[list[float]]:
-        client = await self._get_client()
-        resp = await client.post(
-            f"{self.base_url}/embeddings",
-            json={"model": self.embedding_model, "input": texts},
-        )
-        resp.raise_for_status()
+        resp = await self._post_embeddings(texts)
         data = resp.json()
         return [item["embedding"] for item in data["data"]]
+
+    async def _post_embeddings(self, inputs: str | list[str]) -> httpx.Response:
+        client = await self._get_client()
+        request = client.build_request(
+            "POST",
+            f"{self.base_url}/embeddings",
+            json={"model": self.embedding_model, "input": inputs},
+        )
+        return await send_audit.audited_send(
+            client,
+            request,
+            api="embeddings",
+            provider=send_audit.provider_host(self.base_url),
+            model=self.embedding_model,
+        )
 
     async def mock_batch_embed(self, texts: list[str]) -> list[list[float]]:
         results = []

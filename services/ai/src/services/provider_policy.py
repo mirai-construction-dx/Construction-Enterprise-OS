@@ -21,6 +21,7 @@ from enum import Enum
 from fastapi import HTTPException, status
 
 from ..config import Settings, get_settings
+from . import send_audit
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,16 @@ def resolve_llm_mode(settings: Settings | None = None) -> LLMMode:
     logger.warning(
         "LLM の直接呼び出しを拒否しました（ENVIRONMENT=%s。ADR-0008）",
         s.ENVIRONMENT,
+    )
+    # 送信はしていないが、設定の誤り（本番相当にキーがある）を監査で追えるよう拒否を記録する
+    send_audit.record(
+        api=None,
+        provider=send_audit.provider_host(s.LLM_BASE_URL),
+        model=s.LLM_DEFAULT_MODEL,
+        request_bytes=None,
+        result="refused",
+        http_status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        error_type="AI_PROVIDER_DISABLED",
     )
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

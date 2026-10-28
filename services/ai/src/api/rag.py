@@ -21,6 +21,7 @@ from ..services.llm_service import (
 )
 from ..services.provider_policy import LLMMode, resolve_llm_mode
 from ..services.rag_service import RAGService
+from ..services.send_audit import bind_audit_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,6 +45,7 @@ async def rag_search(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = scope_org(token_data)
+    bind_audit_context("rag", token_data)
     mode = resolve_llm_mode()
     service = _get_rag_service(mode)
     use_mock = mode is LLMMode.MOCK
@@ -88,6 +90,7 @@ async def rag_generate(
     db: AsyncSession = Depends(get_db),
 ):
     org_id = scope_org(token_data)
+    bind_audit_context("rag", token_data)
     mode = resolve_llm_mode()
     service = _get_rag_service(mode)
     use_mock = mode is LLMMode.MOCK

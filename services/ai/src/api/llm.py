@@ -17,6 +17,7 @@ from ..services.llm_service import MockLLMProvider, OpenAICompatibleProvider
 from ..services.masking_service import mask_messages
 from ..services.prompt_service import PromptService, render_user_template
 from ..services.provider_policy import LLMMode, resolve_llm_mode
+from ..services.send_audit import bind_audit_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -38,6 +39,7 @@ async def chat(
     # Fail closed before any work (and outside the template try/except below,
     # which would otherwise swallow the 403).
     org_id = scope_org(token_data)
+    bind_audit_context("chat", token_data)
     llm = _get_llm_provider()
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
 
@@ -108,6 +110,7 @@ async def chat_stream(
     # Fail closed before any work (and outside the template try/except below,
     # which would otherwise swallow the 403).
     org_id = scope_org(token_data)
+    bind_audit_context("chat", token_data)
     llm = _get_llm_provider()
     messages = [{"role": m.role, "content": m.content} for m in body.messages]
 
@@ -214,6 +217,7 @@ async def complete(
         "max_tokens": body.max_tokens or template.max_tokens,
     }
 
+    bind_audit_context("chat", token_data)
     llm = _get_llm_provider()
     # 機密保護: 変数展開結果の個人情報もマスキングしてからモデルへ送信する
     messages = mask_messages(messages)
